@@ -32,3 +32,13 @@ __pycache__/
 .tmp/
 tmp/
 temp/
+
+# Local build artifacts
+build/
+*.o
+*.gcda
+*.gcno
+*.gcov
+
+# Local toolchain experiments
+.toolchain/

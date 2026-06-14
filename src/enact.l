@@ -1,0 +1,111 @@
+%option noyywrap nounput noinput nodefault never-interactive
+
+%{
+#include <errno.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+#include "diag.h"
+#include "parser_state.h"
+#include "enact.tab.h"
+
+#define YY_USER_ACTION                                                         \
+    do {                                                                       \
+        EnactScannerState *state__ = enact_get_scanner_state();                \
+        if (state__) {                                                         \
+            state__->token_offset = state__->offset;                           \
+            state__->offset += (size_t)yyleng;                                 \
+        }                                                                      \
+    } while (0);
+
+static int enact_emit_simple_token(int token, int expect_operand_after)
+{
+    EnactScannerState *state = enact_get_scanner_state();
+
+    if (state) {
+        state->last_token = token;
+        state->expect_operand = expect_operand_after != 0;
+        if (token == TOK_DOT) {
+            state->saw_dot = true;
+        }
+    }
+
+    return token;
+}
+
+static int enact_current_offset_or_unknown(const EnactScannerState *state)
+{
+    return state ? (int)state->token_offset : -1;
+}
+%}
+
+DIGITS [0-9]+
+
+%%
+[ \t\r\n]+                ;
+%[^\n]*                   ;
+
+{DIGITS} {
+    EnactScannerState *state = enact_get_scanner_state();
+    EnactParseContext *context = enact_get_parse_context();
+    unsigned long long value;
+
+    errno = 0;
+    value = strtoull(yytext, NULL, 10);
+    if (errno == ERANGE) {
+        if (context) {
+            enact_diag_set(&context->diag, ENACT_ERR_LEX_BAD_INTEGER, enact_current_offset_or_unknown(state));
+        }
+        return TOK_ERROR;
+    }
+
+    yylval.u64 = (uint64_t)value;
+    if (state) {
+        state->last_token = TOK_INT_LITERAL;
+        state->expect_operand = 0;
+    }
+    return TOK_INT_LITERAL;
+}
+
+"(" {
+    EnactScannerState *state = enact_get_scanner_state();
+    if (state) {
+        state->paren_balance += 1;
+    }
+    return enact_emit_simple_token(TOK_LPAREN, 1);
+}
+
+")" {
+    EnactScannerState *state = enact_get_scanner_state();
+    if (state) {
+        state->paren_balance -= 1;
+    }
+    return enact_emit_simple_token(TOK_RPAREN, 0);
+}
+
+"+" { return enact_emit_simple_token(TOK_PLUS, 1); }
+"*" { return enact_emit_simple_token(TOK_STAR, 1); }
+"/" { return enact_emit_simple_token(TOK_SLASH, 1); }
+"." { return enact_emit_simple_token(TOK_DOT, 1); }
+
+"-" {
+    EnactScannerState *state = enact_get_scanner_state();
+    if (state && state->expect_operand) {
+        return enact_emit_simple_token(TOK_UMINUS, 1);
+    }
+    return enact_emit_simple_token(TOK_MINUS, 1);
+}
+
+. {
+    EnactParseContext *context = enact_get_parse_context();
+    EnactScannerState *state = enact_get_scanner_state();
+
+    if (context) {
+        enact_diag_set(&context->diag, ENACT_ERR_LEX_INVALID_CHAR, enact_current_offset_or_unknown(state));
+    }
+    return TOK_ERROR;
+}
+
+<<EOF>> { return 0; }
+
+%%
