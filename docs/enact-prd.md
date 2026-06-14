@@ -32,7 +32,7 @@ The following items are confirmed directly from the manual:
 - Expressions are terminated by a hard full stop `.` followed by whitespace, usually end-of-line.
 - Comments start with `%` and continue to the next newline.
 - Identifiers are formed from letters, digits, and underscore, and may not start with a digit.
-- Negative numbers use `~`, not unary minus.
+- Historical ENACT uses `~` rather than unary minus for negative numbers.
 - ENACT is expression-based and operator precedence is central to parsing.
 - Functions are first-class values.
 - Lambda expressions, currying, local definitions, and fixed-point style recursive definitions are supported.
@@ -51,6 +51,8 @@ For this project, we make one explicit extension decision early:
 
 - Double-quoted literals such as `"hello world"` will be interpreted as immutable `string` values in the project-default mode.
 - Atom or symbol values will remain available separately via bare identifiers and single-quote forms such as `'hello`.
+- The project-default syntax will use the standard `-` sign for negative integer literals and unary arithmetic negation instead of historical `~`.
+- Lexical analysis and parsing must explicitly distinguish unary minus from binary subtraction, using a dedicated `UNARY_MINUS` handling strategy or an equivalent implementation with the same observable behavior.
 
 ## 4. Product Goals
 
@@ -99,7 +101,8 @@ The lexer shall support at minimum:
 
 - Identifiers.
 - Integer literals.
-- Negative integer notation using `~`.
+- Negative integer notation using `-`.
+- Explicit unary-minus classification for minus signs used in unary position.
 - Double-quoted string literals.
 - Dot `.` as expression terminator.
 - Parentheses, comma, semicolon, colon, and dot-member access.
@@ -111,7 +114,7 @@ The lexer shall support at minimum:
 
 The parser shall support at minimum:
 
-- Arithmetic expressions using `+`, `-`, `*`, `/`, and `mod`.
+- Arithmetic expressions using unary `-`, binary `+`, binary `-`, `*`, `/`, and `mod`.
 - Relational expressions using `=`, `<>`, `<`, `>`, `<=`, `>=`.
 - Logical expressions using `and`, `or`, and unary `not`.
 - Conditional expressions using `a then b`, `b if a`, and `c else d`.
@@ -199,6 +202,12 @@ The parser shall respect the precedence table documented in the manual:
 
 Because the manual presentation around assignment precedence is subtle, implementation notes must explicitly explain any parser strategy used to resolve apparent overlaps.
 
+Project extension note:
+
+- The project-default grammar introduces unary minus as a modernized replacement for historical `~`.
+- Unary minus should bind more tightly than `*`, `/`, and `mod`.
+- Lexer and parser design must make unary minus explicit enough that regression tests can distinguish it reliably from binary subtraction.
+
 ## 10. Compatibility Strategy
 
 The product shall define two compatibility layers:
@@ -259,7 +268,7 @@ Recommended test categories:
 Representative boundary and robustness coverage must include:
 
 - Empty input and missing final `.`.
-- Negative integers using `~`.
+- Negative integers using unary `-`.
 - Singleton list ambiguity.
 - Curried functions with zero, one, and many applications.
 - Nested `then` and `else` expressions.
@@ -313,7 +322,53 @@ The parser should be example-driven. Grammar rules should be added only alongsid
 - Error handling improved.
 - Documentation aligned with implemented behavior.
 
-## 15. Risks
+## 15. Iterative Delivery Workflow
+
+Development should proceed in small language slices, each slice covering one coherent feature area such as:
+
+- one lexical rule family
+- one operator group
+- one expression form
+- one function feature
+- one object model feature
+- one collection feature
+
+Every slice should follow the same lifecycle:
+
+1. Requirements analysis
+   Confirm what the manual proves, what the project is choosing as an extension, what inputs must be accepted, and what outputs or side-effects are expected.
+
+2. Design
+   Define the lexer impact, parser impact, AST shape, runtime behavior, evaluator rule, error behavior, and required tests before implementation begins.
+
+3. Review
+   Check the design for grammar conflicts, precedence risks, semantic ambiguity, compatibility risk, and testability. No implementation should start until the slice is small enough and the acceptance criteria are clear.
+
+4. Development
+   Implement the slice in `flex`, `bison`, runtime, and evaluator code. Keep the change set narrowly scoped to the slice under development.
+
+5. Regression testing
+   Add and run positive tests, negative tests, boundary-analysis tests, and robustness tests for the slice. All previously passing tests must remain green.
+
+6. Result review
+   Review parser behavior, runtime behavior, diagnostics, and coverage impact. Record any follow-up issues, ambiguities, or deferred work before moving to the next slice.
+
+Each slice should produce the following minimum artifacts:
+
+- a short requirement note or issue description
+- a design note if semantics or grammar are non-trivial
+- implementation changes
+- regression tests
+- a short review summary capturing what was confirmed and what remains open
+
+Recommended execution rules:
+
+- Never combine unrelated language features in one slice.
+- Prefer slices small enough to review in one sitting.
+- Treat regression tests as part of development, not as a final validation step.
+- If a slice reveals an ambiguity in the manual, freeze the discovered behavior in tests and document the decision explicitly.
+
+## 16. Risks
 
 - Whitespace-sensitive function application may introduce parser conflicts.
 - Assignment, `where`, `if/then/else`, and `fix` may interact in subtle precedence-dependent ways.
@@ -321,7 +376,7 @@ The parser should be example-driven. Grammar rules should be added only alongsid
 - Set equality and membership semantics for objects are not mathematical and must mirror ENACT's object identity behavior.
 - A separate `string` type may conflict with the atom model if introduced too early.
 
-## 16. Open Questions
+## 17. Open Questions
 
 - Which escape sequences, if any, should be recognized inside double-quoted string literals in the first implementation?
 - Should `Set` and `Bag` be required before the first public compatibility release, or may they land after the object model is stable?
@@ -329,7 +384,7 @@ The parser should be example-driven. Grammar rules should be added only alongsid
 - How closely do we want to emulate the original printing behavior for objects, invented names, and collection display?
 - Do we want to preserve 32-bit integer arithmetic exactly, or allow wider host arithmetic internally with compatibility tests around overflow-sensitive cases?
 
-## 17. Acceptance Criteria For PRD Approval
+## 18. Acceptance Criteria For PRD Approval
 
 This PRD should be considered approved for implementation only if we agree on the following:
 
