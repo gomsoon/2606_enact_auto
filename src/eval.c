@@ -120,6 +120,53 @@ static int enact_eval_equality(const EnactAst *ast, EnactValue *out, EnactDiag *
         break;
     }
 
+    if (ast->kind == AST_NEQ) {
+        result = !result;
+    }
+
+    *out = enact_value_make_bool(result);
+    return 1;
+}
+
+static int enact_eval_ordering(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue left_value;
+    EnactValue right_value;
+    int32_t left = 0;
+    int32_t right = 0;
+    bool result = false;
+
+    if (!enact_eval_value(ast->as.binary.left, &left_value, diag)) {
+        return 0;
+    }
+    if (!enact_require_int(&left_value, &left, diag)) {
+        return 0;
+    }
+    if (!enact_eval_value(ast->as.binary.right, &right_value, diag)) {
+        return 0;
+    }
+    if (!enact_require_int(&right_value, &right, diag)) {
+        return 0;
+    }
+
+    switch (ast->kind) {
+    case AST_LT:
+        result = left < right;
+        break;
+    case AST_GT:
+        result = left > right;
+        break;
+    case AST_LTE:
+        result = left <= right;
+        break;
+    case AST_GTE:
+        result = left >= right;
+        break;
+    default:
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
     *out = enact_value_make_bool(result);
     return 1;
 }
@@ -256,7 +303,13 @@ static int enact_eval_value(const EnactAst *ast, EnactValue *out, EnactDiag *dia
     case AST_DIV:
         return enact_eval_arithmetic_binary(ast, out, diag);
     case AST_EQ:
+    case AST_NEQ:
         return enact_eval_equality(ast, out, diag);
+    case AST_LT:
+    case AST_GT:
+    case AST_LTE:
+    case AST_GTE:
+        return enact_eval_ordering(ast, out, diag);
     case AST_AND:
         return enact_eval_and(ast, out, diag);
     case AST_OR:

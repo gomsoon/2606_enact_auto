@@ -92,6 +92,11 @@ void enact_ast_free(EnactAst *ast)
     case AST_MUL:
     case AST_DIV:
     case AST_EQ:
+    case AST_NEQ:
+    case AST_LT:
+    case AST_GT:
+    case AST_LTE:
+    case AST_GTE:
     case AST_AND:
     case AST_OR:
         enact_ast_free(ast->as.binary.left);

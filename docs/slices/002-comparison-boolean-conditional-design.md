@@ -690,7 +690,7 @@ This design is ready for development only if the following are true:
 
 These decisions are intentionally left for later slices:
 
-- adding `<`, `>`, `<=`, `>=`, and `<>`
+- adding `!=`, `<`, `>`, `<=`, and `>=`
 - deciding whether historical `=` should be accepted in a future strict mode
 - adding `then`-led conditional syntax
 - adding identifiers and environments

@@ -92,6 +92,8 @@ static void test_eval_edge_cases(void)
     EnactAst bool_true = {0};
     EnactAst bool_false = {0};
     EnactAst eq_node = {0};
+    EnactAst neq_node = {0};
+    EnactAst lt_node = {0};
     EnactAst add_node = {0};
     EnactAst div_node = {0};
     EnactAst and_node = {0};
@@ -142,6 +144,28 @@ static void test_eval_edge_cases(void)
     enact_diag_reset(&diag);
     require_true(!enact_eval_ast(&eq_node, &value, &diag), "equality mismatch fails");
     require_true(diag.code == ENACT_ERR_TYPE_EQUALITY_MISMATCH, "equality mismatch code");
+
+    neq_node.kind = AST_NEQ;
+    neq_node.as.binary.left = &bool_true;
+    neq_node.as.binary.right = &bool_false;
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&neq_node, &value, &diag), "bool inequality succeeds");
+    require_true(value.kind == ENACT_VALUE_BOOL, "bool inequality kind");
+    require_true(value.as.as_bool, "bool inequality value");
+
+    lt_node.kind = AST_LT;
+    lt_node.as.binary.left = &int_zero;
+    lt_node.as.binary.right = &int_one;
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&lt_node, &value, &diag), "integer less-than succeeds");
+    require_true(value.kind == ENACT_VALUE_BOOL, "integer less-than kind");
+    require_true(value.as.as_bool, "integer less-than value");
+
+    lt_node.as.binary.left = &bool_false;
+    lt_node.as.binary.right = &bool_true;
+    enact_diag_reset(&diag);
+    require_true(!enact_eval_ast(&lt_node, &value, &diag), "bool ordering fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_INT, "bool ordering code");
 
     not_node.kind = AST_NOT;
     not_node.as.unary.child = &int_one;

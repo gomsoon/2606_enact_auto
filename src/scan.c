@@ -33,6 +33,16 @@ static const char *enact_token_name(int token)
         return "TOK_SLASH";
     case TOK_EQEQ:
         return "TOK_EQEQ";
+    case TOK_NEQ:
+        return "TOK_NEQ";
+    case TOK_LT:
+        return "TOK_LT";
+    case TOK_GT:
+        return "TOK_GT";
+    case TOK_LTE:
+        return "TOK_LTE";
+    case TOK_GTE:
+        return "TOK_GTE";
     case TOK_TRUE:
         return "TOK_TRUE";
     case TOK_FALSE:

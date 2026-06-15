@@ -53,6 +53,11 @@ DIGITS [0-9]+
 "if" { return enact_emit_simple_token(TOK_IF, 1); }
 "else" { return enact_emit_simple_token(TOK_ELSE, 1); }
 "==" { return enact_emit_simple_token(TOK_EQEQ, 1); }
+"!=" { return enact_emit_simple_token(TOK_NEQ, 1); }
+"<=" { return enact_emit_simple_token(TOK_LTE, 1); }
+">=" { return enact_emit_simple_token(TOK_GTE, 1); }
+"<" { return enact_emit_simple_token(TOK_LT, 1); }
+">" { return enact_emit_simple_token(TOK_GT, 1); }
 "=" {
     EnactParseContext *context = enact_get_parse_context();
     EnactScannerState *state = enact_get_scanner_state();

@@ -13,6 +13,11 @@ typedef enum {
     AST_MUL,
     AST_DIV,
     AST_EQ,
+    AST_NEQ,
+    AST_LT,
+    AST_GT,
+    AST_LTE,
+    AST_GTE,
     AST_AND,
     AST_OR,
     AST_IF_ELSE

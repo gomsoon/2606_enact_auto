@@ -54,6 +54,7 @@ For this project, we make one explicit extension decision early:
 - The project-default syntax will use the standard `-` sign for negative integer literals and unary arithmetic negation instead of historical `~`.
 - Lexical analysis and parsing must explicitly distinguish unary minus from binary subtraction, using a dedicated `UNARY_MINUS` handling strategy or an equivalent implementation with the same observable behavior.
 - The project-default syntax will use `==` for equality comparison instead of historical `=`.
+- The project-default syntax will use `!=` for inequality comparison instead of historical `<>`.
 - Assignment will remain `:=`, so the equality modernization must not blur assignment semantics.
 
 ## 4. Product Goals
@@ -118,7 +119,7 @@ The lexer shall support at minimum:
 The parser shall support at minimum:
 
 - Arithmetic expressions using unary `-`, binary `+`, binary `-`, `*`, `/`, and `mod`.
-- Relational expressions using `==`, `<>`, `<`, `>`, `<=`, `>=`.
+- Relational expressions using `==`, `!=`, `<`, `>`, `<=`, `>=`.
 - Logical expressions using `and`, `or`, and unary `not`.
 - Conditional expressions using `a then b`, `b if a`, and `c else d`.
 - Assignment expressions using `:=`.
@@ -194,7 +195,7 @@ The parser shall respect the precedence table documented in the manual:
 | 3 | application |
 | 4 | `*`, `/`, `mod` |
 | 5 | `+`, `-`, `:` |
-| 6 | `==`, `>`, `<`, `>=`, `<=`, `<>` |
+| 6 | `==`, `!=`, `>`, `<`, `>=`, `<=` |
 | 7 | `with`, `::`, `where` |
 | 8 | `and`, `loop` |
 | 9 | `or` |
@@ -211,6 +212,7 @@ Project extension note:
 - Unary minus should bind more tightly than `*`, `/`, and `mod`.
 - Lexer and parser design must make unary minus explicit enough that regression tests can distinguish it reliably from binary subtraction.
 - The project-default grammar introduces `==` as a modernized replacement for historical equality `=`.
+- The project-default grammar introduces `!=` as a modernized replacement for historical inequality `<>`.
 - Equality and assignment must stay visually distinct: `==` for comparison, `:=` for assignment.
 
 ## 10. Compatibility Strategy
@@ -226,8 +228,10 @@ Current recommendation:
 
 - The project-default behavior should interpret double-quoted literals as immutable strings.
 - The project-default behavior should interpret equality comparison as `==`.
+- The project-default behavior should interpret inequality comparison as `!=`.
 - A future strict compatibility mode may reinterpret double-quoted literals according to historical ENACT behavior if strong reference evidence requires it.
 - A future strict compatibility mode may accept historical equality `=` if strong reference evidence or compatibility goals require it.
+- A future strict compatibility mode may accept historical inequality `<>` if strong reference evidence or compatibility goals require it.
 
 ## 11. Initial Scope Recommendation
 

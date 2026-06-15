@@ -58,7 +58,7 @@ This slice includes:
 
 This slice explicitly excludes:
 
-- relational operators other than `==`, including `<`, `>`, `<=`, `>=`, `<>`
+- relational operators other than `==`, including `!=`, `<`, `>`, `<=`, `>=`
 - historical equality syntax `=`
 - historical or alternate conditional spellings involving `then`
 - identifiers and variables

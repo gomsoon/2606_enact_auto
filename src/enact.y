@@ -79,8 +79,9 @@ static EnactAst *enact_make_conditional(EnactAst *condition, EnactAst *if_true, 
 %token <u64> TOK_INT_LITERAL
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
 %token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
+%token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
 
-%type <ast> expr conditional logical_or logical_and logical_not equality additive multiplicative unary primary
+%type <ast> expr conditional logical_or logical_and logical_not comparison additive multiplicative unary primary
 
 %destructor { enact_ast_free($$); } <ast>
 
@@ -150,13 +151,13 @@ logical_not:
             YYABORT;
         }
     }
-    | equality
+    | comparison
     {
         $$ = $1;
     }
     ;
 
-equality:
+comparison:
     additive
     {
         $$ = $1;
@@ -164,6 +165,41 @@ equality:
     | additive TOK_EQEQ additive
     {
         $$ = enact_make_binary(AST_EQ, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | additive TOK_NEQ additive
+    {
+        $$ = enact_make_binary(AST_NEQ, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | additive TOK_LT additive
+    {
+        $$ = enact_make_binary(AST_LT, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | additive TOK_GT additive
+    {
+        $$ = enact_make_binary(AST_GT, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | additive TOK_LTE additive
+    {
+        $$ = enact_make_binary(AST_LTE, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | additive TOK_GTE additive
+    {
+        $$ = enact_make_binary(AST_GTE, $1, $3);
         if (!$$) {
             YYABORT;
         }
