@@ -244,22 +244,85 @@ static int enact_ast_is_bare_identifier(const EnactAst *ast)
     return ast && ast->kind == AST_IDENTIFIER;
 }
 
-static EnactNameList *enact_take_parameter_names(EnactAstList *arguments)
+static int enact_take_parameter_name(EnactNameList *names, EnactAst *argument)
 {
-    EnactNameList *names;
-    size_t index;
     EnactParseContext *context = enact_get_parse_context();
+    char *name;
 
-    if (!arguments || enact_ast_list_count(arguments) == 0) {
+    if (!names || !enact_ast_is_bare_identifier(argument)) {
         enact_set_unexpected_token_diag();
-        return NULL;
+        return 0;
+    }
+
+    name = enact_take_identifier_name(argument);
+    if (enact_name_list_contains(names, name)) {
+        free(name);
+        enact_set_unexpected_token_diag();
+        return 0;
+    }
+
+    if (!enact_name_list_append(names, name)) {
+        free(name);
+        if (context) {
+            enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        }
+        return 0;
+    }
+
+    return 1;
+}
+
+static int enact_take_parameter_names_from_list(EnactNameList *names, EnactAstList *arguments)
+{
+    size_t index;
+
+    if (!names || !arguments || enact_ast_list_count(arguments) == 0) {
+        enact_set_unexpected_token_diag();
+        return 0;
     }
 
     for (index = 0; index < enact_ast_list_count(arguments); index += 1) {
-        if (!enact_ast_is_bare_identifier(enact_ast_list_get(arguments, index))) {
-            enact_set_unexpected_token_diag();
-            return NULL;
+        if (!enact_take_parameter_name(names, enact_ast_list_get(arguments, index))) {
+            return 0;
         }
+    }
+
+    return 1;
+}
+
+static int enact_take_call_parameter_names_from_lhs(EnactNameList *names, EnactAst *call)
+{
+    if (!call || call->kind != AST_CALL) {
+        enact_set_unexpected_token_diag();
+        return 0;
+    }
+
+    if (call->as.call.callee && call->as.call.callee->kind == AST_CALL) {
+        if (!enact_take_call_parameter_names_from_lhs(names, call->as.call.callee)) {
+            return 0;
+        }
+    }
+
+    return enact_take_parameter_names_from_list(names, call->as.call.arguments);
+}
+
+static EnactAst *enact_call_root(EnactAst *ast)
+{
+    while (ast && ast->kind == AST_CALL) {
+        ast = ast->as.call.callee;
+    }
+
+    return ast;
+}
+
+static EnactNameList *enact_take_call_parameter_names(EnactAst *call)
+{
+    EnactNameList *names;
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!call || call->kind != AST_CALL) {
+        enact_set_unexpected_token_diag();
+        return NULL;
     }
 
     names = enact_name_list_new();
@@ -270,25 +333,9 @@ static EnactNameList *enact_take_parameter_names(EnactAstList *arguments)
         return NULL;
     }
 
-    for (index = 0; index < enact_ast_list_count(arguments); index += 1) {
-        EnactAst *argument = enact_ast_list_get(arguments, index);
-        char *name = enact_take_identifier_name(argument);
-
-        if (enact_name_list_contains(names, name)) {
-            free(name);
-            enact_name_list_free(names);
-            enact_set_unexpected_token_diag();
-            return NULL;
-        }
-
-        if (!enact_name_list_append(names, name)) {
-            free(name);
-            enact_name_list_free(names);
-            if (context) {
-                enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-            }
-            return NULL;
-        }
+    if (!enact_take_call_parameter_names_from_lhs(names, call)) {
+        enact_name_list_free(names);
+        return NULL;
     }
 
     return names;
@@ -318,27 +365,28 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
         return result;
     }
 
-    if (lhs->kind == AST_CALL &&
-        lhs->as.call.callee &&
-        lhs->as.call.callee->kind == AST_IDENTIFIER) {
-        EnactAst *callee = lhs->as.call.callee;
-        EnactAstList *arguments = lhs->as.call.arguments;
-        char *name = enact_take_identifier_name(callee);
-        EnactNameList *param_names = enact_take_parameter_names(arguments);
+    if (lhs->kind == AST_CALL) {
+        EnactAst *root = enact_call_root(lhs);
+        EnactNameList *param_names;
+        char *name;
         EnactAst *function;
 
+        if (!root || root->kind != AST_IDENTIFIER) {
+            enact_ast_free(lhs);
+            enact_ast_free(value);
+            enact_set_unexpected_token_diag();
+            return NULL;
+        }
+
+        param_names = enact_take_call_parameter_names(lhs);
         if (!param_names) {
-            free(name);
             enact_ast_free(lhs);
             enact_ast_free(value);
             return NULL;
         }
 
-        lhs->as.call.callee = NULL;
-        lhs->as.call.arguments = NULL;
+        name = enact_take_identifier_name(root);
         enact_ast_free(lhs);
-        enact_ast_free(callee);
-        enact_ast_list_free(arguments);
 
         function = enact_make_function_literal(param_names, value);
         if (!function) {
@@ -381,7 +429,7 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
 %token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_MOD TOK_WHERE
 
-%type <ast> expr sequence assignment lambda conditional logical_or logical_and where_expr logical_not comparison additive multiplicative unary call primary
+%type <ast> expr sequence assignment lambda conditional logical_or logical_and where_expr logical_not comparison additive multiplicative unary call application_argument primary
 %type <ast_list> argument_list
 %type <name_list> lambda_head parameter_list
 
@@ -683,9 +731,65 @@ call:
             YYABORT;
         }
     }
+    | call application_argument
+    {
+        EnactAstList *arguments = enact_make_argument_list($2);
+
+        if (!arguments) {
+            enact_ast_free($1);
+            YYABORT;
+        }
+
+        $$ = enact_make_call($1, arguments);
+        if (!$$) {
+            enact_ast_free($1);
+            enact_ast_list_free(arguments);
+            YYABORT;
+        }
+    }
     | primary
     {
         $$ = $1;
+    }
+    ;
+
+application_argument:
+    TOK_INT_LITERAL
+    {
+        $$ = enact_make_int($1);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_TRUE
+    {
+        $$ = enact_make_bool(1);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_FALSE
+    {
+        $$ = enact_make_bool(0);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_STRING_LITERAL
+    {
+        $$ = enact_make_string($1);
+        if (!$$) {
+            free($1);
+            YYABORT;
+        }
+    }
+    | TOK_IDENTIFIER
+    {
+        $$ = enact_make_identifier($1);
+        if (!$$) {
+            free($1);
+            YYABORT;
+        }
     }
     ;
 
