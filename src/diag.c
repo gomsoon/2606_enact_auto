@@ -27,6 +27,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_TYPE_EXPECTED_BOOL";
     case ENACT_ERR_TYPE_EXPECTED_INT:
         return "ENACT_ERR_TYPE_EXPECTED_INT";
+    case ENACT_ERR_TYPE_EXPECTED_FUNCTION:
+        return "ENACT_ERR_TYPE_EXPECTED_FUNCTION";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:
         return "ENACT_ERR_TYPE_EQUALITY_MISMATCH";
     case ENACT_ERR_NAME_UNBOUND:
@@ -65,6 +67,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "boolean value required";
     case ENACT_ERR_TYPE_EXPECTED_INT:
         return "integer value required";
+    case ENACT_ERR_TYPE_EXPECTED_FUNCTION:
+        return "function value required";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:
         return "cannot compare values of different kinds";
     case ENACT_ERR_NAME_UNBOUND:

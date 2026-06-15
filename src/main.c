@@ -145,6 +145,9 @@ static void enact_print_value(FILE *stream, const EnactValue *value)
     case ENACT_VALUE_STRING:
         enact_print_string(stream, value->as.as_string);
         break;
+    case ENACT_VALUE_FUNCTION:
+        fputs("<function>\n", stream);
+        break;
     }
 }
 

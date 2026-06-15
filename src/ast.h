@@ -8,6 +8,7 @@ typedef enum {
     AST_BOOL_LITERAL,
     AST_STRING_LITERAL,
     AST_IDENTIFIER,
+    AST_GROUP,
     AST_UNARY_NEG,
     AST_NOT,
     AST_ADD,
@@ -26,6 +27,8 @@ typedef enum {
     AST_IF_ELSE,
     AST_WHERE,
     AST_ASSIGN,
+    AST_FUNCTION_LITERAL,
+    AST_CALL,
     AST_SEQUENCE
 } EnactAstKind;
 
@@ -65,6 +68,10 @@ struct EnactAst {
             char *name;
             EnactAst *value;
         } assignment;
+        struct {
+            char *param_name;
+            EnactAst *body;
+        } function_literal;
     } as;
 };
 
@@ -77,6 +84,8 @@ EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *righ
 EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false);
 EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value);
 EnactAst *enact_ast_new_assignment(char *name, EnactAst *value);
+EnactAst *enact_ast_new_function_literal(char *param_name, EnactAst *body);
+EnactAst *enact_ast_clone(const EnactAst *ast);
 void enact_ast_free(EnactAst *ast);
 
 #endif

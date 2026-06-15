@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "ast.h"
 
@@ -13,6 +14,25 @@ static EnactAst *enact_ast_alloc(EnactAstKind kind)
     ast->span.start_offset = -1;
     ast->span.end_offset = -1;
     return ast;
+}
+
+static char *enact_ast_copy_text(const char *text)
+{
+    size_t length;
+    char *copy;
+
+    if (!text) {
+        text = "";
+    }
+
+    length = strlen(text);
+    copy = malloc(length + 1);
+    if (!copy) {
+        return NULL;
+    }
+
+    memcpy(copy, text, length + 1);
+    return copy;
 }
 
 EnactAst *enact_ast_new_int(uint64_t int_magnitude)
@@ -120,6 +140,263 @@ EnactAst *enact_ast_new_assignment(char *name, EnactAst *value)
     return ast;
 }
 
+EnactAst *enact_ast_new_function_literal(char *param_name, EnactAst *body)
+{
+    EnactAst *ast = enact_ast_alloc(AST_FUNCTION_LITERAL);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.function_literal.param_name = param_name;
+    ast->as.function_literal.body = body;
+    return ast;
+}
+
+static EnactAst *enact_ast_clone_unary(const EnactAst *ast)
+{
+    EnactAst *child = enact_ast_clone(ast->as.unary.child);
+    EnactAst *copy;
+
+    if (!child) {
+        return NULL;
+    }
+
+    copy = enact_ast_new_unary(ast->kind, child);
+    if (!copy) {
+        enact_ast_free(child);
+        return NULL;
+    }
+
+    return copy;
+}
+
+static EnactAst *enact_ast_clone_binary(const EnactAst *ast)
+{
+    EnactAst *left = enact_ast_clone(ast->as.binary.left);
+    EnactAst *right;
+    EnactAst *copy;
+
+    if (!left) {
+        return NULL;
+    }
+
+    right = enact_ast_clone(ast->as.binary.right);
+    if (!right) {
+        enact_ast_free(left);
+        return NULL;
+    }
+
+    copy = enact_ast_new_binary(ast->kind, left, right);
+    if (!copy) {
+        enact_ast_free(left);
+        enact_ast_free(right);
+        return NULL;
+    }
+
+    return copy;
+}
+
+static EnactAst *enact_ast_clone_conditional(const EnactAst *ast)
+{
+    EnactAst *condition = enact_ast_clone(ast->as.conditional.condition);
+    EnactAst *if_true;
+    EnactAst *if_false;
+    EnactAst *copy;
+
+    if (!condition) {
+        return NULL;
+    }
+
+    if_true = enact_ast_clone(ast->as.conditional.if_true);
+    if (!if_true) {
+        enact_ast_free(condition);
+        return NULL;
+    }
+
+    if_false = enact_ast_clone(ast->as.conditional.if_false);
+    if (!if_false) {
+        enact_ast_free(condition);
+        enact_ast_free(if_true);
+        return NULL;
+    }
+
+    copy = enact_ast_new_conditional(condition, if_true, if_false);
+    if (!copy) {
+        enact_ast_free(condition);
+        enact_ast_free(if_true);
+        enact_ast_free(if_false);
+        return NULL;
+    }
+
+    return copy;
+}
+
+static EnactAst *enact_ast_clone_where(const EnactAst *ast)
+{
+    EnactAst *body = enact_ast_clone(ast->as.where_expr.body);
+    EnactAst *value;
+    char *name;
+    EnactAst *copy;
+
+    if (!body) {
+        return NULL;
+    }
+
+    name = enact_ast_copy_text(ast->as.where_expr.name);
+    if (!name) {
+        enact_ast_free(body);
+        return NULL;
+    }
+
+    value = enact_ast_clone(ast->as.where_expr.value);
+    if (!value) {
+        enact_ast_free(body);
+        free(name);
+        return NULL;
+    }
+
+    copy = enact_ast_new_where(body, name, value);
+    if (!copy) {
+        enact_ast_free(body);
+        free(name);
+        enact_ast_free(value);
+        return NULL;
+    }
+
+    return copy;
+}
+
+static EnactAst *enact_ast_clone_assignment(const EnactAst *ast)
+{
+    char *name = enact_ast_copy_text(ast->as.assignment.name);
+    EnactAst *value;
+    EnactAst *copy;
+
+    if (!name) {
+        return NULL;
+    }
+
+    value = enact_ast_clone(ast->as.assignment.value);
+    if (!value) {
+        free(name);
+        return NULL;
+    }
+
+    copy = enact_ast_new_assignment(name, value);
+    if (!copy) {
+        free(name);
+        enact_ast_free(value);
+        return NULL;
+    }
+
+    return copy;
+}
+
+static EnactAst *enact_ast_clone_function_literal(const EnactAst *ast)
+{
+    char *param_name = enact_ast_copy_text(ast->as.function_literal.param_name);
+    EnactAst *body;
+    EnactAst *copy;
+
+    if (!param_name) {
+        return NULL;
+    }
+
+    body = enact_ast_clone(ast->as.function_literal.body);
+    if (!body) {
+        free(param_name);
+        return NULL;
+    }
+
+    copy = enact_ast_new_function_literal(param_name, body);
+    if (!copy) {
+        free(param_name);
+        enact_ast_free(body);
+        return NULL;
+    }
+
+    return copy;
+}
+
+EnactAst *enact_ast_clone(const EnactAst *ast)
+{
+    EnactAst *copy = NULL;
+    char *text;
+
+    if (!ast) {
+        return NULL;
+    }
+
+    switch (ast->kind) {
+    case AST_INT_LITERAL:
+        copy = enact_ast_new_int(ast->as.int_magnitude);
+        break;
+    case AST_BOOL_LITERAL:
+        copy = enact_ast_new_bool(ast->as.bool_value);
+        break;
+    case AST_STRING_LITERAL:
+        text = enact_ast_copy_text(ast->as.string_value);
+        if (!text) {
+            return NULL;
+        }
+        copy = enact_ast_new_string(text);
+        if (!copy) {
+            free(text);
+        }
+        break;
+    case AST_IDENTIFIER:
+        text = enact_ast_copy_text(ast->as.identifier_name);
+        if (!text) {
+            return NULL;
+        }
+        copy = enact_ast_new_identifier(text);
+        if (!copy) {
+            free(text);
+        }
+        break;
+    case AST_GROUP:
+    case AST_UNARY_NEG:
+    case AST_NOT:
+        copy = enact_ast_clone_unary(ast);
+        break;
+    case AST_ADD:
+    case AST_SUB:
+    case AST_MUL:
+    case AST_DIV:
+    case AST_MOD:
+    case AST_EQ:
+    case AST_NEQ:
+    case AST_LT:
+    case AST_GT:
+    case AST_LTE:
+    case AST_GTE:
+    case AST_AND:
+    case AST_OR:
+    case AST_CALL:
+    case AST_SEQUENCE:
+        copy = enact_ast_clone_binary(ast);
+        break;
+    case AST_IF_ELSE:
+        copy = enact_ast_clone_conditional(ast);
+        break;
+    case AST_WHERE:
+        copy = enact_ast_clone_where(ast);
+        break;
+    case AST_ASSIGN:
+        copy = enact_ast_clone_assignment(ast);
+        break;
+    case AST_FUNCTION_LITERAL:
+        copy = enact_ast_clone_function_literal(ast);
+        break;
+    }
+
+    if (copy) {
+        copy->span = ast->span;
+    }
+
+    return copy;
+}
+
 void enact_ast_free(EnactAst *ast)
 {
     if (!ast) {
@@ -136,6 +413,7 @@ void enact_ast_free(EnactAst *ast)
     case AST_IDENTIFIER:
         free(ast->as.identifier_name);
         break;
+    case AST_GROUP:
     case AST_UNARY_NEG:
     case AST_NOT:
         enact_ast_free(ast->as.unary.child);
@@ -153,6 +431,7 @@ void enact_ast_free(EnactAst *ast)
     case AST_GTE:
     case AST_AND:
     case AST_OR:
+    case AST_CALL:
     case AST_SEQUENCE:
         enact_ast_free(ast->as.binary.left);
         enact_ast_free(ast->as.binary.right);
@@ -170,6 +449,10 @@ void enact_ast_free(EnactAst *ast)
     case AST_ASSIGN:
         free(ast->as.assignment.name);
         enact_ast_free(ast->as.assignment.value);
+        break;
+    case AST_FUNCTION_LITERAL:
+        free(ast->as.function_literal.param_name);
+        enact_ast_free(ast->as.function_literal.body);
         break;
     }
 

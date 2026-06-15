@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "function.h"
 #include "value.h"
 
 static char *enact_value_copy_string(const char *value)
@@ -37,6 +38,10 @@ int enact_value_copy(EnactValue *out, const EnactValue *in)
         out->kind = ENACT_VALUE_STRING;
         out->as.as_string = enact_value_copy_string(in->as.as_string);
         return out->as.as_string != NULL;
+    case ENACT_VALUE_FUNCTION:
+        out->kind = ENACT_VALUE_FUNCTION;
+        out->as.as_function = enact_function_retain(in->as.as_function);
+        return out->as.as_function != NULL;
     }
 
     return 0;
@@ -50,6 +55,8 @@ void enact_value_free(EnactValue *value)
 
     if (value->kind == ENACT_VALUE_STRING) {
         free(value->as.as_string);
+    } else if (value->kind == ENACT_VALUE_FUNCTION) {
+        enact_function_release(value->as.as_function);
     }
 
     value->kind = ENACT_VALUE_INT;

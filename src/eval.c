@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "eval.h"
+#include "function.h"
 
 static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag);
 
@@ -78,6 +79,17 @@ static int enact_require_bool(const EnactValue *value, bool *out, EnactDiag *dia
     return 1;
 }
 
+static int enact_require_function(const EnactValue *value, EnactFunction **out, EnactDiag *diag)
+{
+    if (value->kind != ENACT_VALUE_FUNCTION) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
+        return 0;
+    }
+
+    *out = value->as.as_function;
+    return 1;
+}
+
 static int enact_eval_arithmetic_binary(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left_value;
@@ -143,6 +155,9 @@ static int enact_eval_equality(const EnactAst *ast, EnactEnv *env, EnactValue *o
         break;
     case ENACT_VALUE_STRING:
         result = strcmp(left.as.as_string, right.as.as_string) == 0;
+        break;
+    case ENACT_VALUE_FUNCTION:
+        result = left.as.as_function == right.as.as_function;
         break;
     }
 
@@ -353,6 +368,65 @@ static int enact_eval_sequence(const EnactAst *ast, EnactEnv *env, EnactValue *o
     return enact_eval_value(ast->as.binary.right, env, out, diag);
 }
 
+static int enact_eval_function_literal(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactFunction *function = enact_function_new(
+        ast->as.function_literal.param_name,
+        ast->as.function_literal.body,
+        env);
+
+    if (!function) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_function(function);
+    return 1;
+}
+
+static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue callee;
+    EnactValue argument;
+    EnactFunction *function = NULL;
+    EnactEnv local;
+    int status;
+
+    if (!enact_eval_value(ast->as.binary.left, env, &callee, diag)) {
+        return 0;
+    }
+    if (!enact_require_function(&callee, &function, diag)) {
+        enact_value_free(&callee);
+        return 0;
+    }
+
+    if (!enact_eval_value(ast->as.binary.right, env, &argument, diag)) {
+        enact_value_free(&callee);
+        return 0;
+    }
+
+    if (!enact_env_clone(&local, enact_function_env(function))) {
+        enact_value_free(&argument);
+        enact_value_free(&callee);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    if (!enact_env_define(&local, enact_function_param_name(function), argument)) {
+        enact_env_free(&local);
+        enact_value_free(&argument);
+        enact_value_free(&callee);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    enact_value_free(&argument);
+
+    status = enact_eval_value(enact_function_body(function), &local, out, diag);
+    enact_env_free(&local);
+    enact_value_free(&callee);
+    return status;
+}
+
 static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue child;
@@ -389,6 +463,8 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
         }
         enact_diag_set(diag, ENACT_ERR_NAME_UNBOUND, -1);
         return 0;
+    case AST_GROUP:
+        return enact_eval_value(ast->as.unary.child, env, out, diag);
     case AST_UNARY_NEG:
         if (ast->as.unary.child && ast->as.unary.child->kind == AST_INT_LITERAL &&
             ast->as.unary.child->as.int_magnitude == ((uint64_t)INT32_MAX + 1ULL)) {
@@ -445,6 +521,10 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
         return enact_eval_where(ast, env, out, diag);
     case AST_ASSIGN:
         return enact_eval_assignment(ast, env, out, diag);
+    case AST_FUNCTION_LITERAL:
+        return enact_eval_function_literal(ast, env, out, diag);
+    case AST_CALL:
+        return enact_eval_call(ast, env, out, diag);
     case AST_SEQUENCE:
         return enact_eval_sequence(ast, env, out, diag);
     }

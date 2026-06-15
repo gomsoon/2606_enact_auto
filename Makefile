@@ -13,6 +13,7 @@ GENERATED_H := $(BUILD_DIR)/enact.tab.h
 
 OBJS := \
 	$(BUILD_DIR)/ast.o \
+	$(BUILD_DIR)/function.o \
 	$(BUILD_DIR)/value.o \
 	$(BUILD_DIR)/diag.o \
 	$(BUILD_DIR)/env.o \
@@ -26,6 +27,7 @@ OBJS := \
 
 LIB_OBJS := \
 	$(BUILD_DIR)/ast.o \
+	$(BUILD_DIR)/function.o \
 	$(BUILD_DIR)/value.o \
 	$(BUILD_DIR)/diag.o \
 	$(BUILD_DIR)/env.o \
@@ -38,6 +40,7 @@ LIB_OBJS := \
 
 HANDWRITTEN_C_COVERAGE_SRCS := \
 	$(SRC_DIR)/ast.c \
+	$(SRC_DIR)/function.c \
 	$(SRC_DIR)/value.c \
 	$(SRC_DIR)/diag.c \
 	$(SRC_DIR)/env.c \

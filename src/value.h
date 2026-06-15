@@ -4,10 +4,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef struct EnactFunction EnactFunction;
+
 typedef enum {
     ENACT_VALUE_INT,
     ENACT_VALUE_BOOL,
-    ENACT_VALUE_STRING
+    ENACT_VALUE_STRING,
+    ENACT_VALUE_FUNCTION
 } EnactValueKind;
 
 typedef struct {
@@ -16,6 +19,7 @@ typedef struct {
         int32_t as_int;
         bool as_bool;
         char *as_string;
+        EnactFunction *as_function;
     } as;
 } EnactValue;
 
@@ -43,6 +47,15 @@ static inline EnactValue enact_value_make_string(char *value)
 
     result.kind = ENACT_VALUE_STRING;
     result.as.as_string = value;
+    return result;
+}
+
+static inline EnactValue enact_value_make_function(EnactFunction *function)
+{
+    EnactValue result;
+
+    result.kind = ENACT_VALUE_FUNCTION;
+    result.as.as_function = function;
     return result;
 }
 

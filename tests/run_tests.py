@@ -122,6 +122,44 @@ def main() -> int:
     huge_integer = ("9" * 512) + "."
     long_identifier = ("abc_" * 80) + "z."
 
+    slice_008_token_cases = [
+        ("f(x):=x+1.", "TOK_IDENTIFIER TOK_LPAREN TOK_IDENTIFIER TOK_RPAREN TOK_ASSIGN TOK_IDENTIFIER TOK_PLUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
+        ("f(99).", "TOK_IDENTIFIER TOK_LPAREN TOK_INT_LITERAL TOK_RPAREN TOK_DOT TOK_EOF\n"),
+    ]
+
+    slice_008_boundary_success_cases = [
+        ("f(x):=x+1; f(99).", "100\n"),
+        ("double(x):=x*2; double(3)+1.", "7\n"),
+        ('id(x):=x; id("hi").', "\"hi\"\n"),
+        ("not_fn(x):=not x; not_fn(false).", "true\n"),
+        ("x:=10; f(y):=x+y; f(1).", "11\n"),
+        ("x:=10; f(y):=x+y; x:=20; f(1).", "11\n"),
+        ("f(x):=(y:=x+1; y); f(2).", "3\n"),
+        ("f(x):=x where x:=1; f(99).", "1\n"),
+        ("f(x):=x+1.", "<function>\n"),
+        ("f(x):=x; y:=f; y(4).", "4\n"),
+        ("apply(f):=f(3); inc(x):=x+1; apply(inc).", "4\n"),
+        ("make_adder(x):=add(y):=x+y; add2:=make_adder(2); add2(5).", "7\n"),
+        ("f(x):=(x:=2; x); x:=1; f(0); x.", "1\n"),
+    ]
+
+    slice_008_robustness_failure_cases = [
+        ("f(1).", "ENACT_ERR_NAME_UNBOUND"),
+        ("1(2).", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("true(1).", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("f(x):=x+1; f(true).", "ENACT_ERR_TYPE_EXPECTED_INT"),
+        ("f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f():=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f(1):=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("(x):=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("(f)(x):=x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f((x)):=x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f(x):=.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f(x):=x; f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f(x):=x; f(1.", "ENACT_ERR_PARSE_UNMATCHED_PAREN"),
+        ("f(x):=f(x); f(1).", "ENACT_ERR_NAME_UNBOUND"),
+    ]
+
     token_cases = [
         ("-1.", "TOK_UMINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         ("1-2.", "TOK_INT_LITERAL TOK_MINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
@@ -155,7 +193,7 @@ def main() -> int:
         ("1 if true else 2.", "TOK_INT_LITERAL TOK_IF TOK_TRUE TOK_ELSE TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         (" \t\n(8+2)/5.", "TOK_LPAREN TOK_INT_LITERAL TOK_PLUS TOK_INT_LITERAL TOK_RPAREN TOK_SLASH TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         (long_comment, "TOK_LPAREN TOK_INT_LITERAL TOK_PLUS TOK_INT_LITERAL TOK_RPAREN TOK_SLASH TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
-    ]
+    ] + slice_008_token_cases
 
     success_cases = [
         ("1+2.", "3\n"),
@@ -267,7 +305,7 @@ def main() -> int:
         ("1 if x where x:=true else 2.", "1\n"),
         ("true and x where x:=true.", "true\n"),
         ("x:=1; (x where x:=2); x.", "1\n"),
-    ]
+    ] + slice_008_boundary_success_cases
 
     failure_cases = [
         ("", "ENACT_ERR_PARSE_MISSING_DOT"),
@@ -370,7 +408,7 @@ def main() -> int:
         ("x:=y.", "ENACT_ERR_NAME_UNBOUND"),
         ("x+1; x:=2.", "ENACT_ERR_NAME_UNBOUND"),
         ("x:=1; y.", "ENACT_ERR_NAME_UNBOUND"),
-    ]
+    ] + slice_008_robustness_failure_cases
 
     token_failure_cases = [
         ("$x.", "ENACT_ERR_LEX_INVALID_CHAR"),
@@ -396,6 +434,8 @@ def main() -> int:
     total = len(token_cases) + len(token_failure_cases) + len(success_cases) + len(failure_cases)
     total += 1
     print(f"passed {total} checks")
+    print(f"slice 008 boundary regression checks: {len(slice_008_token_cases) + len(slice_008_boundary_success_cases)}")
+    print(f"slice 008 robustness regression checks: {len(slice_008_robustness_failure_cases)}")
     return 0
 
 

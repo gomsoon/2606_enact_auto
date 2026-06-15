@@ -116,6 +116,100 @@ static EnactAst *enact_make_assignment(char *name, EnactAst *value)
 
     return ast;
 }
+
+static EnactAst *enact_make_function_literal(char *param_name, EnactAst *body)
+{
+    EnactAst *ast = enact_ast_new_function_literal(param_name, body);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
+static void enact_set_unexpected_token_diag(void)
+{
+    EnactParseContext *context = enact_get_parse_context();
+    EnactScannerState *state = enact_get_scanner_state();
+
+    if (context) {
+        enact_diag_set(&context->diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, state ? (int)state->token_offset : -1);
+    }
+}
+
+static char *enact_take_identifier_name(EnactAst *ast)
+{
+    char *name = ast->as.identifier_name;
+
+    ast->as.identifier_name = NULL;
+    return name;
+}
+
+static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
+{
+    EnactAst *result;
+
+    if (!lhs || !value) {
+        enact_ast_free(lhs);
+        enact_ast_free(value);
+        enact_set_unexpected_token_diag();
+        return NULL;
+    }
+
+    if (lhs->kind == AST_IDENTIFIER) {
+        char *name = enact_take_identifier_name(lhs);
+
+        enact_ast_free(lhs);
+        result = enact_make_assignment(name, value);
+        if (!result) {
+            free(name);
+            enact_ast_free(value);
+            return NULL;
+        }
+        return result;
+    }
+
+    if (lhs->kind == AST_CALL &&
+        lhs->as.binary.left &&
+        lhs->as.binary.left->kind == AST_IDENTIFIER &&
+        lhs->as.binary.right &&
+        lhs->as.binary.right->kind == AST_IDENTIFIER) {
+        EnactAst *callee = lhs->as.binary.left;
+        EnactAst *argument = lhs->as.binary.right;
+        char *name = enact_take_identifier_name(callee);
+        char *param_name = enact_take_identifier_name(argument);
+        EnactAst *function;
+
+        lhs->as.binary.left = NULL;
+        lhs->as.binary.right = NULL;
+        enact_ast_free(lhs);
+        enact_ast_free(callee);
+        enact_ast_free(argument);
+
+        function = enact_make_function_literal(param_name, value);
+        if (!function) {
+            free(name);
+            free(param_name);
+            enact_ast_free(value);
+            return NULL;
+        }
+
+        result = enact_make_assignment(name, function);
+        if (!result) {
+            free(name);
+            enact_ast_free(function);
+            return NULL;
+        }
+        return result;
+    }
+
+    enact_ast_free(lhs);
+    enact_ast_free(value);
+    enact_set_unexpected_token_diag();
+    return NULL;
+}
 %}
 
 %define parse.error verbose
@@ -133,7 +227,7 @@ static EnactAst *enact_make_assignment(char *name, EnactAst *value)
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
 %token TOK_ASSIGN TOK_SEMI TOK_MOD TOK_WHERE
 
-%type <ast> expr sequence assignment conditional logical_or logical_and where_expr logical_not comparison additive multiplicative unary primary
+%type <ast> expr sequence assignment conditional logical_or logical_and where_expr logical_not comparison additive multiplicative unary call primary
 
 %destructor { enact_ast_free($$); } <ast>
 %destructor { free($$); } <text>
@@ -169,12 +263,10 @@ sequence:
     ;
 
 assignment:
-    TOK_IDENTIFIER TOK_ASSIGN assignment
+    call TOK_ASSIGN assignment
     {
-        $$ = enact_make_assignment($1, $3);
+        $$ = enact_make_assignment_from_lhs($1, $3);
         if (!$$) {
-            free($1);
-            enact_ast_free($3);
             YYABORT;
         }
     }
@@ -363,6 +455,20 @@ unary:
             YYABORT;
         }
     }
+    | call
+    {
+        $$ = $1;
+    }
+    ;
+
+call:
+    call TOK_LPAREN assignment TOK_RPAREN
+    {
+        $$ = enact_make_binary(AST_CALL, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
     | primary
     {
         $$ = $1;
@@ -409,7 +515,10 @@ primary:
     }
     | TOK_LPAREN expr TOK_RPAREN
     {
-        $$ = $2;
+        $$ = enact_make_unary(AST_GROUP, $2);
+        if (!$$) {
+            YYABORT;
+        }
     }
     ;
 
