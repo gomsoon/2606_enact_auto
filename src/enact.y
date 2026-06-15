@@ -184,6 +184,53 @@ static void enact_set_unexpected_token_diag(void)
     }
 }
 
+static EnactNameList *enact_make_parameter_list(char *name)
+{
+    EnactNameList *list = enact_name_list_new();
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!list || !enact_name_list_append(list, name)) {
+        enact_name_list_free(list);
+        free(name);
+        if (context) {
+            enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        }
+        return NULL;
+    }
+
+    return list;
+}
+
+static EnactNameList *enact_append_parameter(EnactNameList *list, char *name)
+{
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!list || !name) {
+        enact_name_list_free(list);
+        free(name);
+        enact_set_unexpected_token_diag();
+        return NULL;
+    }
+
+    if (enact_name_list_contains(list, name)) {
+        enact_name_list_free(list);
+        free(name);
+        enact_set_unexpected_token_diag();
+        return NULL;
+    }
+
+    if (!enact_name_list_append(list, name)) {
+        enact_name_list_free(list);
+        free(name);
+        if (context) {
+            enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        }
+        return NULL;
+    }
+
+    return list;
+}
+
 static char *enact_take_identifier_name(EnactAst *ast)
 {
     char *name = ast->as.identifier_name;
@@ -324,6 +371,7 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
     char *text;
     EnactAst *ast;
     EnactAstList *ast_list;
+    EnactNameList *name_list;
 }
 
 %token <u64> TOK_INT_LITERAL
@@ -331,13 +379,15 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
 %token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
-%token TOK_ASSIGN TOK_SEMI TOK_COMMA TOK_MOD TOK_WHERE
+%token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_MOD TOK_WHERE
 
-%type <ast> expr sequence assignment conditional logical_or logical_and where_expr logical_not comparison additive multiplicative unary call primary
+%type <ast> expr sequence assignment lambda conditional logical_or logical_and where_expr logical_not comparison additive multiplicative unary call primary
 %type <ast_list> argument_list
+%type <name_list> lambda_head parameter_list
 
 %destructor { enact_ast_free($$); } <ast>
 %destructor { enact_ast_list_free($$); } <ast_list>
+%destructor { enact_name_list_free($$); } <name_list>
 %destructor { free($$); } <text>
 
 %%
@@ -378,9 +428,63 @@ assignment:
             YYABORT;
         }
     }
+    | lambda
+    {
+        $$ = $1;
+    }
+    ;
+
+lambda:
+    lambda_head TOK_LAMBDA assignment
+    {
+        $$ = enact_make_function_literal($1, $3);
+        if (!$$) {
+            enact_name_list_free($1);
+            enact_ast_free($3);
+            YYABORT;
+        }
+    }
     | conditional
     {
         $$ = $1;
+    }
+    ;
+
+lambda_head:
+    TOK_IDENTIFIER
+    {
+        $$ = enact_make_parameter_list($1);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_LPAREN parameter_list TOK_RPAREN
+    {
+        $$ = $2;
+    }
+    ;
+
+parameter_list:
+    TOK_IDENTIFIER TOK_COMMA TOK_IDENTIFIER
+    {
+        EnactNameList *list = enact_make_parameter_list($1);
+
+        if (!list) {
+            free($3);
+            YYABORT;
+        }
+
+        $$ = enact_append_parameter(list, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | parameter_list TOK_COMMA TOK_IDENTIFIER
+    {
+        $$ = enact_append_parameter($1, $3);
+        if (!$$) {
+            YYABORT;
+        }
     }
     ;
 

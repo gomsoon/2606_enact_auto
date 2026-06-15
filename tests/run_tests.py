@@ -197,6 +197,45 @@ def main() -> int:
         ("add(1,2.", "ENACT_ERR_PARSE_UNMATCHED_PAREN"),
     ]
 
+    slice_010_token_cases = [
+        ("x::x+1.", "TOK_IDENTIFIER TOK_LAMBDA TOK_IDENTIFIER TOK_PLUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
+        ("(x,y)::x+y.", "TOK_LPAREN TOK_IDENTIFIER TOK_COMMA TOK_IDENTIFIER TOK_RPAREN TOK_LAMBDA TOK_IDENTIFIER TOK_PLUS TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
+    ]
+
+    slice_010_boundary_success_cases = [
+        ("(x::x+1)(4).", "5\n"),
+        ("inc:=x::x+1; inc(4).", "5\n"),
+        ("add:=(x,y)::x+y; add(2,3).", "5\n"),
+        ("((x,y)::x*y)(3,4).", "12\n"),
+        ('id:=x::x; id("hi").', "\"hi\"\n"),
+        ("both:=(a,b)::a and b; both(true,false).", "false\n"),
+        ("x:=10; f:=y::x+y; x:=20; f(1).", "11\n"),
+        ("apply:=(f,x)::f(x); inc:=x::x+1; apply(inc,3).", "4\n"),
+        ("apply:=(f,x)::f(x); apply(x::x+1,3).", "4\n"),
+        ("make:=a::(b,c)::a+b+c; s:=make(1); s(2,3).", "6\n"),
+        ("adder:=x::y::x+y; adder(2)(3).", "5\n"),
+        ("f:=x::(y:=x+1; y); f(2).", "3\n"),
+        ("x::x+1.", "<function>\n"),
+    ]
+
+    slice_010_robustness_failure_cases = [
+        ("x::.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("1::1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("()::1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("(x)::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("(x,)::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("(,x)::x.", "ENACT_ERR_PARSE_UNMATCHED_PAREN"),
+        ("(x,x)::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("(x,1)::x.", "ENACT_ERR_PARSE_UNMATCHED_PAREN"),
+        ("((x),y)::x.", "ENACT_ERR_PARSE_UNMATCHED_PAREN"),
+        ("f:=x::x; f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f:=x::x; f(1,2).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("f:=(x,y)::x+y; f(1).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("ignore:=(x,y)::x; ignore(1,1/0).", "ENACT_ERR_DIVIDE_BY_ZERO"),
+        ("f:=x::f(x); f(1).", "ENACT_ERR_NAME_UNBOUND"),
+    ]
+
     token_cases = [
         ("-1.", "TOK_UMINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         ("1-2.", "TOK_INT_LITERAL TOK_MINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
@@ -230,7 +269,7 @@ def main() -> int:
         ("1 if true else 2.", "TOK_INT_LITERAL TOK_IF TOK_TRUE TOK_ELSE TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         (" \t\n(8+2)/5.", "TOK_LPAREN TOK_INT_LITERAL TOK_PLUS TOK_INT_LITERAL TOK_RPAREN TOK_SLASH TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         (long_comment, "TOK_LPAREN TOK_INT_LITERAL TOK_PLUS TOK_INT_LITERAL TOK_RPAREN TOK_SLASH TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
-    ] + slice_008_token_cases + slice_009_token_cases
+    ] + slice_008_token_cases + slice_009_token_cases + slice_010_token_cases
 
     success_cases = [
         ("1+2.", "3\n"),
@@ -342,7 +381,7 @@ def main() -> int:
         ("1 if x where x:=true else 2.", "1\n"),
         ("true and x where x:=true.", "true\n"),
         ("x:=1; (x where x:=2); x.", "1\n"),
-    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases
+    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases + slice_010_boundary_success_cases
 
     failure_cases = [
         ("", "ENACT_ERR_PARSE_MISSING_DOT"),
@@ -445,7 +484,7 @@ def main() -> int:
         ("x:=y.", "ENACT_ERR_NAME_UNBOUND"),
         ("x+1; x:=2.", "ENACT_ERR_NAME_UNBOUND"),
         ("x:=1; y.", "ENACT_ERR_NAME_UNBOUND"),
-    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases
+    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases + slice_010_robustness_failure_cases
 
     token_failure_cases = [
         ("$x.", "ENACT_ERR_LEX_INVALID_CHAR"),
@@ -475,6 +514,8 @@ def main() -> int:
     print(f"slice 008 robustness regression checks: {len(slice_008_robustness_failure_cases)}")
     print(f"slice 009 boundary regression checks: {len(slice_009_token_cases) + len(slice_009_boundary_success_cases)}")
     print(f"slice 009 robustness regression checks: {len(slice_009_robustness_failure_cases)}")
+    print(f"slice 010 boundary regression checks: {len(slice_010_token_cases) + len(slice_010_boundary_success_cases)}")
+    print(f"slice 010 robustness regression checks: {len(slice_010_robustness_failure_cases)}")
     return 0
 
 
