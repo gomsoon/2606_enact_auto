@@ -35,6 +35,229 @@ static char *enact_ast_copy_text(const char *text)
     return copy;
 }
 
+static int enact_name_list_reserve(EnactNameList *list, size_t needed)
+{
+    char **grown;
+    size_t capacity;
+
+    if (!list) {
+        return 0;
+    }
+    if (list->capacity >= needed) {
+        return 1;
+    }
+
+    capacity = list->capacity == 0 ? 4 : list->capacity;
+    while (capacity < needed) {
+        capacity *= 2;
+    }
+
+    grown = realloc(list->items, capacity * sizeof(*grown));
+    if (!grown) {
+        return 0;
+    }
+
+    list->items = grown;
+    list->capacity = capacity;
+    return 1;
+}
+
+static int enact_ast_list_reserve(EnactAstList *list, size_t needed)
+{
+    EnactAst **grown;
+    size_t capacity;
+
+    if (!list) {
+        return 0;
+    }
+    if (list->capacity >= needed) {
+        return 1;
+    }
+
+    capacity = list->capacity == 0 ? 4 : list->capacity;
+    while (capacity < needed) {
+        capacity *= 2;
+    }
+
+    grown = realloc(list->items, capacity * sizeof(*grown));
+    if (!grown) {
+        return 0;
+    }
+
+    list->items = grown;
+    list->capacity = capacity;
+    return 1;
+}
+
+EnactNameList *enact_name_list_new(void)
+{
+    return calloc(1, sizeof(EnactNameList));
+}
+
+int enact_name_list_append(EnactNameList *list, char *name)
+{
+    if (!list || !name) {
+        return 0;
+    }
+
+    if (!enact_name_list_reserve(list, list->count + 1)) {
+        return 0;
+    }
+
+    list->items[list->count] = name;
+    list->count += 1;
+    return 1;
+}
+
+EnactNameList *enact_name_list_clone(const EnactNameList *list)
+{
+    EnactNameList *copy;
+    size_t index;
+
+    if (!list) {
+        return NULL;
+    }
+
+    copy = enact_name_list_new();
+    if (!copy) {
+        return NULL;
+    }
+
+    for (index = 0; index < list->count; index += 1) {
+        char *name = enact_ast_copy_text(list->items[index]);
+
+        if (!name || !enact_name_list_append(copy, name)) {
+            free(name);
+            enact_name_list_free(copy);
+            return NULL;
+        }
+    }
+
+    return copy;
+}
+
+size_t enact_name_list_count(const EnactNameList *list)
+{
+    return list ? list->count : 0;
+}
+
+const char *enact_name_list_get(const EnactNameList *list, size_t index)
+{
+    if (!list || index >= list->count) {
+        return "";
+    }
+
+    return list->items[index];
+}
+
+int enact_name_list_contains(const EnactNameList *list, const char *name)
+{
+    size_t index;
+
+    if (!list || !name) {
+        return 0;
+    }
+
+    for (index = 0; index < list->count; index += 1) {
+        if (strcmp(list->items[index], name) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+void enact_name_list_free(EnactNameList *list)
+{
+    size_t index;
+
+    if (!list) {
+        return;
+    }
+
+    for (index = 0; index < list->count; index += 1) {
+        free(list->items[index]);
+    }
+    free(list->items);
+    free(list);
+}
+
+EnactAstList *enact_ast_list_new(void)
+{
+    return calloc(1, sizeof(EnactAstList));
+}
+
+int enact_ast_list_append(EnactAstList *list, EnactAst *ast)
+{
+    if (!list || !ast) {
+        return 0;
+    }
+
+    if (!enact_ast_list_reserve(list, list->count + 1)) {
+        return 0;
+    }
+
+    list->items[list->count] = ast;
+    list->count += 1;
+    return 1;
+}
+
+EnactAstList *enact_ast_list_clone(const EnactAstList *list)
+{
+    EnactAstList *copy;
+    size_t index;
+
+    if (!list) {
+        return NULL;
+    }
+
+    copy = enact_ast_list_new();
+    if (!copy) {
+        return NULL;
+    }
+
+    for (index = 0; index < list->count; index += 1) {
+        EnactAst *ast = enact_ast_clone(list->items[index]);
+
+        if (!ast || !enact_ast_list_append(copy, ast)) {
+            enact_ast_free(ast);
+            enact_ast_list_free(copy);
+            return NULL;
+        }
+    }
+
+    return copy;
+}
+
+size_t enact_ast_list_count(const EnactAstList *list)
+{
+    return list ? list->count : 0;
+}
+
+EnactAst *enact_ast_list_get(const EnactAstList *list, size_t index)
+{
+    if (!list || index >= list->count) {
+        return NULL;
+    }
+
+    return list->items[index];
+}
+
+void enact_ast_list_free(EnactAstList *list)
+{
+    size_t index;
+
+    if (!list) {
+        return;
+    }
+
+    for (index = 0; index < list->count; index += 1) {
+        enact_ast_free(list->items[index]);
+    }
+    free(list->items);
+    free(list);
+}
+
 EnactAst *enact_ast_new_int(uint64_t int_magnitude)
 {
     EnactAst *ast = enact_ast_alloc(AST_INT_LITERAL);
@@ -140,15 +363,27 @@ EnactAst *enact_ast_new_assignment(char *name, EnactAst *value)
     return ast;
 }
 
-EnactAst *enact_ast_new_function_literal(char *param_name, EnactAst *body)
+EnactAst *enact_ast_new_function_literal(EnactNameList *param_names, EnactAst *body)
 {
     EnactAst *ast = enact_ast_alloc(AST_FUNCTION_LITERAL);
     if (!ast) {
         return NULL;
     }
 
-    ast->as.function_literal.param_name = param_name;
+    ast->as.function_literal.param_names = param_names;
     ast->as.function_literal.body = body;
+    return ast;
+}
+
+EnactAst *enact_ast_new_call(EnactAst *callee, EnactAstList *arguments)
+{
+    EnactAst *ast = enact_ast_alloc(AST_CALL);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.call.callee = callee;
+    ast->as.call.arguments = arguments;
     return ast;
 }
 
@@ -294,24 +529,50 @@ static EnactAst *enact_ast_clone_assignment(const EnactAst *ast)
 
 static EnactAst *enact_ast_clone_function_literal(const EnactAst *ast)
 {
-    char *param_name = enact_ast_copy_text(ast->as.function_literal.param_name);
+    EnactNameList *param_names = enact_name_list_clone(ast->as.function_literal.param_names);
     EnactAst *body;
     EnactAst *copy;
 
-    if (!param_name) {
+    if (!param_names) {
         return NULL;
     }
 
     body = enact_ast_clone(ast->as.function_literal.body);
     if (!body) {
-        free(param_name);
+        enact_name_list_free(param_names);
         return NULL;
     }
 
-    copy = enact_ast_new_function_literal(param_name, body);
+    copy = enact_ast_new_function_literal(param_names, body);
     if (!copy) {
-        free(param_name);
+        enact_name_list_free(param_names);
         enact_ast_free(body);
+        return NULL;
+    }
+
+    return copy;
+}
+
+static EnactAst *enact_ast_clone_call(const EnactAst *ast)
+{
+    EnactAst *callee = enact_ast_clone(ast->as.call.callee);
+    EnactAstList *arguments;
+    EnactAst *copy;
+
+    if (!callee) {
+        return NULL;
+    }
+
+    arguments = enact_ast_list_clone(ast->as.call.arguments);
+    if (!arguments) {
+        enact_ast_free(callee);
+        return NULL;
+    }
+
+    copy = enact_ast_new_call(callee, arguments);
+    if (!copy) {
+        enact_ast_free(callee);
+        enact_ast_list_free(arguments);
         return NULL;
     }
 
@@ -372,9 +633,11 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
     case AST_GTE:
     case AST_AND:
     case AST_OR:
-    case AST_CALL:
     case AST_SEQUENCE:
         copy = enact_ast_clone_binary(ast);
+        break;
+    case AST_CALL:
+        copy = enact_ast_clone_call(ast);
         break;
     case AST_IF_ELSE:
         copy = enact_ast_clone_conditional(ast);
@@ -431,10 +694,13 @@ void enact_ast_free(EnactAst *ast)
     case AST_GTE:
     case AST_AND:
     case AST_OR:
-    case AST_CALL:
     case AST_SEQUENCE:
         enact_ast_free(ast->as.binary.left);
         enact_ast_free(ast->as.binary.right);
+        break;
+    case AST_CALL:
+        enact_ast_free(ast->as.call.callee);
+        enact_ast_list_free(ast->as.call.arguments);
         break;
     case AST_IF_ELSE:
         enact_ast_free(ast->as.conditional.condition);
@@ -451,7 +717,7 @@ void enact_ast_free(EnactAst *ast)
         enact_ast_free(ast->as.assignment.value);
         break;
     case AST_FUNCTION_LITERAL:
-        free(ast->as.function_literal.param_name);
+        enact_name_list_free(ast->as.function_literal.param_names);
         enact_ast_free(ast->as.function_literal.body);
         break;
     }

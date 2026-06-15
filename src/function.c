@@ -1,39 +1,19 @@
 #include <stdlib.h>
-#include <string.h>
 
 #include "function.h"
 
 struct EnactFunction {
     size_t ref_count;
-    char *param_name;
+    EnactNameList *param_names;
     EnactAst *body;
     EnactEnv captured_env;
 };
 
-static char *enact_function_copy_text(const char *text)
-{
-    size_t length;
-    char *copy;
-
-    if (!text) {
-        text = "";
-    }
-
-    length = strlen(text);
-    copy = malloc(length + 1);
-    if (!copy) {
-        return NULL;
-    }
-
-    memcpy(copy, text, length + 1);
-    return copy;
-}
-
-EnactFunction *enact_function_new(const char *param_name, const EnactAst *body, const EnactEnv *env)
+EnactFunction *enact_function_new(const EnactNameList *param_names, const EnactAst *body, const EnactEnv *env)
 {
     EnactFunction *function;
 
-    if (!body || !env) {
+    if (!param_names || enact_name_list_count(param_names) == 0 || !body || !env) {
         return NULL;
     }
 
@@ -43,22 +23,22 @@ EnactFunction *enact_function_new(const char *param_name, const EnactAst *body, 
     }
 
     function->ref_count = 1;
-    function->param_name = enact_function_copy_text(param_name);
-    if (!function->param_name) {
+    function->param_names = enact_name_list_clone(param_names);
+    if (!function->param_names) {
         free(function);
         return NULL;
     }
 
     function->body = enact_ast_clone(body);
     if (!function->body) {
-        free(function->param_name);
+        enact_name_list_free(function->param_names);
         free(function);
         return NULL;
     }
 
     if (!enact_env_clone(&function->captured_env, env)) {
         enact_ast_free(function->body);
-        free(function->param_name);
+        enact_name_list_free(function->param_names);
         free(function);
         return NULL;
     }
@@ -87,15 +67,20 @@ void enact_function_release(EnactFunction *function)
         return;
     }
 
-    free(function->param_name);
+    enact_name_list_free(function->param_names);
     enact_ast_free(function->body);
     enact_env_free(&function->captured_env);
     free(function);
 }
 
-const char *enact_function_param_name(const EnactFunction *function)
+size_t enact_function_arity(const EnactFunction *function)
 {
-    return function ? function->param_name : "";
+    return function ? enact_name_list_count(function->param_names) : 0;
+}
+
+const char *enact_function_param_name(const EnactFunction *function, size_t index)
+{
+    return function ? enact_name_list_get(function->param_names, index) : "";
 }
 
 const EnactAst *enact_function_body(const EnactFunction *function)

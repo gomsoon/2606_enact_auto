@@ -139,6 +139,7 @@ STRING_CHAR ([^"\\\r\n]|\\.)
 ":=" { return enact_emit_simple_token(TOK_ASSIGN, 1); }
 "!=" { return enact_emit_simple_token(TOK_NEQ, 1); }
 ";" { return enact_emit_simple_token(TOK_SEMI, 1); }
+"," { return enact_emit_simple_token(TOK_COMMA, 1); }
 "<=" { return enact_emit_simple_token(TOK_LTE, 1); }
 ">=" { return enact_emit_simple_token(TOK_GTE, 1); }
 "<" { return enact_emit_simple_token(TOK_LT, 1); }

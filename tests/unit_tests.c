@@ -34,6 +34,54 @@ static char *copy_test_name(const char *name)
     return copy;
 }
 
+static EnactNameList *make_test_name_list(const char **names, size_t count)
+{
+    EnactNameList *list = enact_name_list_new();
+    size_t index;
+
+    if (!list) {
+        return NULL;
+    }
+
+    for (index = 0; index < count; index += 1) {
+        char *copy = copy_test_name(names[index]);
+
+        if (!copy || !enact_name_list_append(list, copy)) {
+            free(copy);
+            enact_name_list_free(list);
+            return NULL;
+        }
+    }
+
+    return list;
+}
+
+static EnactAstList *make_test_ast_list1(EnactAst *first)
+{
+    EnactAstList *list = enact_ast_list_new();
+
+    if (!list || !enact_ast_list_append(list, first)) {
+        enact_ast_list_free(list);
+        enact_ast_free(first);
+        return NULL;
+    }
+
+    return list;
+}
+
+static EnactAstList *make_test_ast_list2(EnactAst *first, EnactAst *second)
+{
+    EnactAstList *list = make_test_ast_list1(first);
+
+    if (!list || !enact_ast_list_append(list, second)) {
+        enact_ast_list_free(list);
+        enact_ast_free(second);
+        return NULL;
+    }
+
+    return list;
+}
+
 static void test_diag_helpers(void)
 {
     EnactDiag diag;
@@ -49,6 +97,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_INT), "ENACT_ERR_TYPE_EXPECTED_INT") == 0, "error code expected int");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "ENACT_ERR_TYPE_EXPECTED_FUNCTION") == 0, "error code expected function");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "ENACT_ERR_TYPE_EQUALITY_MISMATCH") == 0, "error code equality mismatch");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_ARITY_MISMATCH), "ENACT_ERR_ARITY_MISMATCH") == 0, "error code arity mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_NAME_UNBOUND), "ENACT_ERR_NAME_UNBOUND") == 0, "error code unbound name");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_OUT_OF_MEMORY), "ENACT_ERR_OUT_OF_MEMORY") == 0, "error code oom");
     require_true(strcmp(enact_error_code_name((EnactErrorCode)999), "ENACT_ERR_UNKNOWN") == 0, "error code unknown");
@@ -60,6 +109,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_INT), "integer value required") == 0, "error message expected int");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "function value required") == 0, "error message expected function");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "cannot compare values of different kinds") == 0, "error message equality mismatch");
+    require_true(strcmp(enact_error_message(ENACT_ERR_ARITY_MISMATCH), "function arity mismatch") == 0, "error message arity mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_NAME_UNBOUND), "unbound identifier") == 0, "error message unbound name");
     require_true(strcmp(enact_error_message(ENACT_ERR_OUT_OF_MEMORY), "out of memory") == 0, "error message oom");
     require_true(strcmp(enact_error_message((EnactErrorCode)999), "unknown error") == 0, "error message unknown");
@@ -81,6 +131,11 @@ static void test_value_helpers(void)
     EnactFunction *function;
     EnactValue function_value;
     EnactValue function_copy;
+    EnactNameList *params;
+    EnactNameList *empty_params;
+    EnactNameList *params_clone;
+    char *bad_append_name;
+    const char *one_param[] = {"x"};
 
     require_true(int_value.kind == ENACT_VALUE_INT, "int value kind");
     require_true(int_value.as.as_int == -12, "int value payload");
@@ -99,11 +154,32 @@ static void test_value_helpers(void)
     enact_env_init(&empty_env);
     function_body = enact_ast_new_int(1);
     require_true(function_body != NULL, "function body ast created");
-    require_true(enact_function_new("x", NULL, &empty_env) == NULL, "function new null body fails");
-    require_true(enact_function_new("x", function_body, NULL) == NULL, "function new null env fails");
-    function = enact_function_new("x", function_body, &empty_env);
+    params = make_test_name_list(one_param, 1);
+    require_true(params != NULL, "function params created");
+    empty_params = enact_name_list_new();
+    require_true(empty_params != NULL, "empty params created");
+    require_true(enact_function_new(NULL, function_body, &empty_env) == NULL, "function new null params fails");
+    require_true(enact_function_new(empty_params, function_body, &empty_env) == NULL, "function new empty params fails");
+    require_true(enact_function_new(params, NULL, &empty_env) == NULL, "function new null body fails");
+    require_true(enact_function_new(params, function_body, NULL) == NULL, "function new null env fails");
+    params_clone = enact_name_list_clone(params);
+    require_true(params_clone != NULL, "name list clone succeeds");
+    require_true(enact_name_list_count(params_clone) == 1, "name list clone count");
+    require_true(strcmp(enact_name_list_get(params_clone, 0), "x") == 0, "name list clone value");
+    require_true(strcmp(enact_name_list_get(params_clone, 99), "") == 0, "name list out of range");
+    require_true(enact_name_list_contains(params_clone, "x"), "name list contains x");
+    require_true(!enact_name_list_contains(params_clone, "missing"), "name list missing value");
+    bad_append_name = copy_test_name("bad");
+    require_true(!enact_name_list_append(NULL, bad_append_name), "name list append null list fails");
+    free(bad_append_name);
+    require_true(!enact_name_list_append(params_clone, NULL), "name list append null name fails");
+    enact_name_list_free(params_clone);
+    function = enact_function_new(params, function_body, &empty_env);
     require_true(function != NULL, "function value payload created");
     if (function) {
+        require_true(enact_function_arity(function) == 1, "function arity");
+        require_true(strcmp(enact_function_param_name(function, 0), "x") == 0, "function first param");
+        require_true(strcmp(enact_function_param_name(function, 99), "") == 0, "function param out of range");
         function_value = enact_value_make_function(function);
         require_true(function_value.kind == ENACT_VALUE_FUNCTION, "function value kind");
         require_true(enact_value_copy(&function_copy, &function_value), "function value copy succeeds");
@@ -112,20 +188,17 @@ static void test_value_helpers(void)
         enact_value_free(&function_copy);
         enact_value_free(&function_value);
     }
-    function = enact_function_new(NULL, function_body, &empty_env);
-    require_true(function != NULL, "function value null parameter created");
-    if (function) {
-        require_true(strcmp(enact_function_param_name(function), "") == 0, "function null parameter becomes empty");
-        enact_function_release(function);
-    }
     require_true(enact_function_retain(NULL) == NULL, "function retain null fails");
     enact_function_release(NULL);
-    require_true(strcmp(enact_function_param_name(NULL), "") == 0, "function null param accessor");
+    require_true(enact_function_arity(NULL) == 0, "function null arity");
+    require_true(strcmp(enact_function_param_name(NULL, 0), "") == 0, "function null param accessor");
     require_true(enact_function_body(NULL) == NULL, "function null body accessor");
     require_true(enact_function_env(NULL) == NULL, "function null env accessor");
     function_value = enact_value_make_function(NULL);
     require_true(!enact_value_copy(&function_copy, &function_value), "function value copy null payload fails");
     enact_value_free(&function_value);
+    enact_name_list_free(empty_params);
+    enact_name_list_free(params);
     enact_ast_free(function_body);
     enact_env_free(&empty_env);
 
@@ -151,6 +224,8 @@ static void test_env_helpers(void)
     EnactAst *function_body;
     EnactAst *function_literal;
     EnactAst *function_call;
+    EnactNameList *params;
+    EnactAstList *arguments;
     EnactValue string_binding;
 
     enact_env_init(NULL);
@@ -261,9 +336,14 @@ static void test_env_helpers(void)
         AST_ADD,
         enact_ast_new_identifier(copy_test_name("p")),
         enact_ast_new_int(1));
-    function_literal = enact_ast_new_function_literal(copy_test_name("p"), function_body);
-    function_call = enact_ast_new_binary(AST_CALL, function_literal, enact_ast_new_int(4));
-    require_true(function_body != NULL && function_literal != NULL && function_call != NULL, "function call ast created");
+    {
+        const char *names[] = {"p"};
+        params = make_test_name_list(names, 1);
+    }
+    arguments = make_test_ast_list1(enact_ast_new_int(4));
+    function_literal = enact_ast_new_function_literal(params, function_body);
+    function_call = enact_ast_new_call(function_literal, arguments);
+    require_true(params != NULL && arguments != NULL && function_body != NULL && function_literal != NULL && function_call != NULL, "function call ast created");
     enact_diag_reset(&diag);
     require_true(enact_eval_ast_with_env(function_call, &env, &result, &diag), "function call evaluates through env");
     require_true(result.kind == ENACT_VALUE_INT, "function call result kind");
@@ -271,12 +351,49 @@ static void test_env_helpers(void)
     enact_ast_free(function_call);
 
     function_body = enact_ast_new_binary(
+        AST_ADD,
+        enact_ast_new_identifier(copy_test_name("left")),
+        enact_ast_new_identifier(copy_test_name("right")));
+    {
+        const char *names[] = {"left", "right"};
+        params = make_test_name_list(names, 2);
+    }
+    arguments = make_test_ast_list2(enact_ast_new_int(2), enact_ast_new_int(3));
+    function_literal = enact_ast_new_function_literal(params, function_body);
+    function_call = enact_ast_new_call(function_literal, arguments);
+    require_true(params != NULL && arguments != NULL && function_body != NULL && function_literal != NULL && function_call != NULL, "multi-argument function call ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(function_call, &env, &result, &diag), "multi-argument function call evaluates through env");
+    require_true(result.kind == ENACT_VALUE_INT, "multi-argument function call result kind");
+    require_true(result.as.as_int == 5, "multi-argument function call result value");
+    enact_ast_free(function_call);
+
+    function_body = enact_ast_new_identifier(copy_test_name("only"));
+    {
+        const char *names[] = {"only"};
+        params = make_test_name_list(names, 1);
+    }
+    arguments = make_test_ast_list2(enact_ast_new_int(1), enact_ast_new_int(2));
+    function_literal = enact_ast_new_function_literal(params, function_body);
+    function_call = enact_ast_new_call(function_literal, arguments);
+    require_true(params != NULL && arguments != NULL && function_body != NULL && function_literal != NULL && function_call != NULL, "arity mismatch call ast created");
+    enact_diag_reset(&diag);
+    require_true(!enact_eval_ast_with_env(function_call, &env, &result, &diag), "arity mismatch function call fails");
+    require_true(diag.code == ENACT_ERR_ARITY_MISMATCH, "arity mismatch function call code");
+    enact_ast_free(function_call);
+
+    function_body = enact_ast_new_binary(
         AST_SEQUENCE,
         enact_ast_new_assignment(copy_test_name("x"), enact_ast_new_int(2)),
         enact_ast_new_identifier(copy_test_name("x")));
-    function_literal = enact_ast_new_function_literal(copy_test_name("x"), function_body);
-    function_call = enact_ast_new_binary(AST_CALL, function_literal, enact_ast_new_int(0));
-    require_true(function_body != NULL && function_literal != NULL && function_call != NULL, "function body assignment ast created");
+    {
+        const char *names[] = {"x"};
+        params = make_test_name_list(names, 1);
+    }
+    arguments = make_test_ast_list1(enact_ast_new_int(0));
+    function_literal = enact_ast_new_function_literal(params, function_body);
+    function_call = enact_ast_new_call(function_literal, arguments);
+    require_true(params != NULL && arguments != NULL && function_body != NULL && function_literal != NULL && function_call != NULL, "function body assignment ast created");
     enact_diag_reset(&diag);
     require_true(enact_eval_ast_with_env(function_call, &env, &result, &diag), "function body assignment evaluates locally");
     require_true(result.kind == ENACT_VALUE_INT, "function body assignment result kind");
@@ -302,6 +419,8 @@ static void test_ast_clone_helpers(void)
     EnactAst *clone;
     EnactValue value;
     EnactDiag diag;
+    EnactNameList *params;
+    EnactAstList *arguments;
 
     require_true(enact_ast_clone(NULL) == NULL, "clone null ast fails");
     unknown.kind = (EnactAstKind)99;
@@ -334,8 +453,12 @@ static void test_ast_clone_helpers(void)
     enact_ast_free(clone);
     enact_ast_free(original);
 
+    {
+        const char *names[] = {"x"};
+        params = make_test_name_list(names, 1);
+    }
     original = enact_ast_new_function_literal(
-        copy_test_name("x"),
+        params,
         enact_ast_new_identifier(copy_test_name("x")));
     require_true(original != NULL, "function literal clone source created");
     clone = enact_ast_clone(original);
@@ -344,6 +467,24 @@ static void test_ast_clone_helpers(void)
     require_true(enact_eval_ast(clone, &value, &diag), "function literal clone evaluates");
     require_true(value.kind == ENACT_VALUE_FUNCTION, "function literal clone result kind");
     enact_value_free(&value);
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
+    {
+        const char *names[] = {"x"};
+        params = make_test_name_list(names, 1);
+    }
+    arguments = make_test_ast_list1(enact_ast_new_int(7));
+    original = enact_ast_new_call(
+        enact_ast_new_function_literal(params, enact_ast_new_identifier(copy_test_name("x"))),
+        arguments);
+    require_true(params != NULL && arguments != NULL && original != NULL, "call clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "call clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "call clone evaluates");
+    require_true(value.kind == ENACT_VALUE_INT, "call clone result kind");
+    require_true(value.as.as_int == 7, "call clone result value");
     enact_ast_free(clone);
     enact_ast_free(original);
 }
@@ -390,7 +531,7 @@ static void test_eval_edge_cases(void)
     EnactAst or_node = {0};
     EnactAst not_node = {0};
     EnactAst conditional_node = {0};
-    EnactAst call_node = {0};
+    EnactAst *call_node;
 
     enact_diag_reset(&diag);
     require_true(!enact_eval_ast(NULL, &value, &diag), "null ast fails");
@@ -517,12 +658,12 @@ static void test_eval_edge_cases(void)
     require_true(value.kind == ENACT_VALUE_INT, "conditional selected kind");
     require_true(value.as.as_int == 7, "conditional selected value");
 
-    call_node.kind = AST_CALL;
-    call_node.as.binary.left = &int_one;
-    call_node.as.binary.right = &int_zero;
+    call_node = enact_ast_new_call(enact_ast_new_int(1), make_test_ast_list1(enact_ast_new_int(0)));
+    require_true(call_node != NULL, "non-function call ast created");
     enact_diag_reset(&diag);
-    require_true(!enact_eval_ast(&call_node, &value, &diag), "non-function call fails");
+    require_true(!enact_eval_ast(call_node, &value, &diag), "non-function call fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_FUNCTION, "non-function call code");
+    enact_ast_free(call_node);
 
     enact_diag_reset(&diag);
     require_true(enact_eval_ast(&string_node, &value, &diag), "string literal ast succeeds");

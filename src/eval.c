@@ -1,5 +1,6 @@
 #include <limits.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "eval.h"
@@ -368,10 +369,24 @@ static int enact_eval_sequence(const EnactAst *ast, EnactEnv *env, EnactValue *o
     return enact_eval_value(ast->as.binary.right, env, out, diag);
 }
 
+static void enact_free_value_array(EnactValue *values, size_t count)
+{
+    size_t index;
+
+    if (!values) {
+        return;
+    }
+
+    for (index = 0; index < count; index += 1) {
+        enact_value_free(&values[index]);
+    }
+    free(values);
+}
+
 static int enact_eval_function_literal(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactFunction *function = enact_function_new(
-        ast->as.function_literal.param_name,
+        ast->as.function_literal.param_names,
         ast->as.function_literal.body,
         env);
 
@@ -387,12 +402,15 @@ static int enact_eval_function_literal(const EnactAst *ast, EnactEnv *env, Enact
 static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue callee;
-    EnactValue argument;
+    EnactValue *arguments = NULL;
     EnactFunction *function = NULL;
     EnactEnv local;
     int status;
+    size_t argument_count;
+    size_t arity;
+    size_t index;
 
-    if (!enact_eval_value(ast->as.binary.left, env, &callee, diag)) {
+    if (!enact_eval_value(ast->as.call.callee, env, &callee, diag)) {
         return 0;
     }
     if (!enact_require_function(&callee, &function, diag)) {
@@ -400,29 +418,49 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
         return 0;
     }
 
-    if (!enact_eval_value(ast->as.binary.right, env, &argument, diag)) {
+    argument_count = enact_ast_list_count(ast->as.call.arguments);
+    arity = enact_function_arity(function);
+    if (argument_count != arity) {
         enact_value_free(&callee);
+        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
         return 0;
+    }
+
+    arguments = calloc(argument_count, sizeof(*arguments));
+    if (!arguments) {
+        enact_value_free(&callee);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    for (index = 0; index < argument_count; index += 1) {
+        if (!enact_eval_value(enact_ast_list_get(ast->as.call.arguments, index), env, &arguments[index], diag)) {
+            enact_free_value_array(arguments, index);
+            enact_value_free(&callee);
+            return 0;
+        }
     }
 
     if (!enact_env_clone(&local, enact_function_env(function))) {
-        enact_value_free(&argument);
+        enact_free_value_array(arguments, argument_count);
         enact_value_free(&callee);
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }
 
-    if (!enact_env_define(&local, enact_function_param_name(function), argument)) {
-        enact_env_free(&local);
-        enact_value_free(&argument);
-        enact_value_free(&callee);
-        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-        return 0;
+    for (index = 0; index < argument_count; index += 1) {
+        if (!enact_env_define(&local, enact_function_param_name(function, index), arguments[index])) {
+            enact_env_free(&local);
+            enact_free_value_array(arguments, argument_count);
+            enact_value_free(&callee);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
     }
-    enact_value_free(&argument);
 
     status = enact_eval_value(enact_function_body(function), &local, out, diag);
     enact_env_free(&local);
+    enact_free_value_array(arguments, argument_count);
     enact_value_free(&callee);
     return status;
 }

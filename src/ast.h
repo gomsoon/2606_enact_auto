@@ -1,6 +1,7 @@
 #ifndef ENACT_AST_H
 #define ENACT_AST_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef enum {
@@ -39,6 +40,18 @@ typedef struct EnactSourceSpan {
 
 typedef struct EnactAst EnactAst;
 
+typedef struct {
+    char **items;
+    size_t count;
+    size_t capacity;
+} EnactNameList;
+
+typedef struct {
+    EnactAst **items;
+    size_t count;
+    size_t capacity;
+} EnactAstList;
+
 struct EnactAst {
     EnactAstKind kind;
     EnactSourceSpan span;
@@ -69,11 +82,30 @@ struct EnactAst {
             EnactAst *value;
         } assignment;
         struct {
-            char *param_name;
+            EnactNameList *param_names;
             EnactAst *body;
         } function_literal;
+        struct {
+            EnactAst *callee;
+            EnactAstList *arguments;
+        } call;
     } as;
 };
+
+EnactNameList *enact_name_list_new(void);
+int enact_name_list_append(EnactNameList *list, char *name);
+EnactNameList *enact_name_list_clone(const EnactNameList *list);
+size_t enact_name_list_count(const EnactNameList *list);
+const char *enact_name_list_get(const EnactNameList *list, size_t index);
+int enact_name_list_contains(const EnactNameList *list, const char *name);
+void enact_name_list_free(EnactNameList *list);
+
+EnactAstList *enact_ast_list_new(void);
+int enact_ast_list_append(EnactAstList *list, EnactAst *ast);
+EnactAstList *enact_ast_list_clone(const EnactAstList *list);
+size_t enact_ast_list_count(const EnactAstList *list);
+EnactAst *enact_ast_list_get(const EnactAstList *list, size_t index);
+void enact_ast_list_free(EnactAstList *list);
 
 EnactAst *enact_ast_new_int(uint64_t int_magnitude);
 EnactAst *enact_ast_new_bool(int bool_value);
@@ -84,7 +116,8 @@ EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *righ
 EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false);
 EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value);
 EnactAst *enact_ast_new_assignment(char *name, EnactAst *value);
-EnactAst *enact_ast_new_function_literal(char *param_name, EnactAst *body);
+EnactAst *enact_ast_new_function_literal(EnactNameList *param_names, EnactAst *body);
+EnactAst *enact_ast_new_call(EnactAst *callee, EnactAstList *arguments);
 EnactAst *enact_ast_clone(const EnactAst *ast);
 void enact_ast_free(EnactAst *ast);
 

@@ -54,6 +54,8 @@ static const char *enact_token_name(int token)
         return "TOK_ASSIGN";
     case TOK_SEMI:
         return "TOK_SEMI";
+    case TOK_COMMA:
+        return "TOK_COMMA";
     case TOK_TRUE:
         return "TOK_TRUE";
     case TOK_FALSE:
