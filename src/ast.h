@@ -24,6 +24,7 @@ typedef enum {
     AST_AND,
     AST_OR,
     AST_IF_ELSE,
+    AST_WHERE,
     AST_ASSIGN,
     AST_SEQUENCE
 } EnactAstKind;
@@ -56,6 +57,11 @@ struct EnactAst {
             EnactAst *if_false;
         } conditional;
         struct {
+            EnactAst *body;
+            char *name;
+            EnactAst *value;
+        } where_expr;
+        struct {
             char *name;
             EnactAst *value;
         } assignment;
@@ -69,6 +75,7 @@ EnactAst *enact_ast_new_identifier(char *name);
 EnactAst *enact_ast_new_unary(EnactAstKind kind, EnactAst *child);
 EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *right);
 EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false);
+EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value);
 EnactAst *enact_ast_new_assignment(char *name, EnactAst *value);
 void enact_ast_free(EnactAst *ast);
 

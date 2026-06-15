@@ -95,6 +95,7 @@ static void test_value_helpers(void)
 static void test_env_helpers(void)
 {
     EnactEnv env;
+    EnactEnv clone;
     EnactValue value;
     EnactValue result;
     EnactDiag diag;
@@ -104,10 +105,13 @@ static void test_env_helpers(void)
     EnactAst *sum;
     EnactAst *assignment;
     EnactAst *sequence;
+    EnactAst *where_ast;
     EnactValue string_binding;
 
     enact_env_init(NULL);
     enact_env_free(NULL);
+    require_true(!enact_env_clone(NULL, &env), "clone null out fails");
+    require_true(!enact_env_clone(&clone, NULL), "clone null in fails");
     require_true(!enact_env_define(NULL, "x", enact_value_make_int(1)), "define null env fails");
     require_true(!enact_env_define(&env, NULL, enact_value_make_int(1)), "define null name fails");
     require_true(!enact_env_lookup(NULL, "x", &value), "lookup null env fails");
@@ -138,6 +142,21 @@ static void test_env_helpers(void)
     require_true(enact_env_define(&env, "x", enact_value_make_int(9)), "redefine int binding");
     require_true(enact_env_lookup(&env, "x", &value), "lookup redefined int binding");
     require_true(value.as.as_int == 9, "redefined int value");
+
+    require_true(enact_env_clone(&clone, &env), "clone env succeeds");
+    require_true(enact_env_lookup(&clone, "x", &value), "lookup cloned int binding");
+    require_true(value.kind == ENACT_VALUE_INT, "cloned int kind");
+    require_true(value.as.as_int == 9, "cloned int value");
+    require_true(enact_env_lookup(&clone, "s", &value), "lookup cloned string binding");
+    require_true(value.kind == ENACT_VALUE_STRING, "cloned string kind");
+    require_true(strcmp(value.as.as_string, "text") == 0, "cloned string value");
+    enact_value_free(&value);
+    require_true(enact_env_define(&clone, "x", enact_value_make_int(100)), "redefine cloned int binding");
+    require_true(enact_env_lookup(&clone, "x", &value), "lookup redefined clone binding");
+    require_true(value.as.as_int == 100, "redefined clone value");
+    require_true(enact_env_lookup(&env, "x", &value), "lookup original after clone redefine");
+    require_true(value.as.as_int == 9, "original unchanged after clone redefine");
+    enact_env_free(&clone);
 
     identifier = enact_ast_new_identifier(copy_test_name("x"));
     require_true(identifier != NULL, "identifier ast created");
@@ -180,6 +199,18 @@ static void test_env_helpers(void)
     require_true(result.kind == ENACT_VALUE_INT, "sequence result kind");
     require_true(result.as.as_int == 3, "sequence result value");
     enact_ast_free(sequence);
+
+    where_ast = enact_ast_new_where(
+        enact_ast_new_identifier(copy_test_name("w")),
+        copy_test_name("w"),
+        enact_ast_new_int(4));
+    require_true(where_ast != NULL, "where ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(where_ast, &env, &result, &diag), "where evaluates through local env");
+    require_true(result.kind == ENACT_VALUE_INT, "where result kind");
+    require_true(result.as.as_int == 4, "where result value");
+    require_true(!enact_env_lookup(&env, "w", &value), "where binding does not leak");
+    enact_ast_free(where_ast);
 
     identifier = enact_ast_new_identifier(copy_test_name("missing"));
     require_true(identifier != NULL, "missing identifier ast created");

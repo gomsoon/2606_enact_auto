@@ -11,6 +11,7 @@ typedef struct {
 
 void enact_env_init(EnactEnv *env);
 void enact_env_free(EnactEnv *env);
+int enact_env_clone(EnactEnv *out, const EnactEnv *in);
 int enact_env_define(EnactEnv *env, const char *name, EnactValue value);
 int enact_env_lookup(const EnactEnv *env, const char *name, EnactValue *out);
 

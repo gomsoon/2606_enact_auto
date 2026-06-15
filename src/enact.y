@@ -93,6 +93,18 @@ static EnactAst *enact_make_conditional(EnactAst *condition, EnactAst *if_true, 
     return ast;
 }
 
+static EnactAst *enact_make_where(EnactAst *body, char *name, EnactAst *value)
+{
+    EnactAst *ast = enact_ast_new_where(body, name, value);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_assignment(char *name, EnactAst *value)
 {
     EnactAst *ast = enact_ast_new_assignment(name, value);
@@ -119,9 +131,9 @@ static EnactAst *enact_make_assignment(char *name, EnactAst *value)
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
 %token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
-%token TOK_ASSIGN TOK_SEMI TOK_MOD
+%token TOK_ASSIGN TOK_SEMI TOK_MOD TOK_WHERE
 
-%type <ast> expr sequence assignment conditional logical_or logical_and logical_not comparison additive multiplicative unary primary
+%type <ast> expr sequence assignment conditional logical_or logical_and where_expr logical_not comparison additive multiplicative unary primary
 
 %destructor { enact_ast_free($$); } <ast>
 %destructor { free($$); } <text>
@@ -201,16 +213,33 @@ logical_or:
     ;
 
 logical_and:
-    logical_and TOK_AND logical_not
+    logical_and TOK_AND where_expr
     {
         $$ = enact_make_binary(AST_AND, $1, $3);
         if (!$$) {
             YYABORT;
         }
     }
-    | logical_not
+    | where_expr
     {
         $$ = $1;
+    }
+    ;
+
+where_expr:
+    logical_not
+    {
+        $$ = $1;
+    }
+    | logical_not TOK_WHERE TOK_IDENTIFIER TOK_ASSIGN logical_not
+    {
+        $$ = enact_make_where($1, $3, $5);
+        if (!$$) {
+            enact_ast_free($1);
+            free($3);
+            enact_ast_free($5);
+            YYABORT;
+        }
     }
     ;
 

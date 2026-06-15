@@ -313,6 +313,34 @@ static int enact_eval_assignment(const EnactAst *ast, EnactEnv *env, EnactValue 
     return 1;
 }
 
+static int enact_eval_where(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactEnv local;
+    EnactValue binding_value;
+    int status = 0;
+
+    if (!enact_env_clone(&local, env)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    if (!enact_eval_value(ast->as.where_expr.value, &local, &binding_value, diag)) {
+        enact_env_free(&local);
+        return 0;
+    }
+    if (!enact_env_define(&local, ast->as.where_expr.name, binding_value)) {
+        enact_value_free(&binding_value);
+        enact_env_free(&local);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    enact_value_free(&binding_value);
+
+    status = enact_eval_value(ast->as.where_expr.body, &local, out, diag);
+    enact_env_free(&local);
+    return status;
+}
+
 static int enact_eval_sequence(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue ignored;
@@ -413,6 +441,8 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
         return enact_eval_or(ast, env, out, diag);
     case AST_IF_ELSE:
         return enact_eval_conditional(ast, env, out, diag);
+    case AST_WHERE:
+        return enact_eval_where(ast, env, out, diag);
     case AST_ASSIGN:
         return enact_eval_assignment(ast, env, out, diag);
     case AST_SEQUENCE:

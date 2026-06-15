@@ -133,6 +133,7 @@ STRING_CHAR ([^"\\\r\n]|\\.)
 "or" { return enact_emit_simple_token(TOK_OR, 1); }
 "if" { return enact_emit_simple_token(TOK_IF, 1); }
 "else" { return enact_emit_simple_token(TOK_ELSE, 1); }
+"where" { return enact_emit_simple_token(TOK_WHERE, 1); }
 "mod" { return enact_emit_simple_token(TOK_MOD, 1); }
 "==" { return enact_emit_simple_token(TOK_EQEQ, 1); }
 ":=" { return enact_emit_simple_token(TOK_ASSIGN, 1); }

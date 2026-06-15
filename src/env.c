@@ -58,6 +58,25 @@ void enact_env_free(EnactEnv *env)
     env->head = NULL;
 }
 
+int enact_env_clone(EnactEnv *out, const EnactEnv *in)
+{
+    const EnactEnvEntry *entry;
+
+    if (!out || !in) {
+        return 0;
+    }
+
+    enact_env_init(out);
+    for (entry = in->head; entry; entry = entry->next) {
+        if (!enact_env_define(out, entry->name, entry->value)) {
+            enact_env_free(out);
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 int enact_env_define(EnactEnv *env, const char *name, EnactValue value)
 {
     EnactEnvEntry *entry;

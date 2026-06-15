@@ -95,6 +95,19 @@ EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, Enac
     return ast;
 }
 
+EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value)
+{
+    EnactAst *ast = enact_ast_alloc(AST_WHERE);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.where_expr.body = body;
+    ast->as.where_expr.name = name;
+    ast->as.where_expr.value = value;
+    return ast;
+}
+
 EnactAst *enact_ast_new_assignment(char *name, EnactAst *value)
 {
     EnactAst *ast = enact_ast_alloc(AST_ASSIGN);
@@ -148,6 +161,11 @@ void enact_ast_free(EnactAst *ast)
         enact_ast_free(ast->as.conditional.condition);
         enact_ast_free(ast->as.conditional.if_true);
         enact_ast_free(ast->as.conditional.if_false);
+        break;
+    case AST_WHERE:
+        enact_ast_free(ast->as.where_expr.body);
+        free(ast->as.where_expr.name);
+        enact_ast_free(ast->as.where_expr.value);
         break;
     case AST_ASSIGN:
         free(ast->as.assignment.name);
