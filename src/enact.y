@@ -80,6 +80,18 @@ static EnactAst *enact_make_conditional(EnactAst *condition, EnactAst *if_true, 
 
     return ast;
 }
+
+static EnactAst *enact_make_assignment(char *name, EnactAst *value)
+{
+    EnactAst *ast = enact_ast_new_assignment(name, value);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
 %}
 
 %define parse.error verbose
@@ -95,8 +107,9 @@ static EnactAst *enact_make_conditional(EnactAst *condition, EnactAst *if_true, 
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
 %token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
+%token TOK_ASSIGN TOK_SEMI
 
-%type <ast> expr conditional logical_or logical_and logical_not comparison additive multiplicative unary primary
+%type <ast> expr sequence assignment conditional logical_or logical_and logical_not comparison additive multiplicative unary primary
 
 %destructor { enact_ast_free($$); } <ast>
 %destructor { free($$); } <text>
@@ -111,7 +124,37 @@ input:
     ;
 
 expr:
-    conditional
+    sequence
+    {
+        $$ = $1;
+    }
+    ;
+
+sequence:
+    sequence TOK_SEMI assignment
+    {
+        $$ = enact_make_binary(AST_SEQUENCE, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | assignment
+    {
+        $$ = $1;
+    }
+    ;
+
+assignment:
+    TOK_IDENTIFIER TOK_ASSIGN assignment
+    {
+        $$ = enact_make_assignment($1, $3);
+        if (!$$) {
+            free($1);
+            enact_ast_free($3);
+            YYABORT;
+        }
+    }
+    | conditional
     {
         $$ = $1;
     }

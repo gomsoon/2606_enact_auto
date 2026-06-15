@@ -142,6 +142,8 @@ def main() -> int:
         ("foo_bar123.", "TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
         ("trueValue.", "TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
         ("and_then.", "TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
+        ("x:=1.", "TOK_IDENTIFIER TOK_ASSIGN TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
+        ("x:=1; x.", "TOK_IDENTIFIER TOK_ASSIGN TOK_INT_LITERAL TOK_SEMI TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
         ("true and false.", "TOK_TRUE TOK_AND TOK_FALSE TOK_DOT TOK_EOF\n"),
         ("not false.", "TOK_NOT TOK_FALSE TOK_DOT TOK_EOF\n"),
         ("1 if true else 2.", "TOK_INT_LITERAL TOK_IF TOK_TRUE TOK_ELSE TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
@@ -212,6 +214,16 @@ def main() -> int:
         ("1 if true else false.", "1\n"),
         ("1 if false else false.", "false\n"),
         ("((true)).", "true\n"),
+        ("x:=1.", "1\n"),
+        ("x:=1; x.", "1\n"),
+        ("x:=1; x+2.", "3\n"),
+        ("x:=true; x and false.", "false\n"),
+        ("x:=1; x:=2; x.", "2\n"),
+        ("x:=1; y:=x+2; y.", "3\n"),
+        ("x:=1 if true else 2; x.", "1\n"),
+        ("(x:=1; x)+2.", "3\n"),
+        ("x:=y:=1; x+y.", "2\n"),
+        ("x:=1; y:=2; x<y.", "true\n"),
     ]
 
     failure_cases = [
@@ -279,6 +291,16 @@ def main() -> int:
         ("true+1.", "ENACT_ERR_TYPE_EXPECTED_INT"),
         ("1+false.", "ENACT_ERR_TYPE_EXPECTED_INT"),
         ("=.", "ENACT_ERR_LEX_BARE_EQUALS"),
+        ("x:=.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        (":=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("1:=2.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("x:=1;.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        (";x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("x; .", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("x:=true; x+1.", "ENACT_ERR_TYPE_EXPECTED_INT"),
+        ("x:=y.", "ENACT_ERR_NAME_UNBOUND"),
+        ("x+1; x:=2.", "ENACT_ERR_NAME_UNBOUND"),
+        ("x:=1; y.", "ENACT_ERR_NAME_UNBOUND"),
     ]
 
     token_failure_cases = [

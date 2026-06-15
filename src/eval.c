@@ -3,7 +3,7 @@
 
 #include "eval.h"
 
-static int enact_eval_value(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag);
+static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag);
 
 static int enact_checked_binary(const EnactAst *ast, int32_t left, int32_t right, int32_t *out, EnactDiag *diag)
 {
@@ -66,7 +66,7 @@ static int enact_require_bool(const EnactValue *value, bool *out, EnactDiag *dia
     return 1;
 }
 
-static int enact_eval_arithmetic_binary(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_arithmetic_binary(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left_value;
     EnactValue right_value;
@@ -94,7 +94,7 @@ static int enact_eval_arithmetic_binary(const EnactAst *ast, const EnactEnv *env
     return 1;
 }
 
-static int enact_eval_equality(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_equality(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left;
     EnactValue right;
@@ -128,7 +128,7 @@ static int enact_eval_equality(const EnactAst *ast, const EnactEnv *env, EnactVa
     return 1;
 }
 
-static int enact_eval_ordering(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_ordering(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left_value;
     EnactValue right_value;
@@ -171,7 +171,7 @@ static int enact_eval_ordering(const EnactAst *ast, const EnactEnv *env, EnactVa
     return 1;
 }
 
-static int enact_eval_and(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_and(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left;
     EnactValue right;
@@ -200,7 +200,7 @@ static int enact_eval_and(const EnactAst *ast, const EnactEnv *env, EnactValue *
     return 1;
 }
 
-static int enact_eval_or(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_or(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left;
     EnactValue right;
@@ -229,7 +229,7 @@ static int enact_eval_or(const EnactAst *ast, const EnactEnv *env, EnactValue *o
     return 1;
 }
 
-static int enact_eval_conditional(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_conditional(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue condition;
     bool condition_bool = false;
@@ -248,7 +248,34 @@ static int enact_eval_conditional(const EnactAst *ast, const EnactEnv *env, Enac
     return enact_eval_value(ast->as.conditional.if_false, env, out, diag);
 }
 
-static int enact_eval_value(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_assignment(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue value;
+
+    if (!enact_eval_value(ast->as.assignment.value, env, &value, diag)) {
+        return 0;
+    }
+    if (!enact_env_define(env, ast->as.assignment.name, value)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = value;
+    return 1;
+}
+
+static int enact_eval_sequence(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue ignored;
+
+    if (!enact_eval_value(ast->as.binary.left, env, &ignored, diag)) {
+        return 0;
+    }
+
+    return enact_eval_value(ast->as.binary.right, env, out, diag);
+}
+
+static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue child;
     int32_t int_value = 0;
@@ -322,6 +349,10 @@ static int enact_eval_value(const EnactAst *ast, const EnactEnv *env, EnactValue
         return enact_eval_or(ast, env, out, diag);
     case AST_IF_ELSE:
         return enact_eval_conditional(ast, env, out, diag);
+    case AST_ASSIGN:
+        return enact_eval_assignment(ast, env, out, diag);
+    case AST_SEQUENCE:
+        return enact_eval_sequence(ast, env, out, diag);
     }
 
     enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
@@ -339,7 +370,7 @@ int enact_eval_ast(const EnactAst *ast, EnactValue *value, EnactDiag *diag)
     return status;
 }
 
-int enact_eval_ast_with_env(const EnactAst *ast, const EnactEnv *env, EnactValue *value, EnactDiag *diag)
+int enact_eval_ast_with_env(const EnactAst *ast, EnactEnv *env, EnactValue *value, EnactDiag *diag)
 {
     if (!value) {
         enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);

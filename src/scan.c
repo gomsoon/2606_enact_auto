@@ -46,6 +46,10 @@ static const char *enact_token_name(int token)
         return "TOK_LTE";
     case TOK_GTE:
         return "TOK_GTE";
+    case TOK_ASSIGN:
+        return "TOK_ASSIGN";
+    case TOK_SEMI:
+        return "TOK_SEMI";
     case TOK_TRUE:
         return "TOK_TRUE";
     case TOK_FALSE:

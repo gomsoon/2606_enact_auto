@@ -21,7 +21,9 @@ typedef enum {
     AST_GTE,
     AST_AND,
     AST_OR,
-    AST_IF_ELSE
+    AST_IF_ELSE,
+    AST_ASSIGN,
+    AST_SEQUENCE
 } EnactAstKind;
 
 typedef struct EnactSourceSpan {
@@ -50,6 +52,10 @@ struct EnactAst {
             EnactAst *if_true;
             EnactAst *if_false;
         } conditional;
+        struct {
+            char *name;
+            EnactAst *value;
+        } assignment;
     } as;
 };
 
@@ -59,6 +65,7 @@ EnactAst *enact_ast_new_identifier(char *name);
 EnactAst *enact_ast_new_unary(EnactAstKind kind, EnactAst *child);
 EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *right);
 EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false);
+EnactAst *enact_ast_new_assignment(char *name, EnactAst *value);
 void enact_ast_free(EnactAst *ast);
 
 #endif

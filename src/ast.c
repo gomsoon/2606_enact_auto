@@ -84,6 +84,18 @@ EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, Enac
     return ast;
 }
 
+EnactAst *enact_ast_new_assignment(char *name, EnactAst *value)
+{
+    EnactAst *ast = enact_ast_alloc(AST_ASSIGN);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.assignment.name = name;
+    ast->as.assignment.value = value;
+    return ast;
+}
+
 void enact_ast_free(EnactAst *ast)
 {
     if (!ast) {
@@ -113,6 +125,7 @@ void enact_ast_free(EnactAst *ast)
     case AST_GTE:
     case AST_AND:
     case AST_OR:
+    case AST_SEQUENCE:
         enact_ast_free(ast->as.binary.left);
         enact_ast_free(ast->as.binary.right);
         break;
@@ -120,6 +133,10 @@ void enact_ast_free(EnactAst *ast)
         enact_ast_free(ast->as.conditional.condition);
         enact_ast_free(ast->as.conditional.if_true);
         enact_ast_free(ast->as.conditional.if_false);
+        break;
+    case AST_ASSIGN:
+        free(ast->as.assignment.name);
+        enact_ast_free(ast->as.assignment.value);
         break;
     }
 

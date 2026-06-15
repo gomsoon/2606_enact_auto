@@ -86,6 +86,8 @@ static void test_env_helpers(void)
     EnactAst *left;
     EnactAst *right;
     EnactAst *sum;
+    EnactAst *assignment;
+    EnactAst *sequence;
 
     enact_env_init(NULL);
     enact_env_free(NULL);
@@ -129,6 +131,30 @@ static void test_env_helpers(void)
     require_true(result.kind == ENACT_VALUE_INT, "identifier arithmetic result kind");
     require_true(result.as.as_int == 10, "identifier arithmetic result value");
     enact_ast_free(sum);
+
+    assignment = enact_ast_new_assignment(copy_test_name("z"), enact_ast_new_int(5));
+    require_true(assignment != NULL, "assignment ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(assignment, &env, &result, &diag), "assignment evaluates through env");
+    require_true(result.kind == ENACT_VALUE_INT, "assignment result kind");
+    require_true(result.as.as_int == 5, "assignment result value");
+    require_true(enact_env_lookup(&env, "z", &value), "assignment defines env binding");
+    require_true(value.kind == ENACT_VALUE_INT, "assignment env binding kind");
+    require_true(value.as.as_int == 5, "assignment env binding value");
+    enact_ast_free(assignment);
+
+    left = enact_ast_new_assignment(copy_test_name("a"), enact_ast_new_int(1));
+    right = enact_ast_new_binary(
+        AST_ADD,
+        enact_ast_new_identifier(copy_test_name("a")),
+        enact_ast_new_int(2));
+    sequence = enact_ast_new_binary(AST_SEQUENCE, left, right);
+    require_true(left != NULL && right != NULL && sequence != NULL, "sequence ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(sequence, &env, &result, &diag), "sequence evaluates left then right");
+    require_true(result.kind == ENACT_VALUE_INT, "sequence result kind");
+    require_true(result.as.as_int == 3, "sequence result value");
+    enact_ast_free(sequence);
 
     identifier = enact_ast_new_identifier(copy_test_name("missing"));
     require_true(identifier != NULL, "missing identifier ast created");
