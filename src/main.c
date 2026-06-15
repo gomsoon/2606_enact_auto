@@ -175,6 +175,9 @@ static void enact_print_value_inner(FILE *stream, const EnactValue *value)
     case ENACT_VALUE_LIST:
         enact_print_list_inner(stream, value->as.as_list);
         break;
+    case ENACT_VALUE_BUILTIN:
+        fputs("<function>", stream);
+        break;
     }
 }
 

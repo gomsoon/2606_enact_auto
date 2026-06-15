@@ -5,6 +5,7 @@
 
 #include "api.h"
 #include "ast.h"
+#include "builtin.h"
 #include "diag.h"
 #include "env.h"
 #include "eval.h"
@@ -98,6 +99,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "ENACT_ERR_TYPE_EXPECTED_FUNCTION") == 0, "error code expected function");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_LIST), "ENACT_ERR_TYPE_EXPECTED_LIST") == 0, "error code expected list");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "ENACT_ERR_TYPE_EQUALITY_MISMATCH") == 0, "error code equality mismatch");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_LIST_EMPTY), "ENACT_ERR_LIST_EMPTY") == 0, "error code list empty");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ARITY_MISMATCH), "ENACT_ERR_ARITY_MISMATCH") == 0, "error code arity mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_NAME_UNBOUND), "ENACT_ERR_NAME_UNBOUND") == 0, "error code unbound name");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_OUT_OF_MEMORY), "ENACT_ERR_OUT_OF_MEMORY") == 0, "error code oom");
@@ -111,6 +113,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "function value required") == 0, "error message expected function");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_LIST), "list value required") == 0, "error message expected list");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "cannot compare values of different kinds") == 0, "error message equality mismatch");
+    require_true(strcmp(enact_error_message(ENACT_ERR_LIST_EMPTY), "non-empty list required") == 0, "error message list empty");
     require_true(strcmp(enact_error_message(ENACT_ERR_ARITY_MISMATCH), "function arity mismatch") == 0, "error message arity mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_NAME_UNBOUND), "unbound identifier") == 0, "error message unbound name");
     require_true(strcmp(enact_error_message(ENACT_ERR_OUT_OF_MEMORY), "out of memory") == 0, "error message oom");
@@ -274,6 +277,99 @@ static void test_value_helpers(void)
     require_true(!enact_value_copy(NULL, &int_value), "value copy null out fails");
     require_true(!enact_value_copy(&string_copy, NULL), "value copy null in fails");
     enact_value_free(NULL);
+}
+
+static void test_builtin_helpers(void)
+{
+    const EnactBuiltin *hd = enact_builtin_lookup("hd");
+    const EnactBuiltin *tl = enact_builtin_lookup("tl");
+    EnactValue builtin_value;
+    EnactValue builtin_copy;
+    EnactValue lookup_value;
+    EnactValue head;
+    EnactValue args[1];
+    EnactValue result;
+    EnactList *list;
+    EnactDiag diag;
+    EnactEnv env;
+    EnactAst *call;
+    bool values_equal = false;
+
+    require_true(hd != NULL, "hd builtin lookup succeeds");
+    require_true(tl != NULL, "tl builtin lookup succeeds");
+    require_true(enact_builtin_lookup("missing") == NULL, "missing builtin lookup fails");
+    require_true(enact_builtin_lookup(NULL) == NULL, "null builtin lookup fails");
+    require_true(strcmp(enact_builtin_name(hd), "hd") == 0, "hd builtin name");
+    require_true(strcmp(enact_builtin_name(NULL), "") == 0, "null builtin name");
+    require_true(enact_builtin_arity(hd) == 1, "hd builtin arity");
+    require_true(enact_builtin_arity(NULL) == 0, "null builtin arity");
+
+    builtin_value = enact_value_make_builtin(hd);
+    require_true(builtin_value.kind == ENACT_VALUE_BUILTIN, "builtin value kind");
+    require_true(enact_value_copy(&builtin_copy, &builtin_value), "builtin value copy succeeds");
+    require_true(builtin_copy.kind == ENACT_VALUE_BUILTIN, "builtin copy kind");
+    require_true(builtin_copy.as.as_builtin == builtin_value.as.as_builtin, "builtin copy payload");
+    require_true(enact_value_equal(&builtin_value, &builtin_copy, &values_equal), "builtin equality succeeds");
+    require_true(values_equal, "builtin equality true");
+    enact_value_free(&builtin_copy);
+    builtin_value = enact_value_make_builtin(NULL);
+    require_true(!enact_value_copy(&builtin_copy, &builtin_value), "null builtin copy fails");
+
+    head = enact_value_make_int(11);
+    list = enact_list_cons(&head, NULL);
+    require_true(list != NULL, "builtin test list created");
+    args[0] = enact_value_make_list(list);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(hd, args, 1, &result, &diag), "hd builtin apply succeeds");
+    require_true(result.kind == ENACT_VALUE_INT, "hd builtin result kind");
+    require_true(result.as.as_int == 11, "hd builtin result value");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(tl, args, 1, &result, &diag), "tl builtin apply succeeds");
+    require_true(result.kind == ENACT_VALUE_LIST, "tl builtin result kind");
+    require_true(result.as.as_list == NULL, "tl builtin singleton tail is nil");
+    enact_value_free(&result);
+    enact_value_free(&args[0]);
+
+    args[0] = enact_value_make_list(NULL);
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(hd, args, 1, &result, &diag), "hd nil fails");
+    require_true(diag.code == ENACT_ERR_LIST_EMPTY, "hd nil error code");
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(tl, args, 1, &result, &diag), "tl nil fails");
+    require_true(diag.code == ENACT_ERR_LIST_EMPTY, "tl nil error code");
+
+    args[0] = enact_value_make_bool(true);
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(hd, args, 1, &result, &diag), "hd non-list fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_LIST, "hd non-list error code");
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(hd, NULL, 0, &result, &diag), "hd arity mismatch fails");
+    require_true(diag.code == ENACT_ERR_ARITY_MISMATCH, "hd arity mismatch code");
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(NULL, args, 1, &result, &diag), "null builtin apply fails");
+    require_true(diag.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "null builtin apply code");
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(hd, args, 1, NULL, &diag), "null builtin output fails");
+    require_true(diag.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "null builtin output code");
+
+    enact_env_init(&env);
+    require_true(enact_install_builtins(&env), "install builtins succeeds");
+    require_true(enact_env_lookup(&env, "hd", &lookup_value), "lookup installed hd");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed hd value kind");
+    enact_value_free(&lookup_value);
+    require_true(!enact_install_builtins(NULL), "install builtins null env fails");
+
+    call = enact_ast_new_call(
+        enact_ast_new_identifier(copy_test_name("hd")),
+        make_test_ast_list1(enact_ast_new_binary(AST_CONS, enact_ast_new_int(12), enact_ast_new_nil())));
+    require_true(call != NULL, "builtin ast call created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(call, &env, &result, &diag), "builtin ast call evaluates");
+    require_true(result.kind == ENACT_VALUE_INT, "builtin ast call result kind");
+    require_true(result.as.as_int == 12, "builtin ast call result value");
+    enact_ast_free(call);
+    enact_env_free(&env);
 }
 
 static void test_env_helpers(void)
@@ -836,6 +932,7 @@ int main(void)
 {
     test_diag_helpers();
     test_value_helpers();
+    test_builtin_helpers();
     test_env_helpers();
     test_ast_clone_helpers();
     test_parser_state_helpers();

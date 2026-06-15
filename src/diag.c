@@ -33,6 +33,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_TYPE_EXPECTED_LIST";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:
         return "ENACT_ERR_TYPE_EQUALITY_MISMATCH";
+    case ENACT_ERR_LIST_EMPTY:
+        return "ENACT_ERR_LIST_EMPTY";
     case ENACT_ERR_ARITY_MISMATCH:
         return "ENACT_ERR_ARITY_MISMATCH";
     case ENACT_ERR_NAME_UNBOUND:
@@ -77,6 +79,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "list value required";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:
         return "cannot compare values of different kinds";
+    case ENACT_ERR_LIST_EMPTY:
+        return "non-empty list required";
     case ENACT_ERR_ARITY_MISMATCH:
         return "function arity mismatch";
     case ENACT_ERR_NAME_UNBOUND:

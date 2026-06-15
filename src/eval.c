@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "builtin.h"
 #include "eval.h"
 #include "function.h"
 
@@ -76,17 +77,6 @@ static int enact_require_bool(const EnactValue *value, bool *out, EnactDiag *dia
     }
 
     *out = value->as.as_bool;
-    return 1;
-}
-
-static int enact_require_function(const EnactValue *value, EnactFunction **out, EnactDiag *diag)
-{
-    if (value->kind != ENACT_VALUE_FUNCTION) {
-        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
-        return 0;
-    }
-
-    *out = value->as.as_function;
     return 1;
 }
 
@@ -437,6 +427,7 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
 {
     EnactValue callee;
     EnactValue *arguments = NULL;
+    const EnactBuiltin *builtin = NULL;
     EnactFunction *function = NULL;
     EnactFunction *partial = NULL;
     EnactEnv local;
@@ -448,16 +439,27 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
     if (!enact_eval_value(ast->as.call.callee, env, &callee, diag)) {
         return 0;
     }
-    if (!enact_require_function(&callee, &function, diag)) {
-        enact_value_free(&callee);
-        return 0;
-    }
 
     argument_count = enact_ast_list_count(ast->as.call.arguments);
-    arity = enact_function_arity(function);
-    if (argument_count == 0 || argument_count > arity) {
+    if (callee.kind == ENACT_VALUE_FUNCTION) {
+        function = callee.as.as_function;
+        arity = enact_function_arity(function);
+        if (argument_count == 0 || argument_count > arity) {
+            enact_value_free(&callee);
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+    } else if (callee.kind == ENACT_VALUE_BUILTIN) {
+        builtin = callee.as.as_builtin;
+        arity = enact_builtin_arity(builtin);
+        if (argument_count != arity) {
+            enact_value_free(&callee);
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+    } else {
         enact_value_free(&callee);
-        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
         return 0;
     }
 
@@ -474,6 +476,13 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
             enact_value_free(&callee);
             return 0;
         }
+    }
+
+    if (callee.kind == ENACT_VALUE_BUILTIN) {
+        status = enact_builtin_apply(builtin, arguments, argument_count, out, diag);
+        enact_free_value_array(arguments, argument_count);
+        enact_value_free(&callee);
+        return status;
     }
 
     if (argument_count < arity) {
@@ -631,7 +640,17 @@ int enact_eval_ast(const EnactAst *ast, EnactValue *value, EnactDiag *diag)
     EnactEnv env;
     int status;
 
+    if (!ast || !value) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
     enact_env_init(&env);
+    if (!enact_install_builtins(&env)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        enact_env_free(&env);
+        return 0;
+    }
     status = enact_eval_ast_with_env(ast, &env, value, diag);
     enact_env_free(&env);
     return status;

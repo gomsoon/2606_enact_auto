@@ -134,6 +134,9 @@ int enact_value_equal(const EnactValue *left, const EnactValue *right, bool *out
         return 1;
     case ENACT_VALUE_LIST:
         return enact_list_equal(left->as.as_list, right->as.as_list, out);
+    case ENACT_VALUE_BUILTIN:
+        *out = left->as.as_builtin == right->as.as_builtin;
+        return 1;
     }
 
     return 0;
@@ -162,6 +165,12 @@ int enact_value_copy(EnactValue *out, const EnactValue *in)
         out->kind = ENACT_VALUE_LIST;
         out->as.as_list = enact_list_retain(in->as.as_list);
         return in->as.as_list == NULL || out->as.as_list != NULL;
+    case ENACT_VALUE_BUILTIN:
+        if (!in->as.as_builtin) {
+            return 0;
+        }
+        *out = *in;
+        return 1;
     }
 
     return 0;
