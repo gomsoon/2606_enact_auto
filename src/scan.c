@@ -31,6 +31,22 @@ static const char *enact_token_name(int token)
         return "TOK_STAR";
     case TOK_SLASH:
         return "TOK_SLASH";
+    case TOK_EQEQ:
+        return "TOK_EQEQ";
+    case TOK_TRUE:
+        return "TOK_TRUE";
+    case TOK_FALSE:
+        return "TOK_FALSE";
+    case TOK_NOT:
+        return "TOK_NOT";
+    case TOK_AND:
+        return "TOK_AND";
+    case TOK_OR:
+        return "TOK_OR";
+    case TOK_IF:
+        return "TOK_IF";
+    case TOK_ELSE:
+        return "TOK_ELSE";
     case TOK_LPAREN:
         return "TOK_LPAREN";
     case TOK_RPAREN:

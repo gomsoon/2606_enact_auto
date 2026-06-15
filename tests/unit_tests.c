@@ -28,10 +28,18 @@ static void test_diag_helpers(void)
     require_true(diag.code == ENACT_OK, "diag reset sets OK");
     require_true(strcmp(enact_error_code_name(ENACT_OK), "ENACT_OK") == 0, "error code ok");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LEX_BAD_INTEGER), "ENACT_ERR_LEX_BAD_INTEGER") == 0, "error code bad integer");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_LEX_BARE_EQUALS), "ENACT_ERR_LEX_BARE_EQUALS") == 0, "error code bare equals");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_BOOL), "ENACT_ERR_TYPE_EXPECTED_BOOL") == 0, "error code expected bool");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_INT), "ENACT_ERR_TYPE_EXPECTED_INT") == 0, "error code expected int");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "ENACT_ERR_TYPE_EQUALITY_MISMATCH") == 0, "error code equality mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_OUT_OF_MEMORY), "ENACT_ERR_OUT_OF_MEMORY") == 0, "error code oom");
     require_true(strcmp(enact_error_code_name((EnactErrorCode)999), "ENACT_ERR_UNKNOWN") == 0, "error code unknown");
     require_true(strcmp(enact_error_message(ENACT_OK), "ok") == 0, "error message ok");
     require_true(strcmp(enact_error_message(ENACT_ERR_LEX_BAD_INTEGER), "invalid integer literal") == 0, "error message bad integer");
+    require_true(strcmp(enact_error_message(ENACT_ERR_LEX_BARE_EQUALS), "bare '=' is not supported; use '=='") == 0, "error message bare equals");
+    require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_BOOL), "boolean value required") == 0, "error message expected bool");
+    require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_INT), "integer value required") == 0, "error message expected int");
+    require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "cannot compare values of different kinds") == 0, "error message equality mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_OUT_OF_MEMORY), "out of memory") == 0, "error message oom");
     require_true(strcmp(enact_error_message((EnactErrorCode)999), "unknown error") == 0, "error message unknown");
     enact_diag_set(NULL, ENACT_ERR_INT_OVERFLOW, 1);
@@ -39,6 +47,17 @@ static void test_diag_helpers(void)
     enact_diag_set(&diag, ENACT_ERR_DIVIDE_BY_ZERO, 6);
     require_true(diag.code == ENACT_ERR_INT_OVERFLOW, "diag set once");
     require_true(diag.offset == 5, "diag offset set");
+}
+
+static void test_value_helpers(void)
+{
+    EnactValue int_value = enact_value_make_int(-12);
+    EnactValue bool_value = enact_value_make_bool(true);
+
+    require_true(int_value.kind == ENACT_VALUE_INT, "int value kind");
+    require_true(int_value.as.as_int == -12, "int value payload");
+    require_true(bool_value.kind == ENACT_VALUE_BOOL, "bool value kind");
+    require_true(bool_value.as.as_bool, "bool value payload");
 }
 
 static void test_parser_state_helpers(void)
@@ -67,6 +86,18 @@ static void test_eval_edge_cases(void)
     EnactAst bogus = {0};
     EnactAst int_node = {0};
     EnactAst unary_node = {0};
+    EnactAst int_one = {0};
+    EnactAst int_zero = {0};
+    EnactAst int_seven = {0};
+    EnactAst bool_true = {0};
+    EnactAst bool_false = {0};
+    EnactAst eq_node = {0};
+    EnactAst add_node = {0};
+    EnactAst div_node = {0};
+    EnactAst and_node = {0};
+    EnactAst or_node = {0};
+    EnactAst not_node = {0};
+    EnactAst conditional_node = {0};
 
     enact_diag_reset(&diag);
     require_true(!enact_eval_ast(NULL, &value, &diag), "null ast fails");
@@ -91,7 +122,68 @@ static void test_eval_edge_cases(void)
     unary_node.as.unary.child = &int_node;
     enact_diag_reset(&diag);
     require_true(enact_eval_ast(&unary_node, &value, &diag), "int32 min unary case succeeds");
-    require_true(value.as_int == INT32_MIN, "int32 min value");
+    require_true(value.kind == ENACT_VALUE_INT, "int32 min kind");
+    require_true(value.as.as_int == INT32_MIN, "int32 min value");
+
+    int_one.kind = AST_INT_LITERAL;
+    int_one.as.int_magnitude = 1;
+    int_zero.kind = AST_INT_LITERAL;
+    int_zero.as.int_magnitude = 0;
+    int_seven.kind = AST_INT_LITERAL;
+    int_seven.as.int_magnitude = 7;
+    bool_true.kind = AST_BOOL_LITERAL;
+    bool_true.as.bool_value = 1;
+    bool_false.kind = AST_BOOL_LITERAL;
+    bool_false.as.bool_value = 0;
+
+    eq_node.kind = AST_EQ;
+    eq_node.as.binary.left = &bool_true;
+    eq_node.as.binary.right = &int_one;
+    enact_diag_reset(&diag);
+    require_true(!enact_eval_ast(&eq_node, &value, &diag), "equality mismatch fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EQUALITY_MISMATCH, "equality mismatch code");
+
+    not_node.kind = AST_NOT;
+    not_node.as.unary.child = &int_one;
+    enact_diag_reset(&diag);
+    require_true(!enact_eval_ast(&not_node, &value, &diag), "not int fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_BOOL, "not int code");
+
+    add_node.kind = AST_ADD;
+    add_node.as.binary.left = &bool_true;
+    add_node.as.binary.right = &int_one;
+    enact_diag_reset(&diag);
+    require_true(!enact_eval_ast(&add_node, &value, &diag), "bool arithmetic fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_INT, "bool arithmetic code");
+
+    div_node.kind = AST_DIV;
+    div_node.as.binary.left = &int_one;
+    div_node.as.binary.right = &int_zero;
+
+    and_node.kind = AST_AND;
+    and_node.as.binary.left = &bool_false;
+    and_node.as.binary.right = &div_node;
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&and_node, &value, &diag), "and short-circuits false");
+    require_true(value.kind == ENACT_VALUE_BOOL, "and short-circuit kind");
+    require_true(!value.as.as_bool, "and short-circuit value");
+
+    or_node.kind = AST_OR;
+    or_node.as.binary.left = &bool_true;
+    or_node.as.binary.right = &div_node;
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&or_node, &value, &diag), "or short-circuits true");
+    require_true(value.kind == ENACT_VALUE_BOOL, "or short-circuit kind");
+    require_true(value.as.as_bool, "or short-circuit value");
+
+    conditional_node.kind = AST_IF_ELSE;
+    conditional_node.as.conditional.condition = &bool_true;
+    conditional_node.as.conditional.if_true = &int_seven;
+    conditional_node.as.conditional.if_false = &div_node;
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&conditional_node, &value, &diag), "conditional skips false branch");
+    require_true(value.kind == ENACT_VALUE_INT, "conditional selected kind");
+    require_true(value.as.as_int == 7, "conditional selected value");
 }
 
 static void test_api_and_scan_helpers(void)
@@ -144,6 +236,7 @@ static void test_api_and_scan_helpers(void)
 int main(void)
 {
     test_diag_helpers();
+    test_value_helpers();
     test_parser_state_helpers();
     test_eval_edge_cases();
     test_api_and_scan_helpers();

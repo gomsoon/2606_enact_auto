@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "api.h"
 
@@ -43,6 +44,45 @@ static char *enact_read_all(FILE *stream)
     return buffer;
 }
 
+static char *enact_read_line(FILE *stream)
+{
+    size_t capacity = 128;
+    size_t length = 0;
+    char *buffer = malloc(capacity);
+    int ch;
+
+    if (!buffer) {
+        return NULL;
+    }
+
+    while ((ch = fgetc(stream)) != EOF) {
+        char *grown;
+
+        if (length + 1 >= capacity) {
+            capacity *= 2;
+            grown = realloc(buffer, capacity);
+            if (!grown) {
+                free(buffer);
+                return NULL;
+            }
+            buffer = grown;
+        }
+
+        buffer[length++] = (char)ch;
+        if (ch == '\n') {
+            break;
+        }
+    }
+
+    if (length == 0) {
+        free(buffer);
+        return NULL;
+    }
+
+    buffer[length] = '\0';
+    return buffer;
+}
+
 static void enact_print_diag(FILE *stream, const EnactDiag *diag)
 {
     if (!diag) {
@@ -62,22 +102,26 @@ static void enact_print_diag(FILE *stream, const EnactDiag *diag)
     }
 }
 
-int main(int argc, char **argv)
+static void enact_print_value(FILE *stream, const EnactValue *value)
 {
-    char *source = enact_read_all(stdin);
-
-    if (!source) {
-        fputs("failed to read input\n", stderr);
-        return 2;
+    switch (value->kind) {
+    case ENACT_VALUE_INT:
+        fprintf(stream, "%d\n", value->as.as_int);
+        break;
+    case ENACT_VALUE_BOOL:
+        fprintf(stream, "%s\n", value->as.as_bool ? "true" : "false");
+        break;
     }
+}
 
-    if (argc > 1 && strcmp(argv[1], "--tokens") == 0) {
+static int enact_run_source(const char *source, int token_mode)
+{
+    if (token_mode) {
         EnactDiag diag;
         int status;
 
         enact_diag_reset(&diag);
         status = enact_dump_tokens_text(source, stdout, &diag);
-        free(source);
         if (status != 0) {
             enact_print_diag(stderr, &diag);
             return 1;
@@ -88,15 +132,59 @@ int main(int argc, char **argv)
     {
         EnactResult result = enact_eval_text(source);
 
-        free(source);
         if (!result.ok) {
             enact_print_diag(stderr, &result.error);
             enact_result_free(&result);
             return 1;
         }
 
-        printf("%d\n", result.value.as_int);
+        enact_print_value(stdout, &result.value);
         enact_result_free(&result);
         return 0;
     }
+}
+
+static int enact_run_lines(int token_mode)
+{
+    int exit_status = 0;
+
+    for (;;) {
+        char *source = enact_read_line(stdin);
+        int status;
+
+        if (!source) {
+            if (ferror(stdin)) {
+                fputs("failed to read input\n", stderr);
+                return 2;
+            }
+            return exit_status;
+        }
+
+        status = enact_run_source(source, token_mode);
+        free(source);
+        if (status != 0) {
+            exit_status = status;
+        }
+    }
+}
+
+int main(int argc, char **argv)
+{
+    int token_mode = argc > 1 && strcmp(argv[1], "--tokens") == 0;
+    char *source;
+    int status;
+
+    if (isatty(STDIN_FILENO)) {
+        return enact_run_lines(token_mode);
+    }
+
+    source = enact_read_all(stdin);
+    if (!source) {
+        fputs("failed to read input\n", stderr);
+        return 2;
+    }
+
+    status = enact_run_source(source, token_mode);
+    free(source);
+    return status;
 }

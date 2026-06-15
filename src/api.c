@@ -43,7 +43,7 @@ static void enact_fill_parse_error(EnactParseContext *context, const EnactScanne
         return;
     }
 
-    if (!state->saw_dot) {
+    if (!state->saw_dot && state->last_token == 0) {
         enact_diag_set(&context->diag, ENACT_ERR_PARSE_MISSING_DOT, (int)state->offset);
         return;
     }
@@ -100,8 +100,7 @@ EnactResult enact_eval_text(const char *source)
     } else {
         result.ok = false;
         result.error = context.diag;
-        result.value.kind = ENACT_VALUE_INT;
-        result.value.as_int = 0;
+        result.value = enact_value_make_int(0);
     }
 
     enact_ast_free(context.root);

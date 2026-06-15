@@ -45,6 +45,24 @@ DIGITS [0-9]+
 [ \t\r\n]+                ;
 %[^\n]*                   ;
 
+"true" { return enact_emit_simple_token(TOK_TRUE, 0); }
+"false" { return enact_emit_simple_token(TOK_FALSE, 0); }
+"not" { return enact_emit_simple_token(TOK_NOT, 1); }
+"and" { return enact_emit_simple_token(TOK_AND, 1); }
+"or" { return enact_emit_simple_token(TOK_OR, 1); }
+"if" { return enact_emit_simple_token(TOK_IF, 1); }
+"else" { return enact_emit_simple_token(TOK_ELSE, 1); }
+"==" { return enact_emit_simple_token(TOK_EQEQ, 1); }
+"=" {
+    EnactParseContext *context = enact_get_parse_context();
+    EnactScannerState *state = enact_get_scanner_state();
+
+    if (context) {
+        enact_diag_set(&context->diag, ENACT_ERR_LEX_BARE_EQUALS, enact_current_offset_or_unknown(state));
+    }
+    return TOK_ERROR;
+}
+
 {DIGITS} {
     EnactScannerState *state = enact_get_scanner_state();
     EnactParseContext *context = enact_get_parse_context();
@@ -106,6 +124,12 @@ DIGITS [0-9]+
     return TOK_ERROR;
 }
 
-<<EOF>> { return 0; }
+<<EOF>> {
+    EnactScannerState *state = enact_get_scanner_state();
+    if (state) {
+        state->last_token = 0;
+    }
+    return 0;
+}
 
 %%

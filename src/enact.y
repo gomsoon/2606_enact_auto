@@ -20,6 +20,18 @@ static EnactAst *enact_make_int(uint64_t magnitude)
     return ast;
 }
 
+static EnactAst *enact_make_bool(int value)
+{
+    EnactAst *ast = enact_ast_new_bool(value);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_unary(EnactAstKind kind, EnactAst *child)
 {
     EnactAst *ast = enact_ast_new_unary(kind, child);
@@ -43,6 +55,18 @@ static EnactAst *enact_make_binary(EnactAstKind kind, EnactAst *left, EnactAst *
 
     return ast;
 }
+
+static EnactAst *enact_make_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false)
+{
+    EnactAst *ast = enact_ast_new_conditional(condition, if_true, if_false);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
 %}
 
 %define parse.error verbose
@@ -54,8 +78,9 @@ static EnactAst *enact_make_binary(EnactAstKind kind, EnactAst *left, EnactAst *
 
 %token <u64> TOK_INT_LITERAL
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
+%token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
 
-%type <ast> expr additive multiplicative unary primary
+%type <ast> expr conditional logical_or logical_and logical_not equality additive multiplicative unary primary
 
 %destructor { enact_ast_free($$); } <ast>
 
@@ -69,9 +94,79 @@ input:
     ;
 
 expr:
+    conditional
+    {
+        $$ = $1;
+    }
+    ;
+
+conditional:
+    logical_or
+    {
+        $$ = $1;
+    }
+    | logical_or TOK_IF logical_or TOK_ELSE conditional
+    {
+        $$ = enact_make_conditional($3, $1, $5);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    ;
+
+logical_or:
+    logical_or TOK_OR logical_and
+    {
+        $$ = enact_make_binary(AST_OR, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | logical_and
+    {
+        $$ = $1;
+    }
+    ;
+
+logical_and:
+    logical_and TOK_AND logical_not
+    {
+        $$ = enact_make_binary(AST_AND, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | logical_not
+    {
+        $$ = $1;
+    }
+    ;
+
+logical_not:
+    TOK_NOT logical_not
+    {
+        $$ = enact_make_unary(AST_NOT, $2);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | equality
+    {
+        $$ = $1;
+    }
+    ;
+
+equality:
     additive
     {
         $$ = $1;
+    }
+    | additive TOK_EQEQ additive
+    {
+        $$ = enact_make_binary(AST_EQ, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
     }
     ;
 
@@ -139,6 +234,20 @@ primary:
             YYABORT;
         }
     }
+    | TOK_TRUE
+    {
+        $$ = enact_make_bool(1);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_FALSE
+    {
+        $$ = enact_make_bool(0);
+        if (!$$) {
+            YYABORT;
+        }
+    }
     | TOK_LPAREN expr TOK_RPAREN
     {
         $$ = $2;
@@ -163,7 +272,7 @@ static void yyerror(const char *message)
         return;
     }
 
-    if (state && !state->saw_dot) {
+    if (state && !state->saw_dot && state->last_token == 0) {
         enact_diag_set(&context->diag, ENACT_ERR_PARSE_MISSING_DOT, (int)state->offset);
         return;
     }
