@@ -37,6 +37,17 @@ EnactAst *enact_ast_new_bool(int bool_value)
     return ast;
 }
 
+EnactAst *enact_ast_new_string(char *value)
+{
+    EnactAst *ast = enact_ast_alloc(AST_STRING_LITERAL);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.string_value = value;
+    return ast;
+}
+
 EnactAst *enact_ast_new_identifier(char *name)
 {
     EnactAst *ast = enact_ast_alloc(AST_IDENTIFIER);
@@ -106,6 +117,9 @@ void enact_ast_free(EnactAst *ast)
     case AST_INT_LITERAL:
     case AST_BOOL_LITERAL:
         break;
+    case AST_STRING_LITERAL:
+        free(ast->as.string_value);
+        break;
     case AST_IDENTIFIER:
         free(ast->as.identifier_name);
         break;
@@ -117,6 +131,7 @@ void enact_ast_free(EnactAst *ast)
     case AST_SUB:
     case AST_MUL:
     case AST_DIV:
+    case AST_MOD:
     case AST_EQ:
     case AST_NEQ:
     case AST_LT:

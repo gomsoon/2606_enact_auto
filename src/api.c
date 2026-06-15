@@ -109,5 +109,10 @@ EnactResult enact_eval_text(const char *source)
 
 void enact_result_free(EnactResult *result)
 {
-    (void)result;
+    if (!result || !result->ok) {
+        return;
+    }
+
+    enact_value_free(&result->value);
+    result->ok = false;
 }

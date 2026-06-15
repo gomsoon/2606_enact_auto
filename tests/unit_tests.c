@@ -42,6 +42,7 @@ static void test_diag_helpers(void)
     require_true(diag.code == ENACT_OK, "diag reset sets OK");
     require_true(strcmp(enact_error_code_name(ENACT_OK), "ENACT_OK") == 0, "error code ok");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LEX_BAD_INTEGER), "ENACT_ERR_LEX_BAD_INTEGER") == 0, "error code bad integer");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_LEX_BAD_STRING), "ENACT_ERR_LEX_BAD_STRING") == 0, "error code bad string");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LEX_BARE_EQUALS), "ENACT_ERR_LEX_BARE_EQUALS") == 0, "error code bare equals");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_BOOL), "ENACT_ERR_TYPE_EXPECTED_BOOL") == 0, "error code expected bool");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_INT), "ENACT_ERR_TYPE_EXPECTED_INT") == 0, "error code expected int");
@@ -51,6 +52,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name((EnactErrorCode)999), "ENACT_ERR_UNKNOWN") == 0, "error code unknown");
     require_true(strcmp(enact_error_message(ENACT_OK), "ok") == 0, "error message ok");
     require_true(strcmp(enact_error_message(ENACT_ERR_LEX_BAD_INTEGER), "invalid integer literal") == 0, "error message bad integer");
+    require_true(strcmp(enact_error_message(ENACT_ERR_LEX_BAD_STRING), "invalid string literal") == 0, "error message bad string");
     require_true(strcmp(enact_error_message(ENACT_ERR_LEX_BARE_EQUALS), "bare '=' is not supported; use '=='") == 0, "error message bare equals");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_BOOL), "boolean value required") == 0, "error message expected bool");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_INT), "integer value required") == 0, "error message expected int");
@@ -69,11 +71,25 @@ static void test_value_helpers(void)
 {
     EnactValue int_value = enact_value_make_int(-12);
     EnactValue bool_value = enact_value_make_bool(true);
+    EnactValue string_value = enact_value_make_string(copy_test_name("hello"));
+    EnactValue string_copy;
 
     require_true(int_value.kind == ENACT_VALUE_INT, "int value kind");
     require_true(int_value.as.as_int == -12, "int value payload");
     require_true(bool_value.kind == ENACT_VALUE_BOOL, "bool value kind");
     require_true(bool_value.as.as_bool, "bool value payload");
+    require_true(string_value.kind == ENACT_VALUE_STRING, "string value kind");
+    require_true(string_value.as.as_string != NULL, "string value payload allocated");
+    require_true(strcmp(string_value.as.as_string, "hello") == 0, "string value payload");
+    require_true(enact_value_copy(&string_copy, &string_value), "string value copy succeeds");
+    require_true(string_copy.kind == ENACT_VALUE_STRING, "string copy kind");
+    require_true(strcmp(string_copy.as.as_string, "hello") == 0, "string copy payload");
+    require_true(string_copy.as.as_string != string_value.as.as_string, "string copy is deep");
+    enact_value_free(&string_copy);
+    enact_value_free(&string_value);
+    require_true(!enact_value_copy(NULL, &int_value), "value copy null out fails");
+    require_true(!enact_value_copy(&string_copy, NULL), "value copy null in fails");
+    enact_value_free(NULL);
 }
 
 static void test_env_helpers(void)
@@ -88,6 +104,7 @@ static void test_env_helpers(void)
     EnactAst *sum;
     EnactAst *assignment;
     EnactAst *sequence;
+    EnactValue string_binding;
 
     enact_env_init(NULL);
     enact_env_free(NULL);
@@ -109,6 +126,14 @@ static void test_env_helpers(void)
     require_true(enact_env_lookup(&env, "flag", &value), "lookup bool binding");
     require_true(value.kind == ENACT_VALUE_BOOL, "lookup bool kind");
     require_true(value.as.as_bool, "lookup bool value");
+
+    string_binding = enact_value_make_string(copy_test_name("text"));
+    require_true(enact_env_define(&env, "s", string_binding), "define string binding");
+    enact_value_free(&string_binding);
+    require_true(enact_env_lookup(&env, "s", &value), "lookup string binding");
+    require_true(value.kind == ENACT_VALUE_STRING, "lookup string kind");
+    require_true(strcmp(value.as.as_string, "text") == 0, "lookup string value");
+    enact_value_free(&value);
 
     require_true(enact_env_define(&env, "x", enact_value_make_int(9)), "redefine int binding");
     require_true(enact_env_lookup(&env, "x", &value), "lookup redefined int binding");
@@ -197,11 +222,13 @@ static void test_eval_edge_cases(void)
     EnactAst int_seven = {0};
     EnactAst bool_true = {0};
     EnactAst bool_false = {0};
+    EnactAst string_node = {0};
     EnactAst eq_node = {0};
     EnactAst neq_node = {0};
     EnactAst lt_node = {0};
     EnactAst add_node = {0};
     EnactAst div_node = {0};
+    EnactAst mod_node = {0};
     EnactAst and_node = {0};
     EnactAst or_node = {0};
     EnactAst not_node = {0};
@@ -243,6 +270,8 @@ static void test_eval_edge_cases(void)
     bool_true.as.bool_value = 1;
     bool_false.kind = AST_BOOL_LITERAL;
     bool_false.as.bool_value = 0;
+    string_node.kind = AST_STRING_LITERAL;
+    string_node.as.string_value = "unit";
 
     eq_node.kind = AST_EQ;
     eq_node.as.binary.left = &bool_true;
@@ -250,6 +279,13 @@ static void test_eval_edge_cases(void)
     enact_diag_reset(&diag);
     require_true(!enact_eval_ast(&eq_node, &value, &diag), "equality mismatch fails");
     require_true(diag.code == ENACT_ERR_TYPE_EQUALITY_MISMATCH, "equality mismatch code");
+
+    eq_node.as.binary.left = &string_node;
+    eq_node.as.binary.right = &string_node;
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&eq_node, &value, &diag), "string equality succeeds");
+    require_true(value.kind == ENACT_VALUE_BOOL, "string equality kind");
+    require_true(value.as.as_bool, "string equality value");
 
     neq_node.kind = AST_NEQ;
     neq_node.as.binary.left = &bool_true;
@@ -290,6 +326,14 @@ static void test_eval_edge_cases(void)
     div_node.as.binary.left = &int_one;
     div_node.as.binary.right = &int_zero;
 
+    mod_node.kind = AST_MOD;
+    mod_node.as.binary.left = &int_seven;
+    mod_node.as.binary.right = &int_one;
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&mod_node, &value, &diag), "mod succeeds");
+    require_true(value.kind == ENACT_VALUE_INT, "mod result kind");
+    require_true(value.as.as_int == 0, "mod result value");
+
     and_node.kind = AST_AND;
     and_node.as.binary.left = &bool_false;
     and_node.as.binary.right = &div_node;
@@ -314,6 +358,12 @@ static void test_eval_edge_cases(void)
     require_true(enact_eval_ast(&conditional_node, &value, &diag), "conditional skips false branch");
     require_true(value.kind == ENACT_VALUE_INT, "conditional selected kind");
     require_true(value.as.as_int == 7, "conditional selected value");
+
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&string_node, &value, &diag), "string literal ast succeeds");
+    require_true(value.kind == ENACT_VALUE_STRING, "string literal ast kind");
+    require_true(strcmp(value.as.as_string, "unit") == 0, "string literal ast value");
+    enact_value_free(&value);
 }
 
 static void test_api_and_scan_helpers(void)

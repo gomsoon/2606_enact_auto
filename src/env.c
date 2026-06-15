@@ -50,6 +50,7 @@ void enact_env_free(EnactEnv *env)
         EnactEnvEntry *next = entry->next;
 
         free(entry->name);
+        enact_value_free(&entry->value);
         free(entry);
         entry = next;
     }
@@ -61,31 +62,39 @@ int enact_env_define(EnactEnv *env, const char *name, EnactValue value)
 {
     EnactEnvEntry *entry;
     char *name_copy;
+    EnactValue value_copy;
 
     if (!env || !name) {
         return 0;
     }
 
+    if (!enact_value_copy(&value_copy, &value)) {
+        return 0;
+    }
+
     for (entry = env->head; entry; entry = entry->next) {
         if (strcmp(entry->name, name) == 0) {
-            entry->value = value;
+            enact_value_free(&entry->value);
+            entry->value = value_copy;
             return 1;
         }
     }
 
     name_copy = enact_env_copy_name(name);
     if (!name_copy) {
+        enact_value_free(&value_copy);
         return 0;
     }
 
     entry = malloc(sizeof(*entry));
     if (!entry) {
         free(name_copy);
+        enact_value_free(&value_copy);
         return 0;
     }
 
     entry->name = name_copy;
-    entry->value = value;
+    entry->value = value_copy;
     entry->next = env->head;
     env->head = entry;
     return 1;
@@ -101,8 +110,7 @@ int enact_env_lookup(const EnactEnv *env, const char *name, EnactValue *out)
 
     for (entry = env->head; entry; entry = entry->next) {
         if (strcmp(entry->name, name) == 0) {
-            *out = entry->value;
-            return 1;
+            return enact_value_copy(out, &entry->value);
         }
     }
 

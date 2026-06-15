@@ -1,5 +1,6 @@
 #include <limits.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "eval.h"
 
@@ -29,6 +30,17 @@ static int enact_checked_binary(const EnactAst *ast, int32_t left, int32_t right
             return 0;
         }
         intermediate = left / right;
+        break;
+    case AST_MOD:
+        if (right == 0) {
+            enact_diag_set(diag, ENACT_ERR_DIVIDE_BY_ZERO, -1);
+            return 0;
+        }
+        if (left == INT32_MIN && right == -1) {
+            enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
+            return 0;
+        }
+        intermediate = left % right;
         break;
     default:
         enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
@@ -78,18 +90,26 @@ static int enact_eval_arithmetic_binary(const EnactAst *ast, EnactEnv *env, Enac
         return 0;
     }
     if (!enact_require_int(&left_value, &left, diag)) {
+        enact_value_free(&left_value);
         return 0;
     }
     if (!enact_eval_value(ast->as.binary.right, env, &right_value, diag)) {
+        enact_value_free(&left_value);
         return 0;
     }
     if (!enact_require_int(&right_value, &right, diag)) {
+        enact_value_free(&left_value);
+        enact_value_free(&right_value);
         return 0;
     }
     if (!enact_checked_binary(ast, left, right, &result, diag)) {
+        enact_value_free(&left_value);
+        enact_value_free(&right_value);
         return 0;
     }
 
+    enact_value_free(&left_value);
+    enact_value_free(&right_value);
     *out = enact_value_make_int(result);
     return 1;
 }
@@ -104,9 +124,12 @@ static int enact_eval_equality(const EnactAst *ast, EnactEnv *env, EnactValue *o
         return 0;
     }
     if (!enact_eval_value(ast->as.binary.right, env, &right, diag)) {
+        enact_value_free(&left);
         return 0;
     }
     if (left.kind != right.kind) {
+        enact_value_free(&left);
+        enact_value_free(&right);
         enact_diag_set(diag, ENACT_ERR_TYPE_EQUALITY_MISMATCH, -1);
         return 0;
     }
@@ -118,12 +141,17 @@ static int enact_eval_equality(const EnactAst *ast, EnactEnv *env, EnactValue *o
     case ENACT_VALUE_BOOL:
         result = left.as.as_bool == right.as.as_bool;
         break;
+    case ENACT_VALUE_STRING:
+        result = strcmp(left.as.as_string, right.as.as_string) == 0;
+        break;
     }
 
     if (ast->kind == AST_NEQ) {
         result = !result;
     }
 
+    enact_value_free(&left);
+    enact_value_free(&right);
     *out = enact_value_make_bool(result);
     return 1;
 }
@@ -140,12 +168,16 @@ static int enact_eval_ordering(const EnactAst *ast, EnactEnv *env, EnactValue *o
         return 0;
     }
     if (!enact_require_int(&left_value, &left, diag)) {
+        enact_value_free(&left_value);
         return 0;
     }
     if (!enact_eval_value(ast->as.binary.right, env, &right_value, diag)) {
+        enact_value_free(&left_value);
         return 0;
     }
     if (!enact_require_int(&right_value, &right, diag)) {
+        enact_value_free(&left_value);
+        enact_value_free(&right_value);
         return 0;
     }
 
@@ -163,10 +195,14 @@ static int enact_eval_ordering(const EnactAst *ast, EnactEnv *env, EnactValue *o
         result = left >= right;
         break;
     default:
+        enact_value_free(&left_value);
+        enact_value_free(&right_value);
         enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
         return 0;
     }
 
+    enact_value_free(&left_value);
+    enact_value_free(&right_value);
     *out = enact_value_make_bool(result);
     return 1;
 }
@@ -182,20 +218,25 @@ static int enact_eval_and(const EnactAst *ast, EnactEnv *env, EnactValue *out, E
         return 0;
     }
     if (!enact_require_bool(&left, &left_bool, diag)) {
+        enact_value_free(&left);
         return 0;
     }
     if (!left_bool) {
+        enact_value_free(&left);
         *out = enact_value_make_bool(false);
         return 1;
     }
 
+    enact_value_free(&left);
     if (!enact_eval_value(ast->as.binary.right, env, &right, diag)) {
         return 0;
     }
     if (!enact_require_bool(&right, &right_bool, diag)) {
+        enact_value_free(&right);
         return 0;
     }
 
+    enact_value_free(&right);
     *out = enact_value_make_bool(right_bool);
     return 1;
 }
@@ -211,20 +252,25 @@ static int enact_eval_or(const EnactAst *ast, EnactEnv *env, EnactValue *out, En
         return 0;
     }
     if (!enact_require_bool(&left, &left_bool, diag)) {
+        enact_value_free(&left);
         return 0;
     }
     if (left_bool) {
+        enact_value_free(&left);
         *out = enact_value_make_bool(true);
         return 1;
     }
 
+    enact_value_free(&left);
     if (!enact_eval_value(ast->as.binary.right, env, &right, diag)) {
         return 0;
     }
     if (!enact_require_bool(&right, &right_bool, diag)) {
+        enact_value_free(&right);
         return 0;
     }
 
+    enact_value_free(&right);
     *out = enact_value_make_bool(right_bool);
     return 1;
 }
@@ -238,9 +284,11 @@ static int enact_eval_conditional(const EnactAst *ast, EnactEnv *env, EnactValue
         return 0;
     }
     if (!enact_require_bool(&condition, &condition_bool, diag)) {
+        enact_value_free(&condition);
         return 0;
     }
 
+    enact_value_free(&condition);
     if (condition_bool) {
         return enact_eval_value(ast->as.conditional.if_true, env, out, diag);
     }
@@ -256,6 +304,7 @@ static int enact_eval_assignment(const EnactAst *ast, EnactEnv *env, EnactValue 
         return 0;
     }
     if (!enact_env_define(env, ast->as.assignment.name, value)) {
+        enact_value_free(&value);
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }
@@ -272,12 +321,14 @@ static int enact_eval_sequence(const EnactAst *ast, EnactEnv *env, EnactValue *o
         return 0;
     }
 
+    enact_value_free(&ignored);
     return enact_eval_value(ast->as.binary.right, env, out, diag);
 }
 
 static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue child;
+    EnactValue literal;
     int32_t int_value = 0;
     bool bool_value = false;
 
@@ -297,6 +348,13 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
     case AST_BOOL_LITERAL:
         *out = enact_value_make_bool(ast->as.bool_value != 0);
         return 1;
+    case AST_STRING_LITERAL:
+        literal = enact_value_make_string(ast->as.string_value);
+        if (!enact_value_copy(out, &literal)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        return 1;
     case AST_IDENTIFIER:
         if (enact_env_lookup(env, ast->as.identifier_name, out)) {
             return 1;
@@ -313,12 +371,15 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
             return 0;
         }
         if (!enact_require_int(&child, &int_value, diag)) {
+            enact_value_free(&child);
             return 0;
         }
         if (int_value == INT32_MIN) {
+            enact_value_free(&child);
             enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
             return 0;
         }
+        enact_value_free(&child);
         *out = enact_value_make_int(-int_value);
         return 1;
     case AST_NOT:
@@ -326,14 +387,17 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
             return 0;
         }
         if (!enact_require_bool(&child, &bool_value, diag)) {
+            enact_value_free(&child);
             return 0;
         }
+        enact_value_free(&child);
         *out = enact_value_make_bool(!bool_value);
         return 1;
     case AST_ADD:
     case AST_SUB:
     case AST_MUL:
     case AST_DIV:
+    case AST_MOD:
         return enact_eval_arithmetic_binary(ast, env, out, diag);
     case AST_EQ:
     case AST_NEQ:

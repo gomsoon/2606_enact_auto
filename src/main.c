@@ -102,6 +102,37 @@ static void enact_print_diag(FILE *stream, const EnactDiag *diag)
     }
 }
 
+static void enact_print_string(FILE *stream, const char *value)
+{
+    const unsigned char *cursor = (const unsigned char *)(value ? value : "");
+
+    fputc('"', stream);
+    while (*cursor) {
+        switch (*cursor) {
+        case '\\':
+            fputs("\\\\", stream);
+            break;
+        case '"':
+            fputs("\\\"", stream);
+            break;
+        case '\n':
+            fputs("\\n", stream);
+            break;
+        case '\r':
+            fputs("\\r", stream);
+            break;
+        case '\t':
+            fputs("\\t", stream);
+            break;
+        default:
+            fputc(*cursor, stream);
+            break;
+        }
+        cursor += 1;
+    }
+    fputs("\"\n", stream);
+}
+
 static void enact_print_value(FILE *stream, const EnactValue *value)
 {
     switch (value->kind) {
@@ -110,6 +141,9 @@ static void enact_print_value(FILE *stream, const EnactValue *value)
         break;
     case ENACT_VALUE_BOOL:
         fprintf(stream, "%s\n", value->as.as_bool ? "true" : "false");
+        break;
+    case ENACT_VALUE_STRING:
+        enact_print_string(stream, value->as.as_string);
         break;
     }
 }

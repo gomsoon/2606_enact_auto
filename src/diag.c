@@ -9,6 +9,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_LEX_INVALID_CHAR";
     case ENACT_ERR_LEX_BAD_INTEGER:
         return "ENACT_ERR_LEX_BAD_INTEGER";
+    case ENACT_ERR_LEX_BAD_STRING:
+        return "ENACT_ERR_LEX_BAD_STRING";
     case ENACT_ERR_LEX_BARE_EQUALS:
         return "ENACT_ERR_LEX_BARE_EQUALS";
     case ENACT_ERR_PARSE_UNEXPECTED_TOKEN:
@@ -45,6 +47,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "invalid character";
     case ENACT_ERR_LEX_BAD_INTEGER:
         return "invalid integer literal";
+    case ENACT_ERR_LEX_BAD_STRING:
+        return "invalid string literal";
     case ENACT_ERR_LEX_BARE_EQUALS:
         return "bare '=' is not supported; use '=='";
     case ENACT_ERR_PARSE_UNEXPECTED_TOKEN:
