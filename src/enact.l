@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "diag.h"
 #include "parser_state.h"
@@ -37,9 +38,26 @@ static int enact_current_offset_or_unknown(const EnactScannerState *state)
 {
     return state ? (int)state->token_offset : -1;
 }
+
+static char *enact_copy_yytext(void)
+{
+    size_t length = (size_t)yyleng;
+    char *copy = malloc(length + 1);
+
+    if (!copy) {
+        return NULL;
+    }
+
+    memcpy(copy, yytext, length);
+    copy[length] = '\0';
+    return copy;
+}
 %}
 
 DIGITS [0-9]+
+IDENT_START [A-Za-z_]
+IDENT_CONT [A-Za-z0-9_]
+IDENTIFIER {IDENT_START}{IDENT_CONT}*
 
 %%
 [ \t\r\n]+                ;
@@ -88,6 +106,25 @@ DIGITS [0-9]+
         state->expect_operand = 0;
     }
     return TOK_INT_LITERAL;
+}
+
+{IDENTIFIER} {
+    EnactScannerState *state = enact_get_scanner_state();
+    EnactParseContext *context = enact_get_parse_context();
+
+    yylval.text = enact_copy_yytext();
+    if (!yylval.text) {
+        if (context) {
+            enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, enact_current_offset_or_unknown(state));
+        }
+        return TOK_ERROR;
+    }
+
+    if (state) {
+        state->last_token = TOK_IDENTIFIER;
+        state->expect_operand = 0;
+    }
+    return TOK_IDENTIFIER;
 }
 
 "(" {

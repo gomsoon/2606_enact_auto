@@ -120,6 +120,7 @@ def main() -> int:
 
     long_comment = "%" + ("comment" * 240) + "\n(8+2)/5."
     huge_integer = ("9" * 512) + "."
+    long_identifier = ("abc_" * 80) + "z."
 
     token_cases = [
         ("-1.", "TOK_UMINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
@@ -136,6 +137,11 @@ def main() -> int:
         ("1>2.", "TOK_INT_LITERAL TOK_GT TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         ("1<=2.", "TOK_INT_LITERAL TOK_LTE TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         ("1>=2.", "TOK_INT_LITERAL TOK_GTE TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
+        ("x.", "TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
+        ("_x.", "TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
+        ("foo_bar123.", "TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
+        ("trueValue.", "TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
+        ("and_then.", "TOK_IDENTIFIER TOK_DOT TOK_EOF\n"),
         ("true and false.", "TOK_TRUE TOK_AND TOK_FALSE TOK_DOT TOK_EOF\n"),
         ("not false.", "TOK_NOT TOK_FALSE TOK_DOT TOK_EOF\n"),
         ("1 if true else 2.", "TOK_INT_LITERAL TOK_IF TOK_TRUE TOK_ELSE TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
@@ -227,7 +233,7 @@ def main() -> int:
         ("-2147483648-1.", "ENACT_ERR_INT_OVERFLOW"),
         ("46341*46341.", "ENACT_ERR_INT_OVERFLOW"),
         ("-2147483648/-1.", "ENACT_ERR_INT_OVERFLOW"),
-        ("a.", "ENACT_ERR_LEX_INVALID_CHAR"),
+        ("a.", "ENACT_ERR_NAME_UNBOUND"),
         ("true", "ENACT_ERR_PARSE_MISSING_DOT"),
         ("==.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("1==.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
@@ -243,6 +249,21 @@ def main() -> int:
         ("true!=1.", "ENACT_ERR_TYPE_EQUALITY_MISMATCH"),
         ("true<false.", "ENACT_ERR_TYPE_EXPECTED_INT"),
         ("1<true.", "ENACT_ERR_TYPE_EXPECTED_INT"),
+        ("x.", "ENACT_ERR_NAME_UNBOUND"),
+        ("_x.", "ENACT_ERR_NAME_UNBOUND"),
+        ("x1.", "ENACT_ERR_NAME_UNBOUND"),
+        ("foo_bar123.", "ENACT_ERR_NAME_UNBOUND"),
+        ("trueValue.", "ENACT_ERR_NAME_UNBOUND"),
+        ("and_then.", "ENACT_ERR_NAME_UNBOUND"),
+        ("x+1.", "ENACT_ERR_NAME_UNBOUND"),
+        ("1+x.", "ENACT_ERR_NAME_UNBOUND"),
+        ("x==1.", "ENACT_ERR_NAME_UNBOUND"),
+        ("1 if flag else 2.", "ENACT_ERR_NAME_UNBOUND"),
+        ("x", "ENACT_ERR_PARSE_MISSING_DOT"),
+        ("1abc.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("trueValue", "ENACT_ERR_PARSE_MISSING_DOT"),
+        ("_.", "ENACT_ERR_NAME_UNBOUND"),
+        (long_identifier, "ENACT_ERR_NAME_UNBOUND"),
         ("not.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("and true.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("true and.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
@@ -261,7 +282,7 @@ def main() -> int:
     ]
 
     token_failure_cases = [
-        ("a.", "ENACT_ERR_LEX_INVALID_CHAR"),
+        ("$x.", "ENACT_ERR_LEX_INVALID_CHAR"),
         (huge_integer, "ENACT_ERR_LEX_BAD_INTEGER"),
         ("=", "ENACT_ERR_LEX_BARE_EQUALS"),
     ]

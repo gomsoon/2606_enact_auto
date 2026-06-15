@@ -6,6 +6,7 @@
 #include "api.h"
 #include "ast.h"
 #include "diag.h"
+#include "env.h"
 #include "eval.h"
 #include "parser_state.h"
 
@@ -17,6 +18,19 @@ static void require_true(int condition, const char *message)
         fprintf(stderr, "FAIL: %s\n", message);
         failures += 1;
     }
+}
+
+static char *copy_test_name(const char *name)
+{
+    size_t length = strlen(name);
+    char *copy = malloc(length + 1);
+
+    if (!copy) {
+        return NULL;
+    }
+
+    memcpy(copy, name, length + 1);
+    return copy;
 }
 
 static void test_diag_helpers(void)
@@ -32,6 +46,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_BOOL), "ENACT_ERR_TYPE_EXPECTED_BOOL") == 0, "error code expected bool");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_INT), "ENACT_ERR_TYPE_EXPECTED_INT") == 0, "error code expected int");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "ENACT_ERR_TYPE_EQUALITY_MISMATCH") == 0, "error code equality mismatch");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_NAME_UNBOUND), "ENACT_ERR_NAME_UNBOUND") == 0, "error code unbound name");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_OUT_OF_MEMORY), "ENACT_ERR_OUT_OF_MEMORY") == 0, "error code oom");
     require_true(strcmp(enact_error_code_name((EnactErrorCode)999), "ENACT_ERR_UNKNOWN") == 0, "error code unknown");
     require_true(strcmp(enact_error_message(ENACT_OK), "ok") == 0, "error message ok");
@@ -40,6 +55,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_BOOL), "boolean value required") == 0, "error message expected bool");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_INT), "integer value required") == 0, "error message expected int");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "cannot compare values of different kinds") == 0, "error message equality mismatch");
+    require_true(strcmp(enact_error_message(ENACT_ERR_NAME_UNBOUND), "unbound identifier") == 0, "error message unbound name");
     require_true(strcmp(enact_error_message(ENACT_ERR_OUT_OF_MEMORY), "out of memory") == 0, "error message oom");
     require_true(strcmp(enact_error_message((EnactErrorCode)999), "unknown error") == 0, "error message unknown");
     enact_diag_set(NULL, ENACT_ERR_INT_OVERFLOW, 1);
@@ -58,6 +74,70 @@ static void test_value_helpers(void)
     require_true(int_value.as.as_int == -12, "int value payload");
     require_true(bool_value.kind == ENACT_VALUE_BOOL, "bool value kind");
     require_true(bool_value.as.as_bool, "bool value payload");
+}
+
+static void test_env_helpers(void)
+{
+    EnactEnv env;
+    EnactValue value;
+    EnactValue result;
+    EnactDiag diag;
+    EnactAst *identifier;
+    EnactAst *left;
+    EnactAst *right;
+    EnactAst *sum;
+
+    enact_env_init(NULL);
+    enact_env_free(NULL);
+    require_true(!enact_env_define(NULL, "x", enact_value_make_int(1)), "define null env fails");
+    require_true(!enact_env_define(&env, NULL, enact_value_make_int(1)), "define null name fails");
+    require_true(!enact_env_lookup(NULL, "x", &value), "lookup null env fails");
+    require_true(!enact_env_lookup(&env, NULL, &value), "lookup null name fails");
+    require_true(!enact_env_lookup(&env, "x", NULL), "lookup null out fails");
+
+    enact_env_init(&env);
+    require_true(!enact_env_lookup(&env, "missing", &value), "missing lookup fails");
+
+    require_true(enact_env_define(&env, "x", enact_value_make_int(7)), "define int binding");
+    require_true(enact_env_lookup(&env, "x", &value), "lookup int binding");
+    require_true(value.kind == ENACT_VALUE_INT, "lookup int kind");
+    require_true(value.as.as_int == 7, "lookup int value");
+
+    require_true(enact_env_define(&env, "flag", enact_value_make_bool(true)), "define bool binding");
+    require_true(enact_env_lookup(&env, "flag", &value), "lookup bool binding");
+    require_true(value.kind == ENACT_VALUE_BOOL, "lookup bool kind");
+    require_true(value.as.as_bool, "lookup bool value");
+
+    require_true(enact_env_define(&env, "x", enact_value_make_int(9)), "redefine int binding");
+    require_true(enact_env_lookup(&env, "x", &value), "lookup redefined int binding");
+    require_true(value.as.as_int == 9, "redefined int value");
+
+    identifier = enact_ast_new_identifier(copy_test_name("x"));
+    require_true(identifier != NULL, "identifier ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(identifier, &env, &result, &diag), "identifier resolves through env");
+    require_true(result.kind == ENACT_VALUE_INT, "identifier result kind");
+    require_true(result.as.as_int == 9, "identifier result value");
+    enact_ast_free(identifier);
+
+    left = enact_ast_new_identifier(copy_test_name("x"));
+    right = enact_ast_new_int(1);
+    sum = enact_ast_new_binary(AST_ADD, left, right);
+    require_true(left != NULL && right != NULL && sum != NULL, "identifier arithmetic ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(sum, &env, &result, &diag), "identifier arithmetic resolves through env");
+    require_true(result.kind == ENACT_VALUE_INT, "identifier arithmetic result kind");
+    require_true(result.as.as_int == 10, "identifier arithmetic result value");
+    enact_ast_free(sum);
+
+    identifier = enact_ast_new_identifier(copy_test_name("missing"));
+    require_true(identifier != NULL, "missing identifier ast created");
+    enact_diag_reset(&diag);
+    require_true(!enact_eval_ast_with_env(identifier, &env, &result, &diag), "missing identifier fails");
+    require_true(diag.code == ENACT_ERR_NAME_UNBOUND, "missing identifier code");
+    enact_ast_free(identifier);
+
+    enact_env_free(&env);
 }
 
 static void test_parser_state_helpers(void)
@@ -244,7 +324,7 @@ static void test_api_and_scan_helpers(void)
 
     freopen(NULL, "w+", tmp);
     enact_diag_reset(&diag);
-    require_true(enact_dump_tokens_text("a", tmp, &diag) != 0, "token dump invalid char fails");
+    require_true(enact_dump_tokens_text("$", tmp, &diag) != 0, "token dump invalid char fails");
     require_true(diag.code == ENACT_ERR_LEX_INVALID_CHAR, "token dump invalid char code");
 
     freopen(NULL, "w+", tmp);
@@ -261,6 +341,7 @@ int main(void)
 {
     test_diag_helpers();
     test_value_helpers();
+    test_env_helpers();
     test_parser_state_helpers();
     test_eval_edge_cases();
     test_api_and_scan_helpers();

@@ -6,6 +6,7 @@
 typedef enum {
     AST_INT_LITERAL,
     AST_BOOL_LITERAL,
+    AST_IDENTIFIER,
     AST_UNARY_NEG,
     AST_NOT,
     AST_ADD,
@@ -36,6 +37,7 @@ struct EnactAst {
     union {
         uint64_t int_magnitude;
         int bool_value;
+        char *identifier_name;
         struct {
             EnactAst *child;
         } unary;
@@ -53,6 +55,7 @@ struct EnactAst {
 
 EnactAst *enact_ast_new_int(uint64_t int_magnitude);
 EnactAst *enact_ast_new_bool(int bool_value);
+EnactAst *enact_ast_new_identifier(char *name);
 EnactAst *enact_ast_new_unary(EnactAstKind kind, EnactAst *child);
 EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *right);
 EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false);

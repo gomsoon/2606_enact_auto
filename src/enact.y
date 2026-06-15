@@ -1,4 +1,5 @@
 %{
+#include <stdlib.h>
 #include <stdint.h>
 
 #include "ast.h"
@@ -23,6 +24,18 @@ static EnactAst *enact_make_int(uint64_t magnitude)
 static EnactAst *enact_make_bool(int value)
 {
     EnactAst *ast = enact_ast_new_bool(value);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
+static EnactAst *enact_make_identifier(char *name)
+{
+    EnactAst *ast = enact_ast_new_identifier(name);
     EnactParseContext *context = enact_get_parse_context();
 
     if (!ast && context) {
@@ -73,10 +86,12 @@ static EnactAst *enact_make_conditional(EnactAst *condition, EnactAst *if_true, 
 
 %union {
     uint64_t u64;
+    char *text;
     EnactAst *ast;
 }
 
 %token <u64> TOK_INT_LITERAL
+%token <text> TOK_IDENTIFIER
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
 %token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
@@ -84,6 +99,7 @@ static EnactAst *enact_make_conditional(EnactAst *condition, EnactAst *if_true, 
 %type <ast> expr conditional logical_or logical_and logical_not comparison additive multiplicative unary primary
 
 %destructor { enact_ast_free($$); } <ast>
+%destructor { free($$); } <text>
 
 %%
 
@@ -281,6 +297,14 @@ primary:
     {
         $$ = enact_make_bool(0);
         if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_IDENTIFIER
+    {
+        $$ = enact_make_identifier($1);
+        if (!$$) {
+            free($1);
             YYABORT;
         }
     }

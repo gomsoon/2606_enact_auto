@@ -37,6 +37,17 @@ EnactAst *enact_ast_new_bool(int bool_value)
     return ast;
 }
 
+EnactAst *enact_ast_new_identifier(char *name)
+{
+    EnactAst *ast = enact_ast_alloc(AST_IDENTIFIER);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.identifier_name = name;
+    return ast;
+}
+
 EnactAst *enact_ast_new_unary(EnactAstKind kind, EnactAst *child)
 {
     EnactAst *ast = enact_ast_alloc(kind);
@@ -82,6 +93,9 @@ void enact_ast_free(EnactAst *ast)
     switch (ast->kind) {
     case AST_INT_LITERAL:
     case AST_BOOL_LITERAL:
+        break;
+    case AST_IDENTIFIER:
+        free(ast->as.identifier_name);
         break;
     case AST_UNARY_NEG:
     case AST_NOT:

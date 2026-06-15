@@ -3,7 +3,7 @@
 
 #include "eval.h"
 
-static int enact_eval_value(const EnactAst *ast, EnactValue *out, EnactDiag *diag);
+static int enact_eval_value(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag);
 
 static int enact_checked_binary(const EnactAst *ast, int32_t left, int32_t right, int32_t *out, EnactDiag *diag)
 {
@@ -66,7 +66,7 @@ static int enact_require_bool(const EnactValue *value, bool *out, EnactDiag *dia
     return 1;
 }
 
-static int enact_eval_arithmetic_binary(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
+static int enact_eval_arithmetic_binary(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left_value;
     EnactValue right_value;
@@ -74,13 +74,13 @@ static int enact_eval_arithmetic_binary(const EnactAst *ast, EnactValue *out, En
     int32_t right = 0;
     int32_t result = 0;
 
-    if (!enact_eval_value(ast->as.binary.left, &left_value, diag)) {
+    if (!enact_eval_value(ast->as.binary.left, env, &left_value, diag)) {
         return 0;
     }
     if (!enact_require_int(&left_value, &left, diag)) {
         return 0;
     }
-    if (!enact_eval_value(ast->as.binary.right, &right_value, diag)) {
+    if (!enact_eval_value(ast->as.binary.right, env, &right_value, diag)) {
         return 0;
     }
     if (!enact_require_int(&right_value, &right, diag)) {
@@ -94,16 +94,16 @@ static int enact_eval_arithmetic_binary(const EnactAst *ast, EnactValue *out, En
     return 1;
 }
 
-static int enact_eval_equality(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
+static int enact_eval_equality(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left;
     EnactValue right;
     bool result = false;
 
-    if (!enact_eval_value(ast->as.binary.left, &left, diag)) {
+    if (!enact_eval_value(ast->as.binary.left, env, &left, diag)) {
         return 0;
     }
-    if (!enact_eval_value(ast->as.binary.right, &right, diag)) {
+    if (!enact_eval_value(ast->as.binary.right, env, &right, diag)) {
         return 0;
     }
     if (left.kind != right.kind) {
@@ -128,7 +128,7 @@ static int enact_eval_equality(const EnactAst *ast, EnactValue *out, EnactDiag *
     return 1;
 }
 
-static int enact_eval_ordering(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
+static int enact_eval_ordering(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left_value;
     EnactValue right_value;
@@ -136,13 +136,13 @@ static int enact_eval_ordering(const EnactAst *ast, EnactValue *out, EnactDiag *
     int32_t right = 0;
     bool result = false;
 
-    if (!enact_eval_value(ast->as.binary.left, &left_value, diag)) {
+    if (!enact_eval_value(ast->as.binary.left, env, &left_value, diag)) {
         return 0;
     }
     if (!enact_require_int(&left_value, &left, diag)) {
         return 0;
     }
-    if (!enact_eval_value(ast->as.binary.right, &right_value, diag)) {
+    if (!enact_eval_value(ast->as.binary.right, env, &right_value, diag)) {
         return 0;
     }
     if (!enact_require_int(&right_value, &right, diag)) {
@@ -171,14 +171,14 @@ static int enact_eval_ordering(const EnactAst *ast, EnactValue *out, EnactDiag *
     return 1;
 }
 
-static int enact_eval_and(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
+static int enact_eval_and(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left;
     EnactValue right;
     bool left_bool = false;
     bool right_bool = false;
 
-    if (!enact_eval_value(ast->as.binary.left, &left, diag)) {
+    if (!enact_eval_value(ast->as.binary.left, env, &left, diag)) {
         return 0;
     }
     if (!enact_require_bool(&left, &left_bool, diag)) {
@@ -189,7 +189,7 @@ static int enact_eval_and(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
         return 1;
     }
 
-    if (!enact_eval_value(ast->as.binary.right, &right, diag)) {
+    if (!enact_eval_value(ast->as.binary.right, env, &right, diag)) {
         return 0;
     }
     if (!enact_require_bool(&right, &right_bool, diag)) {
@@ -200,14 +200,14 @@ static int enact_eval_and(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
     return 1;
 }
 
-static int enact_eval_or(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
+static int enact_eval_or(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left;
     EnactValue right;
     bool left_bool = false;
     bool right_bool = false;
 
-    if (!enact_eval_value(ast->as.binary.left, &left, diag)) {
+    if (!enact_eval_value(ast->as.binary.left, env, &left, diag)) {
         return 0;
     }
     if (!enact_require_bool(&left, &left_bool, diag)) {
@@ -218,7 +218,7 @@ static int enact_eval_or(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
         return 1;
     }
 
-    if (!enact_eval_value(ast->as.binary.right, &right, diag)) {
+    if (!enact_eval_value(ast->as.binary.right, env, &right, diag)) {
         return 0;
     }
     if (!enact_require_bool(&right, &right_bool, diag)) {
@@ -229,12 +229,12 @@ static int enact_eval_or(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
     return 1;
 }
 
-static int enact_eval_conditional(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
+static int enact_eval_conditional(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue condition;
     bool condition_bool = false;
 
-    if (!enact_eval_value(ast->as.conditional.condition, &condition, diag)) {
+    if (!enact_eval_value(ast->as.conditional.condition, env, &condition, diag)) {
         return 0;
     }
     if (!enact_require_bool(&condition, &condition_bool, diag)) {
@@ -242,13 +242,13 @@ static int enact_eval_conditional(const EnactAst *ast, EnactValue *out, EnactDia
     }
 
     if (condition_bool) {
-        return enact_eval_value(ast->as.conditional.if_true, out, diag);
+        return enact_eval_value(ast->as.conditional.if_true, env, out, diag);
     }
 
-    return enact_eval_value(ast->as.conditional.if_false, out, diag);
+    return enact_eval_value(ast->as.conditional.if_false, env, out, diag);
 }
 
-static int enact_eval_value(const EnactAst *ast, EnactValue *out, EnactDiag *diag)
+static int enact_eval_value(const EnactAst *ast, const EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue child;
     int32_t int_value = 0;
@@ -270,13 +270,19 @@ static int enact_eval_value(const EnactAst *ast, EnactValue *out, EnactDiag *dia
     case AST_BOOL_LITERAL:
         *out = enact_value_make_bool(ast->as.bool_value != 0);
         return 1;
+    case AST_IDENTIFIER:
+        if (enact_env_lookup(env, ast->as.identifier_name, out)) {
+            return 1;
+        }
+        enact_diag_set(diag, ENACT_ERR_NAME_UNBOUND, -1);
+        return 0;
     case AST_UNARY_NEG:
         if (ast->as.unary.child && ast->as.unary.child->kind == AST_INT_LITERAL &&
             ast->as.unary.child->as.int_magnitude == ((uint64_t)INT32_MAX + 1ULL)) {
             *out = enact_value_make_int(INT32_MIN);
             return 1;
         }
-        if (!enact_eval_value(ast->as.unary.child, &child, diag)) {
+        if (!enact_eval_value(ast->as.unary.child, env, &child, diag)) {
             return 0;
         }
         if (!enact_require_int(&child, &int_value, diag)) {
@@ -289,7 +295,7 @@ static int enact_eval_value(const EnactAst *ast, EnactValue *out, EnactDiag *dia
         *out = enact_value_make_int(-int_value);
         return 1;
     case AST_NOT:
-        if (!enact_eval_value(ast->as.unary.child, &child, diag)) {
+        if (!enact_eval_value(ast->as.unary.child, env, &child, diag)) {
             return 0;
         }
         if (!enact_require_bool(&child, &bool_value, diag)) {
@@ -301,21 +307,21 @@ static int enact_eval_value(const EnactAst *ast, EnactValue *out, EnactDiag *dia
     case AST_SUB:
     case AST_MUL:
     case AST_DIV:
-        return enact_eval_arithmetic_binary(ast, out, diag);
+        return enact_eval_arithmetic_binary(ast, env, out, diag);
     case AST_EQ:
     case AST_NEQ:
-        return enact_eval_equality(ast, out, diag);
+        return enact_eval_equality(ast, env, out, diag);
     case AST_LT:
     case AST_GT:
     case AST_LTE:
     case AST_GTE:
-        return enact_eval_ordering(ast, out, diag);
+        return enact_eval_ordering(ast, env, out, diag);
     case AST_AND:
-        return enact_eval_and(ast, out, diag);
+        return enact_eval_and(ast, env, out, diag);
     case AST_OR:
-        return enact_eval_or(ast, out, diag);
+        return enact_eval_or(ast, env, out, diag);
     case AST_IF_ELSE:
-        return enact_eval_conditional(ast, out, diag);
+        return enact_eval_conditional(ast, env, out, diag);
     }
 
     enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
@@ -324,10 +330,21 @@ static int enact_eval_value(const EnactAst *ast, EnactValue *out, EnactDiag *dia
 
 int enact_eval_ast(const EnactAst *ast, EnactValue *value, EnactDiag *diag)
 {
+    EnactEnv env;
+    int status;
+
+    enact_env_init(&env);
+    status = enact_eval_ast_with_env(ast, &env, value, diag);
+    enact_env_free(&env);
+    return status;
+}
+
+int enact_eval_ast_with_env(const EnactAst *ast, const EnactEnv *env, EnactValue *value, EnactDiag *diag)
+{
     if (!value) {
         enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
         return 0;
     }
 
-    return enact_eval_value(ast, value, diag);
+    return enact_eval_value(ast, env, value, diag);
 }

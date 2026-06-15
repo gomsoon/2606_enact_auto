@@ -27,6 +27,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_TYPE_EXPECTED_INT";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:
         return "ENACT_ERR_TYPE_EQUALITY_MISMATCH";
+    case ENACT_ERR_NAME_UNBOUND:
+        return "ENACT_ERR_NAME_UNBOUND";
     case ENACT_ERR_OUT_OF_MEMORY:
         return "ENACT_ERR_OUT_OF_MEMORY";
     default:
@@ -61,6 +63,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "integer value required";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:
         return "cannot compare values of different kinds";
+    case ENACT_ERR_NAME_UNBOUND:
+        return "unbound identifier";
     case ENACT_ERR_OUT_OF_MEMORY:
         return "out of memory";
     default:

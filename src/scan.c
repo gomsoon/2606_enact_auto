@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "diag.h"
@@ -21,6 +22,8 @@ static const char *enact_token_name(int token)
     switch (token) {
     case TOK_INT_LITERAL:
         return "TOK_INT_LITERAL";
+    case TOK_IDENTIFIER:
+        return "TOK_IDENTIFIER";
     case TOK_UMINUS:
         return "TOK_UMINUS";
     case TOK_PLUS:
@@ -127,6 +130,9 @@ int enact_dump_tokens_text(const char *source, FILE *out, EnactDiag *diag)
         }
 
         fprintf(out, "%s%s", first ? "" : " ", enact_token_name(token));
+        if (token == TOK_IDENTIFIER) {
+            free(yylval.text);
+        }
         first = false;
     } while (token != 0);
 
