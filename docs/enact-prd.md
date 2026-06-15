@@ -2,7 +2,7 @@
 
 Status: Draft 0.1
 
-Last updated: 2026-06-14
+Last updated: 2026-06-15
 
 Owner: `2606_enact_auto`
 
@@ -53,6 +53,8 @@ For this project, we make one explicit extension decision early:
 - Atom or symbol values will remain available separately via bare identifiers and single-quote forms such as `'hello`.
 - The project-default syntax will use the standard `-` sign for negative integer literals and unary arithmetic negation instead of historical `~`.
 - Lexical analysis and parsing must explicitly distinguish unary minus from binary subtraction, using a dedicated `UNARY_MINUS` handling strategy or an equivalent implementation with the same observable behavior.
+- The project-default syntax will use `==` for equality comparison instead of historical `=`.
+- Assignment will remain `:=`, so the equality modernization must not blur assignment semantics.
 
 ## 4. Product Goals
 
@@ -109,13 +111,14 @@ The lexer shall support at minimum:
 - Quoted atoms or symbols, including examples such as `'hello`.
 - Line comments beginning with `%`.
 - Reserved words and operators including `class`, `new`, `with`, `then`, `else`, `if`, `where`, `loop`, `load`, and `fix`.
+- Equality comparison written as `==` in the project-default mode.
 
 ### 8.3 Expression Syntax
 
 The parser shall support at minimum:
 
 - Arithmetic expressions using unary `-`, binary `+`, binary `-`, `*`, `/`, and `mod`.
-- Relational expressions using `=`, `<>`, `<`, `>`, `<=`, `>=`.
+- Relational expressions using `==`, `<>`, `<`, `>`, `<=`, `>=`.
 - Logical expressions using `and`, `or`, and unary `not`.
 - Conditional expressions using `a then b`, `b if a`, and `c else d`.
 - Assignment expressions using `:=`.
@@ -191,7 +194,7 @@ The parser shall respect the precedence table documented in the manual:
 | 3 | application |
 | 4 | `*`, `/`, `mod` |
 | 5 | `+`, `-`, `:` |
-| 6 | `=`, `>`, `<`, `>=`, `<=`, `<>` |
+| 6 | `==`, `>`, `<`, `>=`, `<=`, `<>` |
 | 7 | `with`, `::`, `where` |
 | 8 | `and`, `loop` |
 | 9 | `or` |
@@ -207,6 +210,8 @@ Project extension note:
 - The project-default grammar introduces unary minus as a modernized replacement for historical `~`.
 - Unary minus should bind more tightly than `*`, `/`, and `mod`.
 - Lexer and parser design must make unary minus explicit enough that regression tests can distinguish it reliably from binary subtraction.
+- The project-default grammar introduces `==` as a modernized replacement for historical equality `=`.
+- Equality and assignment must stay visually distinct: `==` for comparison, `:=` for assignment.
 
 ## 10. Compatibility Strategy
 
@@ -220,7 +225,9 @@ If a proposed extension conflicts with manual-derived syntax or semantics, the r
 Current recommendation:
 
 - The project-default behavior should interpret double-quoted literals as immutable strings.
+- The project-default behavior should interpret equality comparison as `==`.
 - A future strict compatibility mode may reinterpret double-quoted literals according to historical ENACT behavior if strong reference evidence requires it.
+- A future strict compatibility mode may accept historical equality `=` if strong reference evidence or compatibility goals require it.
 
 ## 11. Initial Scope Recommendation
 
