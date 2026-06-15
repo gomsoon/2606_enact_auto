@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "function.h"
 
@@ -8,6 +9,53 @@ struct EnactFunction {
     EnactAst *body;
     EnactEnv captured_env;
 };
+
+static char *enact_function_copy_text(const char *text)
+{
+    size_t length;
+    char *copy;
+
+    if (!text) {
+        text = "";
+    }
+
+    length = strlen(text);
+    copy = malloc(length + 1);
+    if (!copy) {
+        return NULL;
+    }
+
+    memcpy(copy, text, length + 1);
+    return copy;
+}
+
+static EnactNameList *enact_function_remaining_params(const EnactFunction *function, size_t argument_count)
+{
+    EnactNameList *remaining;
+    size_t index;
+    size_t arity = enact_function_arity(function);
+
+    if (!function || argument_count >= arity) {
+        return NULL;
+    }
+
+    remaining = enact_name_list_new();
+    if (!remaining) {
+        return NULL;
+    }
+
+    for (index = argument_count; index < arity; index += 1) {
+        char *name = enact_function_copy_text(enact_name_list_get(function->param_names, index));
+
+        if (!name || !enact_name_list_append(remaining, name)) {
+            free(name);
+            enact_name_list_free(remaining);
+            return NULL;
+        }
+    }
+
+    return remaining;
+}
 
 EnactFunction *enact_function_new(const EnactNameList *param_names, const EnactAst *body, const EnactEnv *env)
 {
@@ -44,6 +92,44 @@ EnactFunction *enact_function_new(const EnactNameList *param_names, const EnactA
     }
 
     return function;
+}
+
+EnactFunction *enact_function_partial(
+    const EnactFunction *function,
+    const EnactValue *arguments,
+    size_t argument_count)
+{
+    EnactEnv partial_env;
+    EnactNameList *remaining_params;
+    EnactFunction *partial;
+    size_t arity = enact_function_arity(function);
+    size_t index;
+
+    if (!function || !arguments || argument_count == 0 || argument_count >= arity) {
+        return NULL;
+    }
+
+    if (!enact_env_clone(&partial_env, &function->captured_env)) {
+        return NULL;
+    }
+
+    for (index = 0; index < argument_count; index += 1) {
+        if (!enact_env_define(&partial_env, enact_name_list_get(function->param_names, index), arguments[index])) {
+            enact_env_free(&partial_env);
+            return NULL;
+        }
+    }
+
+    remaining_params = enact_function_remaining_params(function, argument_count);
+    if (!remaining_params) {
+        enact_env_free(&partial_env);
+        return NULL;
+    }
+
+    partial = enact_function_new(remaining_params, function->body, &partial_env);
+    enact_name_list_free(remaining_params);
+    enact_env_free(&partial_env);
+    return partial;
 }
 
 EnactFunction *enact_function_retain(EnactFunction *function)

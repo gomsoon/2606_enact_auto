@@ -404,6 +404,7 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
     EnactValue callee;
     EnactValue *arguments = NULL;
     EnactFunction *function = NULL;
+    EnactFunction *partial = NULL;
     EnactEnv local;
     int status;
     size_t argument_count;
@@ -420,7 +421,7 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
 
     argument_count = enact_ast_list_count(ast->as.call.arguments);
     arity = enact_function_arity(function);
-    if (argument_count != arity) {
+    if (argument_count == 0 || argument_count > arity) {
         enact_value_free(&callee);
         enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
         return 0;
@@ -439,6 +440,21 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
             enact_value_free(&callee);
             return 0;
         }
+    }
+
+    if (argument_count < arity) {
+        partial = enact_function_partial(function, arguments, argument_count);
+        if (!partial) {
+            enact_free_value_array(arguments, argument_count);
+            enact_value_free(&callee);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        *out = enact_value_make_function(partial);
+        enact_free_value_array(arguments, argument_count);
+        enact_value_free(&callee);
+        return 1;
     }
 
     if (!enact_env_clone(&local, enact_function_env(function))) {

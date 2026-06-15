@@ -129,13 +129,18 @@ static void test_value_helpers(void)
     EnactEnv empty_env;
     EnactAst *function_body;
     EnactFunction *function;
+    EnactFunction *partial_function;
     EnactValue function_value;
     EnactValue function_copy;
+    EnactValue partial_args[2];
+    EnactValue partial_lookup;
     EnactNameList *params;
+    EnactNameList *two_params;
     EnactNameList *empty_params;
     EnactNameList *params_clone;
     char *bad_append_name;
     const char *one_param[] = {"x"};
+    const char *two_param_names[] = {"x", "y"};
 
     require_true(int_value.kind == ENACT_VALUE_INT, "int value kind");
     require_true(int_value.as.as_int == -12, "int value payload");
@@ -162,6 +167,7 @@ static void test_value_helpers(void)
     require_true(enact_function_new(empty_params, function_body, &empty_env) == NULL, "function new empty params fails");
     require_true(enact_function_new(params, NULL, &empty_env) == NULL, "function new null body fails");
     require_true(enact_function_new(params, function_body, NULL) == NULL, "function new null env fails");
+    require_true(enact_function_partial(NULL, partial_args, 1) == NULL, "function partial null function fails");
     params_clone = enact_name_list_clone(params);
     require_true(params_clone != NULL, "name list clone succeeds");
     require_true(enact_name_list_count(params_clone) == 1, "name list clone count");
@@ -180,6 +186,10 @@ static void test_value_helpers(void)
         require_true(enact_function_arity(function) == 1, "function arity");
         require_true(strcmp(enact_function_param_name(function, 0), "x") == 0, "function first param");
         require_true(strcmp(enact_function_param_name(function, 99), "") == 0, "function param out of range");
+        partial_args[0] = enact_value_make_int(1);
+        require_true(enact_function_partial(function, NULL, 1) == NULL, "function partial null arguments fails");
+        require_true(enact_function_partial(function, partial_args, 0) == NULL, "function partial zero arguments fails");
+        require_true(enact_function_partial(function, partial_args, 1) == NULL, "function partial exact arity fails");
         function_value = enact_value_make_function(function);
         require_true(function_value.kind == ENACT_VALUE_FUNCTION, "function value kind");
         require_true(enact_value_copy(&function_copy, &function_value), "function value copy succeeds");
@@ -187,6 +197,31 @@ static void test_value_helpers(void)
         require_true(function_copy.as.as_function == function_value.as.as_function, "function copy retains same object");
         enact_value_free(&function_copy);
         enact_value_free(&function_value);
+    }
+    two_params = make_test_name_list(two_param_names, 2);
+    require_true(two_params != NULL, "two-parameter list created");
+    function = enact_function_new(two_params, function_body, &empty_env);
+    require_true(function != NULL, "two-parameter function created");
+    if (function) {
+        partial_args[0] = enact_value_make_int(7);
+        partial_args[1] = enact_value_make_int(8);
+        partial_function = enact_function_partial(function, partial_args, 1);
+        require_true(partial_function != NULL, "function partial one argument succeeds");
+        if (partial_function) {
+            require_true(enact_function_arity(partial_function) == 1, "partial function arity");
+            require_true(strcmp(enact_function_param_name(partial_function, 0), "y") == 0, "partial function remaining param");
+            require_true(
+                enact_env_lookup(enact_function_env(partial_function), "x", &partial_lookup),
+                "partial function captures bound argument");
+            require_true(partial_lookup.kind == ENACT_VALUE_INT, "partial captured argument kind");
+            require_true(partial_lookup.as.as_int == 7, "partial captured argument value");
+            enact_value_free(&partial_lookup);
+            enact_function_release(partial_function);
+        }
+        require_true(
+            enact_function_partial(function, partial_args, 2) == NULL,
+            "function partial all arguments fails");
+        enact_function_release(function);
     }
     require_true(enact_function_retain(NULL) == NULL, "function retain null fails");
     enact_function_release(NULL);
@@ -199,6 +234,7 @@ static void test_value_helpers(void)
     enact_value_free(&function_value);
     enact_name_list_free(empty_params);
     enact_name_list_free(params);
+    enact_name_list_free(two_params);
     enact_ast_free(function_body);
     enact_env_free(&empty_env);
 
@@ -366,6 +402,26 @@ static void test_env_helpers(void)
     require_true(enact_eval_ast_with_env(function_call, &env, &result, &diag), "multi-argument function call evaluates through env");
     require_true(result.kind == ENACT_VALUE_INT, "multi-argument function call result kind");
     require_true(result.as.as_int == 5, "multi-argument function call result value");
+    enact_ast_free(function_call);
+
+    function_body = enact_ast_new_binary(
+        AST_ADD,
+        enact_ast_new_identifier(copy_test_name("left")),
+        enact_ast_new_identifier(copy_test_name("right")));
+    {
+        const char *names[] = {"left", "right"};
+        params = make_test_name_list(names, 2);
+    }
+    arguments = make_test_ast_list1(enact_ast_new_int(2));
+    function_literal = enact_ast_new_function_literal(params, function_body);
+    function_call = enact_ast_new_call(function_literal, arguments);
+    require_true(params != NULL && arguments != NULL && function_body != NULL && function_literal != NULL && function_call != NULL, "partial function call ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(function_call, &env, &result, &diag), "partial function call evaluates through env");
+    require_true(result.kind == ENACT_VALUE_FUNCTION, "partial function call result kind");
+    require_true(enact_function_arity(result.as.as_function) == 1, "partial function call result arity");
+    require_true(strcmp(enact_function_param_name(result.as.as_function, 0), "right") == 0, "partial function call remaining param");
+    enact_value_free(&result);
     enact_ast_free(function_call);
 
     function_body = enact_ast_new_identifier(copy_test_name("only"));

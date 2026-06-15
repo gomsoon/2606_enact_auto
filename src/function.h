@@ -7,6 +7,10 @@
 typedef struct EnactFunction EnactFunction;
 
 EnactFunction *enact_function_new(const EnactNameList *param_names, const EnactAst *body, const EnactEnv *env);
+EnactFunction *enact_function_partial(
+    const EnactFunction *function,
+    const EnactValue *arguments,
+    size_t argument_count);
 EnactFunction *enact_function_retain(EnactFunction *function);
 void enact_function_release(EnactFunction *function);
 size_t enact_function_arity(const EnactFunction *function);

@@ -179,7 +179,6 @@ def main() -> int:
     ]
 
     slice_009_robustness_failure_cases = [
-        ("add(x,y):=x+y; add(1).", "ENACT_ERR_ARITY_MISMATCH"),
         ("add(x,y):=x+y; add(1,2,3).", "ENACT_ERR_ARITY_MISMATCH"),
         ("inc(x):=x+1; inc(1,2).", "ENACT_ERR_ARITY_MISMATCH"),
         ("one(x):=x; one(1,1/0).", "ENACT_ERR_ARITY_MISMATCH"),
@@ -231,8 +230,34 @@ def main() -> int:
         ("((x),y)::x.", "ENACT_ERR_PARSE_UNMATCHED_PAREN"),
         ("f:=x::x; f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("f:=x::x; f(1,2).", "ENACT_ERR_ARITY_MISMATCH"),
-        ("f:=(x,y)::x+y; f(1).", "ENACT_ERR_ARITY_MISMATCH"),
         ("ignore:=(x,y)::x; ignore(1,1/0).", "ENACT_ERR_DIVIDE_BY_ZERO"),
+        ("f:=x::f(x); f(1).", "ENACT_ERR_NAME_UNBOUND"),
+    ]
+
+    slice_011_boundary_success_cases = [
+        ("add(x,y):=x+y; add(1)(4).", "5\n"),
+        ("add(x,y):=x+y; inc:=add(1); inc(4).", "5\n"),
+        ("add:=(x,y)::x+y; add(1)(4).", "5\n"),
+        ("tri:=(a,b,c)::a+b+c; tri(1)(2)(3).", "6\n"),
+        ("tri:=(a,b,c)::a+b+c; add1:=tri(1); add1(2,3).", "6\n"),
+        ("tri:=(a,b,c)::a+b+c; add3:=tri(1,2); add3(3).", "6\n"),
+        ('choose:=(a,b)::a; left:=choose("left"); left("right").', "\"left\"\n"),
+        ("both:=(a,b)::a and b; t:=both(true); t(false).", "false\n"),
+        ("x:=10; addx:=(a,b)::x+a+b; p:=addx(1); x:=20; p(2).", "13\n"),
+        ("apply:=(f,x)::f(x); add:=(a,b)::a+b; apply(add(2),3).", "5\n"),
+        ("add:=(x,y)::x+y; add(1).", "<function>\n"),
+        ("make:=a::(b,c)::a+b+c; s:=make(1)(2); s(3).", "6\n"),
+        ("add:=(x,y)::x+y; x:=0; p:=add(x:=2); p(3); x.", "2\n"),
+    ]
+
+    slice_011_robustness_failure_cases = [
+        ("add:=(x,y)::x+y; add(1,2,3).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("f:=(x,y)::x+y; f(1,2,3).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("one:=x::x; one(1,1/0).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("ignore:=(a,b)::a; ignore(1/0).", "ENACT_ERR_DIVIDE_BY_ZERO"),
+        ("add:=(a,b)::a+b; p:=add(true); p(1).", "ENACT_ERR_TYPE_EXPECTED_INT"),
+        ("1(2).", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("f:=x::f(x); f(1).", "ENACT_ERR_NAME_UNBOUND"),
     ]
 
@@ -381,7 +406,7 @@ def main() -> int:
         ("1 if x where x:=true else 2.", "1\n"),
         ("true and x where x:=true.", "true\n"),
         ("x:=1; (x where x:=2); x.", "1\n"),
-    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases + slice_010_boundary_success_cases
+    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases + slice_010_boundary_success_cases + slice_011_boundary_success_cases
 
     failure_cases = [
         ("", "ENACT_ERR_PARSE_MISSING_DOT"),
@@ -484,7 +509,7 @@ def main() -> int:
         ("x:=y.", "ENACT_ERR_NAME_UNBOUND"),
         ("x+1; x:=2.", "ENACT_ERR_NAME_UNBOUND"),
         ("x:=1; y.", "ENACT_ERR_NAME_UNBOUND"),
-    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases + slice_010_robustness_failure_cases
+    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases + slice_010_robustness_failure_cases + slice_011_robustness_failure_cases
 
     token_failure_cases = [
         ("$x.", "ENACT_ERR_LEX_INVALID_CHAR"),
@@ -516,6 +541,8 @@ def main() -> int:
     print(f"slice 009 robustness regression checks: {len(slice_009_robustness_failure_cases)}")
     print(f"slice 010 boundary regression checks: {len(slice_010_token_cases) + len(slice_010_boundary_success_cases)}")
     print(f"slice 010 robustness regression checks: {len(slice_010_robustness_failure_cases)}")
+    print(f"slice 011 boundary regression checks: {len(slice_011_boundary_success_cases)}")
+    print(f"slice 011 robustness regression checks: {len(slice_011_robustness_failure_cases)}")
     return 0
 
 
