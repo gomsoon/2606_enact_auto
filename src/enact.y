@@ -45,6 +45,18 @@ static EnactAst *enact_make_string(char *value)
     return ast;
 }
 
+static EnactAst *enact_make_nil(void)
+{
+    EnactAst *ast = enact_ast_new_nil();
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_identifier(char *name)
 {
     EnactAst *ast = enact_ast_new_identifier(name);
@@ -425,11 +437,11 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 %token <u64> TOK_INT_LITERAL
 %token <text> TOK_IDENTIFIER TOK_STRING_LITERAL
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
-%token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
+%token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NIL TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
-%token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_MOD TOK_WHERE
+%token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_CONS TOK_MOD TOK_WHERE
 
-%type <ast> expr sequence assignment lambda conditional logical_or logical_and where_expr logical_not comparison additive multiplicative unary call application_argument primary
+%type <ast> expr sequence assignment lambda conditional logical_or logical_and where_expr logical_not comparison cons additive multiplicative unary call application_argument primary
 %type <ast_list> argument_list
 %type <name_list> lambda_head parameter_list
 
@@ -610,51 +622,65 @@ logical_not:
     ;
 
 comparison:
-    additive
+    cons
     {
         $$ = $1;
     }
-    | additive TOK_EQEQ additive
+    | cons TOK_EQEQ cons
     {
         $$ = enact_make_binary(AST_EQ, $1, $3);
         if (!$$) {
             YYABORT;
         }
     }
-    | additive TOK_NEQ additive
+    | cons TOK_NEQ cons
     {
         $$ = enact_make_binary(AST_NEQ, $1, $3);
         if (!$$) {
             YYABORT;
         }
     }
-    | additive TOK_LT additive
+    | cons TOK_LT cons
     {
         $$ = enact_make_binary(AST_LT, $1, $3);
         if (!$$) {
             YYABORT;
         }
     }
-    | additive TOK_GT additive
+    | cons TOK_GT cons
     {
         $$ = enact_make_binary(AST_GT, $1, $3);
         if (!$$) {
             YYABORT;
         }
     }
-    | additive TOK_LTE additive
+    | cons TOK_LTE cons
     {
         $$ = enact_make_binary(AST_LTE, $1, $3);
         if (!$$) {
             YYABORT;
         }
     }
-    | additive TOK_GTE additive
+    | cons TOK_GTE cons
     {
         $$ = enact_make_binary(AST_GTE, $1, $3);
         if (!$$) {
             YYABORT;
         }
+    }
+    ;
+
+cons:
+    additive TOK_CONS cons
+    {
+        $$ = enact_make_binary(AST_CONS, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | additive
+    {
+        $$ = $1;
     }
     ;
 
@@ -775,6 +801,13 @@ application_argument:
             YYABORT;
         }
     }
+    | TOK_NIL
+    {
+        $$ = enact_make_nil();
+        if (!$$) {
+            YYABORT;
+        }
+    }
     | TOK_STRING_LITERAL
     {
         $$ = enact_make_string($1);
@@ -828,6 +861,13 @@ primary:
     | TOK_FALSE
     {
         $$ = enact_make_bool(0);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_NIL
+    {
+        $$ = enact_make_nil();
         if (!$$) {
             YYABORT;
         }

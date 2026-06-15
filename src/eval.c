@@ -1,7 +1,6 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "eval.h"
 #include "function.h"
@@ -91,6 +90,17 @@ static int enact_require_function(const EnactValue *value, EnactFunction **out, 
     return 1;
 }
 
+static int enact_require_list(const EnactValue *value, EnactList **out, EnactDiag *diag)
+{
+    if (value->kind != ENACT_VALUE_LIST) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_LIST, -1);
+        return 0;
+    }
+
+    *out = value->as.as_list;
+    return 1;
+}
+
 static int enact_eval_arithmetic_binary(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left_value;
@@ -147,19 +157,11 @@ static int enact_eval_equality(const EnactAst *ast, EnactEnv *env, EnactValue *o
         return 0;
     }
 
-    switch (left.kind) {
-    case ENACT_VALUE_INT:
-        result = left.as.as_int == right.as.as_int;
-        break;
-    case ENACT_VALUE_BOOL:
-        result = left.as.as_bool == right.as.as_bool;
-        break;
-    case ENACT_VALUE_STRING:
-        result = strcmp(left.as.as_string, right.as.as_string) == 0;
-        break;
-    case ENACT_VALUE_FUNCTION:
-        result = left.as.as_function == right.as.as_function;
-        break;
+    if (!enact_value_equal(&left, &right, &result)) {
+        enact_value_free(&left);
+        enact_value_free(&right);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
     }
 
     if (ast->kind == AST_NEQ) {
@@ -220,6 +222,38 @@ static int enact_eval_ordering(const EnactAst *ast, EnactEnv *env, EnactValue *o
     enact_value_free(&left_value);
     enact_value_free(&right_value);
     *out = enact_value_make_bool(result);
+    return 1;
+}
+
+static int enact_eval_cons(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue head;
+    EnactValue tail;
+    EnactList *tail_list = NULL;
+    EnactList *list;
+
+    if (!enact_eval_value(ast->as.binary.left, env, &head, diag)) {
+        return 0;
+    }
+    if (!enact_eval_value(ast->as.binary.right, env, &tail, diag)) {
+        enact_value_free(&head);
+        return 0;
+    }
+    if (!enact_require_list(&tail, &tail_list, diag)) {
+        enact_value_free(&head);
+        enact_value_free(&tail);
+        return 0;
+    }
+
+    list = enact_list_cons(&head, tail_list);
+    enact_value_free(&head);
+    enact_value_free(&tail);
+    if (!list) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(list);
     return 1;
 }
 
@@ -511,6 +545,9 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
             return 0;
         }
         return 1;
+    case AST_NIL:
+        *out = enact_value_make_list(NULL);
+        return 1;
     case AST_IDENTIFIER:
         if (enact_env_lookup(env, ast->as.identifier_name, out)) {
             return 1;
@@ -557,6 +594,8 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
     case AST_DIV:
     case AST_MOD:
         return enact_eval_arithmetic_binary(ast, env, out, diag);
+    case AST_CONS:
+        return enact_eval_cons(ast, env, out, diag);
     case AST_EQ:
     case AST_NEQ:
         return enact_eval_equality(ast, env, out, diag);

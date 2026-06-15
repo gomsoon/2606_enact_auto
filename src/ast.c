@@ -291,6 +291,11 @@ EnactAst *enact_ast_new_string(char *value)
     return ast;
 }
 
+EnactAst *enact_ast_new_nil(void)
+{
+    return enact_ast_alloc(AST_NIL);
+}
+
 EnactAst *enact_ast_new_identifier(char *name)
 {
     EnactAst *ast = enact_ast_alloc(AST_IDENTIFIER);
@@ -605,6 +610,9 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
             free(text);
         }
         break;
+    case AST_NIL:
+        copy = enact_ast_new_nil();
+        break;
     case AST_IDENTIFIER:
         text = enact_ast_copy_text(ast->as.identifier_name);
         if (!text) {
@@ -631,6 +639,7 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
     case AST_GT:
     case AST_LTE:
     case AST_GTE:
+    case AST_CONS:
     case AST_AND:
     case AST_OR:
     case AST_SEQUENCE:
@@ -669,6 +678,7 @@ void enact_ast_free(EnactAst *ast)
     switch (ast->kind) {
     case AST_INT_LITERAL:
     case AST_BOOL_LITERAL:
+    case AST_NIL:
         break;
     case AST_STRING_LITERAL:
         free(ast->as.string_value);
@@ -692,6 +702,7 @@ void enact_ast_free(EnactAst *ast)
     case AST_GT:
     case AST_LTE:
     case AST_GTE:
+    case AST_CONS:
     case AST_AND:
     case AST_OR:
     case AST_SEQUENCE:

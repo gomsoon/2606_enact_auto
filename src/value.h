@@ -5,12 +5,14 @@
 #include <stdint.h>
 
 typedef struct EnactFunction EnactFunction;
+typedef struct EnactList EnactList;
 
 typedef enum {
     ENACT_VALUE_INT,
     ENACT_VALUE_BOOL,
     ENACT_VALUE_STRING,
-    ENACT_VALUE_FUNCTION
+    ENACT_VALUE_FUNCTION,
+    ENACT_VALUE_LIST
 } EnactValueKind;
 
 typedef struct {
@@ -20,6 +22,7 @@ typedef struct {
         bool as_bool;
         char *as_string;
         EnactFunction *as_function;
+        EnactList *as_list;
     } as;
 } EnactValue;
 
@@ -59,6 +62,21 @@ static inline EnactValue enact_value_make_function(EnactFunction *function)
     return result;
 }
 
+static inline EnactValue enact_value_make_list(EnactList *list)
+{
+    EnactValue result;
+
+    result.kind = ENACT_VALUE_LIST;
+    result.as.as_list = list;
+    return result;
+}
+
+EnactList *enact_list_cons(const EnactValue *head, EnactList *tail);
+EnactList *enact_list_retain(EnactList *list);
+void enact_list_release(EnactList *list);
+const EnactValue *enact_list_head(const EnactList *list);
+EnactList *enact_list_tail(const EnactList *list);
+int enact_value_equal(const EnactValue *left, const EnactValue *right, bool *out);
 int enact_value_copy(EnactValue *out, const EnactValue *in);
 void enact_value_free(EnactValue *value);
 

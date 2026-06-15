@@ -8,6 +8,7 @@ typedef enum {
     AST_INT_LITERAL,
     AST_BOOL_LITERAL,
     AST_STRING_LITERAL,
+    AST_NIL,
     AST_IDENTIFIER,
     AST_GROUP,
     AST_UNARY_NEG,
@@ -23,6 +24,7 @@ typedef enum {
     AST_GT,
     AST_LTE,
     AST_GTE,
+    AST_CONS,
     AST_AND,
     AST_OR,
     AST_IF_ELSE,
@@ -110,6 +112,7 @@ void enact_ast_list_free(EnactAstList *list);
 EnactAst *enact_ast_new_int(uint64_t int_magnitude);
 EnactAst *enact_ast_new_bool(int bool_value);
 EnactAst *enact_ast_new_string(char *value);
+EnactAst *enact_ast_new_nil(void);
 EnactAst *enact_ast_new_identifier(char *name);
 EnactAst *enact_ast_new_unary(EnactAstKind kind, EnactAst *child);
 EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *right);

@@ -96,6 +96,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_BOOL), "ENACT_ERR_TYPE_EXPECTED_BOOL") == 0, "error code expected bool");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_INT), "ENACT_ERR_TYPE_EXPECTED_INT") == 0, "error code expected int");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "ENACT_ERR_TYPE_EXPECTED_FUNCTION") == 0, "error code expected function");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_LIST), "ENACT_ERR_TYPE_EXPECTED_LIST") == 0, "error code expected list");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "ENACT_ERR_TYPE_EQUALITY_MISMATCH") == 0, "error code equality mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ARITY_MISMATCH), "ENACT_ERR_ARITY_MISMATCH") == 0, "error code arity mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_NAME_UNBOUND), "ENACT_ERR_NAME_UNBOUND") == 0, "error code unbound name");
@@ -108,6 +109,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_BOOL), "boolean value required") == 0, "error message expected bool");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_INT), "integer value required") == 0, "error message expected int");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "function value required") == 0, "error message expected function");
+    require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_LIST), "list value required") == 0, "error message expected list");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "cannot compare values of different kinds") == 0, "error message equality mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_ARITY_MISMATCH), "function arity mismatch") == 0, "error message arity mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_NAME_UNBOUND), "unbound identifier") == 0, "error message unbound name");
@@ -126,6 +128,11 @@ static void test_value_helpers(void)
     EnactValue bool_value = enact_value_make_bool(true);
     EnactValue string_value = enact_value_make_string(copy_test_name("hello"));
     EnactValue string_copy;
+    EnactValue list_head;
+    EnactValue list_value;
+    EnactValue list_copy;
+    EnactList *list;
+    bool values_equal = false;
     EnactEnv empty_env;
     EnactAst *function_body;
     EnactFunction *function;
@@ -155,6 +162,32 @@ static void test_value_helpers(void)
     require_true(string_copy.as.as_string != string_value.as.as_string, "string copy is deep");
     enact_value_free(&string_copy);
     enact_value_free(&string_value);
+
+    list_head = enact_value_make_int(42);
+    list = enact_list_cons(&list_head, NULL);
+    require_true(list != NULL, "list cons created");
+    if (list) {
+        require_true(enact_list_head(list) != NULL, "list head accessor");
+        require_true(enact_list_head(list)->kind == ENACT_VALUE_INT, "list head kind");
+        require_true(enact_list_head(list)->as.as_int == 42, "list head value");
+        require_true(enact_list_tail(list) == NULL, "list tail nil");
+        list_value = enact_value_make_list(list);
+        require_true(enact_value_copy(&list_copy, &list_value), "list value copy succeeds");
+        require_true(list_copy.kind == ENACT_VALUE_LIST, "list copy kind");
+        require_true(list_copy.as.as_list == list_value.as.as_list, "list copy retains same list");
+        require_true(enact_value_equal(&list_value, &list_copy, &values_equal), "list value equality succeeds");
+        require_true(values_equal, "list value equality true");
+        enact_value_free(&list_copy);
+        enact_value_free(&list_value);
+    }
+    require_true(enact_list_cons(NULL, NULL) == NULL, "list cons null head fails");
+    require_true(enact_list_retain(NULL) == NULL, "list retain null");
+    enact_list_release(NULL);
+    require_true(enact_list_head(NULL) == NULL, "list head null");
+    require_true(enact_list_tail(NULL) == NULL, "list tail null");
+    require_true(!enact_value_equal(NULL, &int_value, &values_equal), "value equality null left fails");
+    require_true(!enact_value_equal(&int_value, NULL, &values_equal), "value equality null right fails");
+    require_true(!enact_value_equal(&int_value, &int_value, NULL), "value equality null out fails");
 
     enact_env_init(&empty_env);
     function_body = enact_ast_new_int(1);
@@ -490,6 +523,30 @@ static void test_ast_clone_helpers(void)
     require_true(enact_eval_ast(clone, &value, &diag), "null string clone evaluates");
     require_true(value.kind == ENACT_VALUE_STRING, "null string clone result kind");
     require_true(strcmp(value.as.as_string, "") == 0, "null string clone result value");
+    enact_value_free(&value);
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
+    original = enact_ast_new_nil();
+    require_true(original != NULL, "nil clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "nil clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "nil clone evaluates");
+    require_true(value.kind == ENACT_VALUE_LIST, "nil clone result kind");
+    require_true(value.as.as_list == NULL, "nil clone result value");
+    enact_value_free(&value);
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
+    original = enact_ast_new_binary(AST_CONS, enact_ast_new_int(1), enact_ast_new_nil());
+    require_true(original != NULL, "cons clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "cons clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "cons clone evaluates");
+    require_true(value.kind == ENACT_VALUE_LIST, "cons clone result kind");
+    require_true(enact_list_head(value.as.as_list)->as.as_int == 1, "cons clone head value");
     enact_value_free(&value);
     enact_ast_free(clone);
     enact_ast_free(original);

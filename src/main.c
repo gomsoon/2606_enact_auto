@@ -102,7 +102,9 @@ static void enact_print_diag(FILE *stream, const EnactDiag *diag)
     }
 }
 
-static void enact_print_string(FILE *stream, const char *value)
+static void enact_print_value_inner(FILE *stream, const EnactValue *value);
+
+static void enact_print_string_inner(FILE *stream, const char *value)
 {
     const unsigned char *cursor = (const unsigned char *)(value ? value : "");
 
@@ -130,25 +132,56 @@ static void enact_print_string(FILE *stream, const char *value)
         }
         cursor += 1;
     }
-    fputs("\"\n", stream);
+    fputc('"', stream);
+}
+
+static void enact_print_list_inner(FILE *stream, EnactList *list)
+{
+    const EnactValue *head;
+
+    if (!list) {
+        fputs("nil", stream);
+        return;
+    }
+
+    head = enact_list_head(list);
+    if (head && head->kind == ENACT_VALUE_LIST) {
+        fputc('(', stream);
+        enact_print_value_inner(stream, head);
+        fputc(')', stream);
+    } else if (head) {
+        enact_print_value_inner(stream, head);
+    }
+
+    fputc(':', stream);
+    enact_print_list_inner(stream, enact_list_tail(list));
+}
+
+static void enact_print_value_inner(FILE *stream, const EnactValue *value)
+{
+    switch (value->kind) {
+    case ENACT_VALUE_INT:
+        fprintf(stream, "%d", value->as.as_int);
+        break;
+    case ENACT_VALUE_BOOL:
+        fprintf(stream, "%s", value->as.as_bool ? "true" : "false");
+        break;
+    case ENACT_VALUE_STRING:
+        enact_print_string_inner(stream, value->as.as_string);
+        break;
+    case ENACT_VALUE_FUNCTION:
+        fputs("<function>", stream);
+        break;
+    case ENACT_VALUE_LIST:
+        enact_print_list_inner(stream, value->as.as_list);
+        break;
+    }
 }
 
 static void enact_print_value(FILE *stream, const EnactValue *value)
 {
-    switch (value->kind) {
-    case ENACT_VALUE_INT:
-        fprintf(stream, "%d\n", value->as.as_int);
-        break;
-    case ENACT_VALUE_BOOL:
-        fprintf(stream, "%s\n", value->as.as_bool ? "true" : "false");
-        break;
-    case ENACT_VALUE_STRING:
-        enact_print_string(stream, value->as.as_string);
-        break;
-    case ENACT_VALUE_FUNCTION:
-        fputs("<function>\n", stream);
-        break;
-    }
+    enact_print_value_inner(stream, value);
+    fputc('\n', stream);
 }
 
 static int enact_run_source(const char *source, int token_mode)

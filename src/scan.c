@@ -26,6 +26,8 @@ static const char *enact_token_name(int token)
         return "TOK_IDENTIFIER";
     case TOK_STRING_LITERAL:
         return "TOK_STRING_LITERAL";
+    case TOK_NIL:
+        return "TOK_NIL";
     case TOK_UMINUS:
         return "TOK_UMINUS";
     case TOK_PLUS:
@@ -58,6 +60,8 @@ static const char *enact_token_name(int token)
         return "TOK_SEMI";
     case TOK_COMMA:
         return "TOK_COMMA";
+    case TOK_CONS:
+        return "TOK_CONS";
     case TOK_TRUE:
         return "TOK_TRUE";
     case TOK_FALSE:
