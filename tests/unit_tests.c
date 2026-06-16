@@ -285,12 +285,18 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *tl = enact_builtin_lookup("tl");
     const EnactBuiltin *append = enact_builtin_lookup("append");
     const EnactBuiltin *size = enact_builtin_lookup("size");
+    EnactBuiltinPartial *append_partial;
+    EnactBuiltinPartial *other_append_partial;
     EnactValue builtin_value;
     EnactValue builtin_copy;
+    EnactValue partial_value;
+    EnactValue partial_copy;
+    EnactValue other_partial_value;
     EnactValue lookup_value;
     EnactValue head;
     EnactValue args[1];
     EnactValue append_args[2];
+    EnactValue bad_prefix_args[1];
     EnactValue result;
     EnactList *list;
     EnactList *left_list;
@@ -312,6 +318,10 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(append) == 2, "append builtin arity");
     require_true(enact_builtin_arity(size) == 1, "size builtin arity");
     require_true(enact_builtin_arity(NULL) == 0, "null builtin arity");
+    require_true(enact_builtin_partial_builtin(NULL) == NULL, "null partial builtin accessor");
+    require_true(enact_builtin_partial_argument_count(NULL) == 0, "null partial argument count");
+    require_true(enact_builtin_partial_retain(NULL) == NULL, "null partial retain");
+    enact_builtin_partial_release(NULL);
 
     builtin_value = enact_value_make_builtin(hd);
     require_true(builtin_value.kind == ENACT_VALUE_BUILTIN, "builtin value kind");
@@ -367,6 +377,48 @@ static void test_builtin_helpers(void)
         require_true(enact_list_head(enact_list_tail(result.as.as_list))->as.as_int == 2, "append builtin second value");
         require_true(enact_list_tail(enact_list_tail(result.as.as_list)) == NULL, "append builtin tail nil");
         enact_value_free(&result);
+
+        append_partial = enact_builtin_partial_new(append, append_args, 1);
+        require_true(append_partial != NULL, "append partial created");
+        if (append_partial) {
+            require_true(enact_builtin_partial_builtin(append_partial) == append, "append partial builtin");
+            require_true(enact_builtin_partial_argument_count(append_partial) == 1, "append partial count");
+            partial_value = enact_value_make_builtin_partial(append_partial);
+            require_true(partial_value.kind == ENACT_VALUE_BUILTIN_PARTIAL, "partial value kind");
+            require_true(enact_value_copy(&partial_copy, &partial_value), "partial value copy succeeds");
+            require_true(partial_copy.kind == ENACT_VALUE_BUILTIN_PARTIAL, "partial copy kind");
+            require_true(
+                partial_copy.as.as_builtin_partial == partial_value.as.as_builtin_partial,
+                "partial copy payload");
+            require_true(enact_value_equal(&partial_value, &partial_copy, &values_equal), "partial equality succeeds");
+            require_true(values_equal, "partial copy equality true");
+            other_append_partial = enact_builtin_partial_new(append, append_args, 1);
+            require_true(other_append_partial != NULL, "second append partial created");
+            if (other_append_partial) {
+                other_partial_value = enact_value_make_builtin_partial(other_append_partial);
+                require_true(
+                    enact_value_equal(&partial_value, &other_partial_value, &values_equal),
+                    "independent partial equality succeeds");
+                require_true(!values_equal, "independent partial equality false");
+                enact_value_free(&other_partial_value);
+            }
+            enact_diag_reset(&diag);
+            require_true(
+                enact_builtin_partial_apply(append_partial, &append_args[1], 1, &result, &diag),
+                "append partial apply succeeds");
+            require_true(result.kind == ENACT_VALUE_LIST, "append partial result kind");
+            require_true(enact_list_head(result.as.as_list)->as.as_int == 1, "append partial first value");
+            require_true(
+                enact_list_head(enact_list_tail(result.as.as_list))->as.as_int == 2,
+                "append partial second value");
+            enact_value_free(&result);
+            require_true(
+                enact_builtin_partial_extend(append_partial, &append_args[1], 1) == NULL,
+                "append partial exact extension fails");
+            enact_value_free(&partial_copy);
+            enact_value_free(&partial_value);
+        }
+
         enact_value_free(&append_args[0]);
         enact_value_free(&append_args[1]);
     }
@@ -392,6 +444,26 @@ static void test_builtin_helpers(void)
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(append, append_args, 1, &result, &diag), "append wrong arity fails");
     require_true(diag.code == ENACT_ERR_ARITY_MISMATCH, "append wrong arity code");
+    bad_prefix_args[0] = enact_value_make_int(1);
+    append_partial = enact_builtin_partial_new(append, bad_prefix_args, 1);
+    require_true(append_partial != NULL, "append bad prefix partial created");
+    if (append_partial) {
+        append_args[0] = enact_value_make_list(NULL);
+        enact_diag_reset(&diag);
+        require_true(
+            !enact_builtin_partial_apply(append_partial, append_args, 1, &result, &diag),
+            "append bad prefix partial apply fails");
+        require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_LIST, "append bad prefix partial code");
+        enact_builtin_partial_release(append_partial);
+    }
+    enact_diag_reset(&diag);
+    require_true(
+        !enact_builtin_partial_apply(NULL, append_args, 1, &result, &diag),
+        "null partial apply fails");
+    require_true(diag.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "null partial apply code");
+    require_true(enact_builtin_partial_new(NULL, append_args, 1) == NULL, "partial new null builtin fails");
+    require_true(enact_builtin_partial_new(size, append_args, 1) == NULL, "partial new exact arity fails");
+    require_true(enact_builtin_partial_new(append, NULL, 1) == NULL, "partial new null args fails");
 
     enact_env_init(&env);
     require_true(enact_install_builtins(&env), "install builtins succeeds");

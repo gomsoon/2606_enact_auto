@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "builtin.h"
 #include "function.h"
 #include "value.h"
 
@@ -137,6 +138,9 @@ int enact_value_equal(const EnactValue *left, const EnactValue *right, bool *out
     case ENACT_VALUE_BUILTIN:
         *out = left->as.as_builtin == right->as.as_builtin;
         return 1;
+    case ENACT_VALUE_BUILTIN_PARTIAL:
+        *out = left->as.as_builtin_partial == right->as.as_builtin_partial;
+        return 1;
     }
 
     return 0;
@@ -171,6 +175,10 @@ int enact_value_copy(EnactValue *out, const EnactValue *in)
         }
         *out = *in;
         return 1;
+    case ENACT_VALUE_BUILTIN_PARTIAL:
+        out->kind = ENACT_VALUE_BUILTIN_PARTIAL;
+        out->as.as_builtin_partial = enact_builtin_partial_retain(in->as.as_builtin_partial);
+        return out->as.as_builtin_partial != NULL;
     }
 
     return 0;
@@ -188,6 +196,8 @@ void enact_value_free(EnactValue *value)
         enact_function_release(value->as.as_function);
     } else if (value->kind == ENACT_VALUE_LIST) {
         enact_list_release(value->as.as_list);
+    } else if (value->kind == ENACT_VALUE_BUILTIN_PARTIAL) {
+        enact_builtin_partial_release(value->as.as_builtin_partial);
     }
 
     value->kind = ENACT_VALUE_INT;

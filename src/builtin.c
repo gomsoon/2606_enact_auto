@@ -1,4 +1,5 @@
 #include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "builtin.h"
@@ -14,6 +15,79 @@ struct EnactBuiltin {
     size_t arity;
     EnactBuiltinCallback callback;
 };
+
+struct EnactBuiltinPartial {
+    size_t ref_count;
+    const EnactBuiltin *builtin;
+    EnactValue *arguments;
+    size_t argument_count;
+};
+
+static void enact_builtin_free_argument_values(EnactValue *arguments, size_t argument_count)
+{
+    size_t index;
+
+    if (!arguments) {
+        return;
+    }
+
+    for (index = 0; index < argument_count; index += 1) {
+        enact_value_free(&arguments[index]);
+    }
+}
+
+static void enact_builtin_free_arguments(EnactValue *arguments, size_t argument_count)
+{
+    if (!arguments) {
+        return;
+    }
+
+    enact_builtin_free_argument_values(arguments, argument_count);
+    free(arguments);
+}
+
+static int enact_builtin_copy_arguments(EnactValue *out, const EnactValue *in, size_t argument_count)
+{
+    size_t index;
+
+    if (argument_count > 0 && (!out || !in)) {
+        return 0;
+    }
+
+    for (index = 0; index < argument_count; index += 1) {
+        if (!enact_value_copy(&out[index], &in[index])) {
+            enact_builtin_free_argument_values(out, index);
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static EnactBuiltinPartial *enact_builtin_partial_alloc(const EnactBuiltin *builtin, size_t argument_count)
+{
+    EnactBuiltinPartial *partial;
+
+    if (!builtin || argument_count == 0 || argument_count >= enact_builtin_arity(builtin)) {
+        return NULL;
+    }
+
+    partial = calloc(1, sizeof(*partial));
+    if (!partial) {
+        return NULL;
+    }
+
+    partial->arguments = calloc(argument_count, sizeof(*partial->arguments));
+    if (!partial->arguments) {
+        free(partial);
+        return NULL;
+    }
+
+    partial->ref_count = 1;
+    partial->builtin = builtin;
+    partial->argument_count = argument_count;
+    return partial;
+}
 
 static int enact_builtin_require_list(const EnactValue *value, EnactList **out, EnactDiag *diag)
 {
@@ -203,6 +277,98 @@ size_t enact_builtin_arity(const EnactBuiltin *builtin)
     return builtin ? builtin->arity : 0;
 }
 
+EnactBuiltinPartial *enact_builtin_partial_new(
+    const EnactBuiltin *builtin,
+    const EnactValue *arguments,
+    size_t argument_count)
+{
+    EnactBuiltinPartial *partial = enact_builtin_partial_alloc(builtin, argument_count);
+
+    if (!partial) {
+        return NULL;
+    }
+    if (!enact_builtin_copy_arguments(partial->arguments, arguments, argument_count)) {
+        free(partial->arguments);
+        free(partial);
+        return NULL;
+    }
+
+    return partial;
+}
+
+EnactBuiltinPartial *enact_builtin_partial_extend(
+    const EnactBuiltinPartial *partial,
+    const EnactValue *arguments,
+    size_t argument_count)
+{
+    EnactBuiltinPartial *extended;
+    size_t total_count;
+
+    if (!partial || argument_count == 0) {
+        return NULL;
+    }
+
+    total_count = partial->argument_count + argument_count;
+    if (total_count < partial->argument_count) {
+        return NULL;
+    }
+    extended = enact_builtin_partial_alloc(partial->builtin, total_count);
+    if (!extended) {
+        return NULL;
+    }
+
+    if (!enact_builtin_copy_arguments(extended->arguments, partial->arguments, partial->argument_count)) {
+        free(extended->arguments);
+        free(extended);
+        return NULL;
+    }
+    if (!enact_builtin_copy_arguments(
+            extended->arguments + partial->argument_count,
+            arguments,
+            argument_count)) {
+        enact_builtin_free_arguments(extended->arguments, partial->argument_count);
+        free(extended);
+        return NULL;
+    }
+
+    return extended;
+}
+
+EnactBuiltinPartial *enact_builtin_partial_retain(EnactBuiltinPartial *partial)
+{
+    if (!partial) {
+        return NULL;
+    }
+
+    partial->ref_count += 1;
+    return partial;
+}
+
+void enact_builtin_partial_release(EnactBuiltinPartial *partial)
+{
+    if (!partial) {
+        return;
+    }
+
+    if (partial->ref_count > 1) {
+        partial->ref_count -= 1;
+        return;
+    }
+
+    enact_builtin_free_arguments(partial->arguments, partial->argument_count);
+    free(partial);
+}
+
+const EnactBuiltin *enact_builtin_partial_builtin(const EnactBuiltinPartial *partial)
+{
+    return partial ? partial->builtin : NULL;
+}
+
+size_t enact_builtin_partial_argument_count(const EnactBuiltinPartial *partial)
+{
+    return partial ? partial->argument_count : 0;
+}
+
 int enact_builtin_apply(
     const EnactBuiltin *builtin,
     const EnactValue *arguments,
@@ -224,6 +390,52 @@ int enact_builtin_apply(
     }
 
     return builtin->callback(arguments, argument_count, out, diag);
+}
+
+int enact_builtin_partial_apply(
+    const EnactBuiltinPartial *partial,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactValue *combined;
+    size_t prefix_count;
+    size_t total_count;
+    int status;
+
+    if (!partial || !out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    prefix_count = partial->argument_count;
+    total_count = prefix_count + argument_count;
+    if (total_count != enact_builtin_arity(partial->builtin)) {
+        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+        return 0;
+    }
+    if (argument_count > 0 && !arguments) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    combined = calloc(total_count, sizeof(*combined));
+    if (!combined) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    if (prefix_count > 0) {
+        memcpy(combined, partial->arguments, prefix_count * sizeof(*combined));
+    }
+    if (argument_count > 0) {
+        memcpy(combined + prefix_count, arguments, argument_count * sizeof(*combined));
+    }
+
+    status = enact_builtin_apply(partial->builtin, combined, total_count, out, diag);
+    free(combined);
+    return status;
 }
 
 int enact_install_builtins(EnactEnv *env)

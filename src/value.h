@@ -7,6 +7,7 @@
 typedef struct EnactFunction EnactFunction;
 typedef struct EnactList EnactList;
 typedef struct EnactBuiltin EnactBuiltin;
+typedef struct EnactBuiltinPartial EnactBuiltinPartial;
 
 typedef enum {
     ENACT_VALUE_INT,
@@ -14,7 +15,8 @@ typedef enum {
     ENACT_VALUE_STRING,
     ENACT_VALUE_FUNCTION,
     ENACT_VALUE_LIST,
-    ENACT_VALUE_BUILTIN
+    ENACT_VALUE_BUILTIN,
+    ENACT_VALUE_BUILTIN_PARTIAL
 } EnactValueKind;
 
 typedef struct {
@@ -26,6 +28,7 @@ typedef struct {
         EnactFunction *as_function;
         EnactList *as_list;
         const EnactBuiltin *as_builtin;
+        EnactBuiltinPartial *as_builtin_partial;
     } as;
 } EnactValue;
 
@@ -80,6 +83,15 @@ static inline EnactValue enact_value_make_builtin(const EnactBuiltin *builtin)
 
     result.kind = ENACT_VALUE_BUILTIN;
     result.as.as_builtin = builtin;
+    return result;
+}
+
+static inline EnactValue enact_value_make_builtin_partial(EnactBuiltinPartial *partial)
+{
+    EnactValue result;
+
+    result.kind = ENACT_VALUE_BUILTIN_PARTIAL;
+    result.as.as_builtin_partial = partial;
     return result;
 }
 
