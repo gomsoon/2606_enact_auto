@@ -4,6 +4,8 @@ Status: Draft 0.1
 
 Last updated: 2026-06-16
 
+Update note: Slice 027 supersedes this slice's empty-call boundary. `f()`, `list()`, and `size()` now parse as zero-argument calls; current builtins still report `ENACT_ERR_ARITY_MISMATCH` when called with no arguments.
+
 Related PRD: [docs/enact-prd.md](/home/tprover/2606_enact_auto/docs/enact-prd.md)
 
 Prerequisite slice: [docs/slices/022-recursive-named-functions-requirements.md](/home/tprover/2606_enact_auto/docs/slices/022-recursive-named-functions-requirements.md)
@@ -50,7 +52,7 @@ This slice explicitly excludes:
 - singleton tuple syntax such as `(x,)`
 - changing ordinary grouping `(x)`
 - changing multi-element tuple-like list syntax `(x,y,...)`
-- accepting empty function calls such as `f()`
+- accepting empty function calls such as `f()`; this was deferred to Slice 027
 - preserving whitespace differences between `f()` and `f ()`
 - quoted atom/symbol syntax
 - object collections such as sets and bags
@@ -74,8 +76,8 @@ Accepted examples:
 
 Error examples:
 
-- `list().` => `ENACT_ERR_PARSE_UNEXPECTED_TOKEN`
-- `size().` => `ENACT_ERR_PARSE_UNEXPECTED_TOKEN`
+- `list().` => `ENACT_ERR_ARITY_MISMATCH` after Slice 027
+- `size().` => `ENACT_ERR_ARITY_MISMATCH` after Slice 027
 - `list(1,2).` => `ENACT_ERR_ARITY_MISMATCH`
 - `list(1/0).` => `ENACT_ERR_DIVIDE_BY_ZERO`
 - `hd(()).` => `ENACT_ERR_LIST_EMPTY`
@@ -91,7 +93,7 @@ primary ::= "(" ")"
 
 The resulting AST shall be the same `AST_NIL` node used by the `nil` token.
 
-The parser shall not accept empty function calls. Because the lexer does not preserve whitespace, both `f()` and `f ()` remain the same token sequence and continue to fail as empty-argument calls.
+Slice 023 intentionally left empty function calls unsupported. Slice 027 later added empty-call syntax, so both `f()` and `f ()` are now parsed as zero-argument calls because the lexer does not preserve whitespace.
 
 ## 7. Builtin Requirements
 
@@ -139,8 +141,8 @@ The regression suite shall include:
 
 The regression suite shall include:
 
-- empty `list()` call rejected
-- empty `size()` call rejected
+- empty `list()` call reports arity mismatch after Slice 027
+- empty `size()` call reports arity mismatch after Slice 027
 - over-applied `list`
 - over-applied `list` does not evaluate impossible extra arguments
 - argument evaluation failure propagates
@@ -162,6 +164,6 @@ This slice is accepted when:
 - `99:()` evaluates exactly as `99:nil`
 - `list x` returns `x:nil`
 - `list` behaves like other unary builtins in higher-order calls
-- empty function calls remain rejected
+- empty function calls are deferred to Slice 027
 - previous Slice 001 through Slice 022 behavior remains green
 - handwritten source coverage remains reported separately from generated parser/lexer coverage

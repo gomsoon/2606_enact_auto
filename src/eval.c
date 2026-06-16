@@ -618,6 +618,7 @@ static int enact_eval_check_callable_arity(
 {
     size_t callable_arity;
     size_t callable_captured_count = 0;
+    size_t remaining_arity;
 
     if (!callee || !arity || !captured_count) {
         enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
@@ -638,9 +639,13 @@ static int enact_eval_check_callable_arity(
         return 0;
     }
 
-    if (argument_count == 0 ||
-        callable_captured_count >= callable_arity ||
-        argument_count > callable_arity - callable_captured_count) {
+    if (callable_captured_count > callable_arity) {
+        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+        return 0;
+    }
+
+    remaining_arity = callable_arity - callable_captured_count;
+    if (argument_count > remaining_arity || (argument_count == 0 && remaining_arity != 0)) {
         enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
         return 0;
     }
@@ -768,11 +773,13 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
         return 0;
     }
 
-    arguments = calloc(argument_count, sizeof(*arguments));
-    if (!arguments) {
-        enact_value_free(&callee);
-        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-        return 0;
+    if (argument_count > 0) {
+        arguments = calloc(argument_count, sizeof(*arguments));
+        if (!arguments) {
+            enact_value_free(&callee);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
     }
 
     for (index = 0; index < argument_count; index += 1) {

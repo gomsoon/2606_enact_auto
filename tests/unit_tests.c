@@ -139,6 +139,7 @@ static void test_value_helpers(void)
     EnactEnv empty_env;
     EnactAst *function_body;
     EnactFunction *function;
+    EnactFunction *zero_function;
     EnactFunction *partial_function;
     EnactFunction *recursive_function;
     EnactValue function_value;
@@ -201,7 +202,20 @@ static void test_value_helpers(void)
     empty_params = enact_name_list_new();
     require_true(empty_params != NULL, "empty params created");
     require_true(enact_function_new(NULL, function_body, &empty_env) == NULL, "function new null params fails");
-    require_true(enact_function_new(empty_params, function_body, &empty_env) == NULL, "function new empty params fails");
+    zero_function = enact_function_new(empty_params, function_body, &empty_env);
+    require_true(zero_function != NULL, "function new empty params succeeds");
+    if (zero_function) {
+        partial_args[0] = enact_value_make_int(1);
+        require_true(enact_function_arity(zero_function) == 0, "zero function arity");
+        require_true(strcmp(enact_function_param_name(zero_function, 0), "") == 0, "zero function param accessor");
+        require_true(
+            enact_function_partial(zero_function, partial_args, 0) == NULL,
+            "zero function partial zero arguments fails");
+        require_true(
+            enact_function_partial(zero_function, partial_args, 1) == NULL,
+            "zero function partial extra argument fails");
+        enact_function_release(zero_function);
+    }
     require_true(enact_function_new(params, NULL, &empty_env) == NULL, "function new null body fails");
     require_true(enact_function_new(params, function_body, NULL) == NULL, "function new null env fails");
     require_true(
@@ -210,6 +224,15 @@ static void test_value_helpers(void)
     require_true(
         enact_function_new_recursive(params, function_body, &empty_env, "") == NULL,
         "recursive function new empty name fails");
+    zero_function = enact_function_new_recursive(empty_params, function_body, &empty_env, "self0");
+    require_true(zero_function != NULL, "recursive function new empty params succeeds");
+    if (zero_function) {
+        require_true(enact_function_arity(zero_function) == 0, "zero recursive function arity");
+        require_true(
+            strcmp(enact_function_recursive_name(zero_function), "self0") == 0,
+            "zero recursive function name accessor");
+        enact_function_release(zero_function);
+    }
     require_true(enact_function_partial(NULL, partial_args, 1) == NULL, "function partial null function fails");
     params_clone = enact_name_list_clone(params);
     require_true(params_clone != NULL, "name list clone succeeds");
@@ -931,6 +954,18 @@ static void test_env_helpers(void)
     require_true(result.as.as_int == 5, "function call result value");
     enact_ast_free(function_call);
 
+    function_body = enact_ast_new_int(12);
+    params = enact_name_list_new();
+    arguments = enact_ast_list_new();
+    function_literal = enact_ast_new_function_literal(params, function_body);
+    function_call = enact_ast_new_call(function_literal, arguments);
+    require_true(params != NULL && arguments != NULL && function_body != NULL && function_literal != NULL && function_call != NULL, "zero-argument function call ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(function_call, &env, &result, &diag), "zero-argument function call evaluates through env");
+    require_true(result.kind == ENACT_VALUE_INT, "zero-argument function call result kind");
+    require_true(result.as.as_int == 12, "zero-argument function call result value");
+    enact_ast_free(function_call);
+
     function_body = enact_ast_new_binary(
         AST_ADD,
         enact_ast_new_identifier(copy_test_name("left")),
@@ -1406,6 +1441,26 @@ static void test_api_and_scan_helpers(void)
             !enact_eval_apply_callable(&non_callable, &callable_arg, 1, &applied, &diag),
             "callable helper rejects non-function");
         require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_FUNCTION, "callable helper non-function code");
+    }
+    enact_result_free(&result);
+
+    result = enact_eval_text("()::7.");
+    require_true(result.ok, "zero-argument callable source evaluates");
+    if (result.ok) {
+        enact_diag_reset(&diag);
+        require_true(
+            enact_eval_apply_callable(&result.value, NULL, 0, &applied, &diag),
+            "callable helper applies zero-argument function");
+        require_true(applied.kind == ENACT_VALUE_INT, "zero-argument callable result kind");
+        require_true(applied.as.as_int == 7, "zero-argument callable result value");
+        enact_value_free(&applied);
+
+        callable_arg = enact_value_make_int(4);
+        enact_diag_reset(&diag);
+        require_true(
+            !enact_eval_apply_callable(&result.value, &callable_arg, 1, &applied, &diag),
+            "callable helper rejects extra argument for zero-argument function");
+        require_true(diag.code == ENACT_ERR_ARITY_MISMATCH, "zero-argument callable extra argument code");
     }
     enact_result_free(&result);
     fclose(tmp);

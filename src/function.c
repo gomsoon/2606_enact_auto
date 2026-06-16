@@ -66,7 +66,7 @@ static EnactFunction *enact_function_new_with_recursive_name(
 {
     EnactFunction *function;
 
-    if (!param_names || enact_name_list_count(param_names) == 0 || !body || !env) {
+    if (!param_names || !body || !env) {
         return NULL;
     }
 

@@ -4,6 +4,8 @@ Status: Draft 0.1
 
 Last updated: 2026-06-16
 
+Update note: Slice 027 supersedes the empty-call boundary described here. `f()` is now valid call syntax, while current non-nullary builtins such as `list()` and `size()` report `ENACT_ERR_ARITY_MISMATCH`.
+
 Related requirements: [docs/slices/023-list-compatibility-requirements.md](/home/tprover/2606_enact_auto/docs/slices/023-list-compatibility-requirements.md)
 
 Prerequisite design: [docs/slices/022-recursive-named-functions-design.md](/home/tprover/2606_enact_auto/docs/slices/022-recursive-named-functions-design.md)
@@ -45,13 +47,13 @@ The production is placed beside the existing grouping and tuple-like list produc
 
 ## 3. Empty Call Boundary
 
-Parenthesized function calls still require `argument_list`:
+At Slice 023 time, parenthesized function calls still required `argument_list`:
 
 ```bison
 call TOK_LPAREN argument_list TOK_RPAREN
 ```
 
-Therefore:
+Therefore, before Slice 027:
 
 ```text
 list()
@@ -59,9 +61,9 @@ size()
 f()
 ```
 
-remain parse errors.
+remained parse errors.
 
-The scanner discards whitespace, so the implementation cannot distinguish `f()` from `f ()`. A parenthesized nil argument must be written as:
+Slice 027 later added empty-call syntax. The scanner still discards whitespace, so the implementation cannot distinguish `f()` from `f ()`. A parenthesized nil argument must still be written as:
 
 ```text
 f(())

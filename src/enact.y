@@ -196,6 +196,18 @@ static EnactAstList *enact_make_argument_list(EnactAst *argument)
     return list;
 }
 
+static EnactAstList *enact_make_empty_argument_list(void)
+{
+    EnactAstList *list = enact_ast_list_new();
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!list && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return list;
+}
+
 static EnactAstList *enact_append_argument(EnactAstList *list, EnactAst *argument)
 {
     EnactParseContext *context = enact_get_parse_context();
@@ -271,6 +283,18 @@ static EnactNameList *enact_make_parameter_list(char *name)
             enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         }
         return NULL;
+    }
+
+    return list;
+}
+
+static EnactNameList *enact_make_empty_parameter_list(void)
+{
+    EnactNameList *list = enact_name_list_new();
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!list && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
     }
 
     return list;
@@ -432,15 +456,26 @@ static EnactAst *enact_make_fix_from_lhs(EnactAst *lhs, EnactAst *body)
     return result;
 }
 
-static int enact_take_call_parameter_names_from_lhs(EnactNameList *names, EnactAst *call)
+static int enact_take_call_parameter_names_from_lhs(EnactNameList *names, EnactAst *call, int allow_empty)
 {
+    size_t argument_count;
+
     if (!call || call->kind != AST_CALL) {
         enact_set_unexpected_token_diag();
         return 0;
     }
 
+    argument_count = enact_ast_list_count(call->as.call.arguments);
+    if (argument_count == 0) {
+        if (allow_empty && (!call->as.call.callee || call->as.call.callee->kind != AST_CALL)) {
+            return 1;
+        }
+        enact_set_unexpected_token_diag();
+        return 0;
+    }
+
     if (call->as.call.callee && call->as.call.callee->kind == AST_CALL) {
-        if (!enact_take_call_parameter_names_from_lhs(names, call->as.call.callee)) {
+        if (!enact_take_call_parameter_names_from_lhs(names, call->as.call.callee, 0)) {
             return 0;
         }
     }
@@ -475,7 +510,7 @@ static EnactNameList *enact_take_call_parameter_names(EnactAst *call)
         return NULL;
     }
 
-    if (!enact_take_call_parameter_names_from_lhs(names, call)) {
+    if (!enact_take_call_parameter_names_from_lhs(names, call, 1)) {
         enact_name_list_free(names);
         return NULL;
     }
@@ -688,6 +723,13 @@ lambda_head:
     TOK_IDENTIFIER
     {
         $$ = enact_make_parameter_list($1);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_LPAREN TOK_RPAREN
+    {
+        $$ = enact_make_empty_parameter_list();
         if (!$$) {
             YYABORT;
         }
@@ -908,7 +950,23 @@ unary:
     ;
 
 call:
-    call TOK_LPAREN argument_list TOK_RPAREN
+    call TOK_LPAREN TOK_RPAREN
+    {
+        EnactAstList *arguments = enact_make_empty_argument_list();
+
+        if (!arguments) {
+            enact_ast_free($1);
+            YYABORT;
+        }
+
+        $$ = enact_make_call($1, arguments);
+        if (!$$) {
+            enact_ast_free($1);
+            enact_ast_list_free(arguments);
+            YYABORT;
+        }
+    }
+    | call TOK_LPAREN argument_list TOK_RPAREN
     {
         $$ = enact_make_call($1, $3);
         if (!$$) {

@@ -148,14 +148,13 @@ def main() -> int:
         ("1(2).", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
         ("true(1).", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
         ("f(x):=x+1; f(true).", "ENACT_ERR_TYPE_EXPECTED_INT"),
-        ("f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
-        ("f():=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f().", "ENACT_ERR_NAME_UNBOUND"),
         ("f(1):=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("(x):=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("(f)(x):=x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("f((x)):=x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("f(x):=.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
-        ("f(x):=x; f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f(x):=x; f().", "ENACT_ERR_ARITY_MISMATCH"),
         ("f(x):=x; f(1.", "ENACT_ERR_PARSE_UNMATCHED_PAREN"),
         ("f(x):=f(x,1); f(1).", "ENACT_ERR_ARITY_MISMATCH"),
     ]
@@ -182,8 +181,7 @@ def main() -> int:
         ("add(x,y):=x+y; add(1,2,3).", "ENACT_ERR_ARITY_MISMATCH"),
         ("inc(x):=x+1; inc(1,2).", "ENACT_ERR_ARITY_MISMATCH"),
         ("one(x):=x; one(1,1/0).", "ENACT_ERR_ARITY_MISMATCH"),
-        ("f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
-        ("f():=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f().", "ENACT_ERR_NAME_UNBOUND"),
         ("add(,1).", "ENACT_ERR_PARSE_UNMATCHED_PAREN"),
         ("add(1,).", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("f(x,x):=x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
@@ -221,14 +219,13 @@ def main() -> int:
         ("x::.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("1::1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
-        ("()::1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("(x)::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("(x,)::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("(,x)::x.", "ENACT_ERR_PARSE_UNMATCHED_PAREN"),
         ("(x,x)::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("(x,1)::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
         ("((x),y)::x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
-        ("f:=x::x; f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f:=x::x; f().", "ENACT_ERR_ARITY_MISMATCH"),
         ("f:=x::x; f(1,2).", "ENACT_ERR_ARITY_MISMATCH"),
         ("ignore:=(x,y)::x; ignore(1,1/0).", "ENACT_ERR_DIVIDE_BY_ZERO"),
         ("f:=x::f(x); f(1).", "ENACT_ERR_NAME_UNBOUND"),
@@ -257,7 +254,7 @@ def main() -> int:
         ("ignore:=(a,b)::a; ignore(1/0).", "ENACT_ERR_DIVIDE_BY_ZERO"),
         ("add:=(a,b)::a+b; p:=add(true); p(1).", "ENACT_ERR_TYPE_EXPECTED_INT"),
         ("1(2).", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
-        ("f().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f().", "ENACT_ERR_NAME_UNBOUND"),
         ("f:=x::f(x); f(1).", "ENACT_ERR_NAME_UNBOUND"),
     ]
 
@@ -345,7 +342,7 @@ def main() -> int:
         ("tl nil.", "ENACT_ERR_LIST_EMPTY"),
         ("hd 1.", "ENACT_ERR_TYPE_EXPECTED_LIST"),
         ("tl true.", "ENACT_ERR_TYPE_EXPECTED_LIST"),
-        ("hd().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("hd().", "ENACT_ERR_ARITY_MISMATCH"),
         ("hd(1:nil,1/0).", "ENACT_ERR_ARITY_MISMATCH"),
         ("hd(1/0).", "ENACT_ERR_DIVIDE_BY_ZERO"),
         ("not hd.", "ENACT_ERR_TYPE_EXPECTED_BOOL"),
@@ -668,8 +665,8 @@ def main() -> int:
     ]
 
     slice_023_robustness_failure_cases = [
-        ("list().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
-        ("size().", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("list().", "ENACT_ERR_ARITY_MISMATCH"),
+        ("size().", "ENACT_ERR_ARITY_MISMATCH"),
         ("list(1,2).", "ENACT_ERR_ARITY_MISMATCH"),
         ("list(1,1/0).", "ENACT_ERR_ARITY_MISMATCH"),
         ("list(1/0).", "ENACT_ERR_DIVIDE_BY_ZERO"),
@@ -859,6 +856,67 @@ def main() -> int:
         ("true then 1 else 2", "ENACT_ERR_PARSE_MISSING_DOT"),
     ]
 
+    slice_027_token_cases = [
+        ("f().", "TOK_IDENTIFIER TOK_LPAREN TOK_RPAREN TOK_DOT TOK_EOF\n"),
+        ("f():=1.", "TOK_IDENTIFIER TOK_LPAREN TOK_RPAREN TOK_ASSIGN TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
+        ("()::1.", "TOK_LPAREN TOK_RPAREN TOK_LAMBDA TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
+    ]
+
+    slice_027_boundary_success_cases = [
+        ("f():=1; f().", "1\n"),
+        ("f():=true; f().", "true\n"),
+        ('f():="hi"; f().', "\"hi\"\n"),
+        ("f():=nil; f().", "nil\n"),
+        ("f():=(1,2); f().", "1:2:nil\n"),
+        ("f():=x::x+1; f()(2).", "3\n"),
+        ("make():=x::x+1; inc:=make(); inc(4).", "5\n"),
+        ("x:=1; f():=x; x:=2; f().", "1\n"),
+        ("f():=(x:=1; x); f().", "1\n"),
+        ("(()::7)().", "7\n"),
+        ("f:=()::7; f().", "7\n"),
+        ("apply0(f):=f(); thunk():=5; apply0(thunk).", "5\n"),
+        ("fact fix (fact():=1); fact().", "1\n"),
+        ("(a,b) fix (a():=1; b():=a()+1); b().", "2\n"),
+        ("cond():=true; cond() then 1 else 2.", "1\n"),
+        ("f():=1; f()+2.", "3\n"),
+        ("f():=1; f()==1.", "true\n"),
+        ("f():=1; list(f()).", "1:nil\n"),
+        ("f():=1; atom(f).", "true\n"),
+        ("f():=1; atom(f()).", "true\n"),
+        ("f():=1; map(x::f(),(1,2,3)).", "1:1:1:nil\n"),
+        ("f():=1; reduce((acc,x)::acc+f(),0,(1,2,3)).", "3\n"),
+        ("f():=1; f.", "<function>\n"),
+        ("()::1.", "<function>\n"),
+    ]
+
+    slice_027_robustness_failure_cases = [
+        ("f().", "ENACT_ERR_NAME_UNBOUND"),
+        ("1().", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("true().", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("()().", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("f(x):=x; f().", "ENACT_ERR_ARITY_MISMATCH"),
+        ("f():=1; f(1).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("f():=1; f(1/0).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("f():=1; f(1,1/0).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("f:=x::x; f().", "ENACT_ERR_ARITY_MISMATCH"),
+        ("f:=()::1; f(1/0).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("size().", "ENACT_ERR_ARITY_MISMATCH"),
+        ("list().", "ENACT_ERR_ARITY_MISMATCH"),
+        ("append().", "ENACT_ERR_ARITY_MISMATCH"),
+        ("hd().", "ENACT_ERR_ARITY_MISMATCH"),
+        ("map().", "ENACT_ERR_ARITY_MISMATCH"),
+        ("reduce().", "ENACT_ERR_ARITY_MISMATCH"),
+        ("(()::1)(1).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("(()::1)(1/0).", "ENACT_ERR_ARITY_MISMATCH"),
+        ("f(x)():=x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f()(x):=x.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("f(()):=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("():=1.", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("(()::missing)().", "ENACT_ERR_NAME_UNBOUND"),
+        ("(()::1)+1.", "ENACT_ERR_TYPE_EXPECTED_INT"),
+        ("map(()::1,(1,2)).", "ENACT_ERR_ARITY_MISMATCH"),
+    ]
+
     token_cases = [
         ("-1.", "TOK_UMINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         ("1-2.", "TOK_INT_LITERAL TOK_MINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
@@ -892,7 +950,7 @@ def main() -> int:
         ("1 if true else 2.", "TOK_INT_LITERAL TOK_IF TOK_TRUE TOK_ELSE TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         (" \t\n(8+2)/5.", "TOK_LPAREN TOK_INT_LITERAL TOK_PLUS TOK_INT_LITERAL TOK_RPAREN TOK_SLASH TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         (long_comment, "TOK_LPAREN TOK_INT_LITERAL TOK_PLUS TOK_INT_LITERAL TOK_RPAREN TOK_SLASH TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
-    ] + slice_008_token_cases + slice_009_token_cases + slice_010_token_cases + slice_013_token_cases + slice_017_token_cases + slice_023_token_cases + slice_024_token_cases + slice_026_token_cases
+    ] + slice_008_token_cases + slice_009_token_cases + slice_010_token_cases + slice_013_token_cases + slice_017_token_cases + slice_023_token_cases + slice_024_token_cases + slice_026_token_cases + slice_027_token_cases
 
     success_cases = [
         ("1+2.", "3\n"),
@@ -1004,7 +1062,7 @@ def main() -> int:
         ("1 if x where x:=true else 2.", "1\n"),
         ("true and x where x:=true.", "true\n"),
         ("x:=1; (x where x:=2); x.", "1\n"),
-    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases + slice_010_boundary_success_cases + slice_011_boundary_success_cases + slice_012_boundary_success_cases + slice_013_boundary_success_cases + slice_014_boundary_success_cases + slice_015_boundary_success_cases + slice_016_boundary_success_cases + slice_017_boundary_success_cases + slice_018_boundary_success_cases + slice_019_boundary_success_cases + slice_020_boundary_success_cases + slice_021_boundary_success_cases + slice_022_boundary_success_cases + slice_023_boundary_success_cases + slice_024_boundary_success_cases + slice_025_boundary_success_cases + slice_026_boundary_success_cases
+    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases + slice_010_boundary_success_cases + slice_011_boundary_success_cases + slice_012_boundary_success_cases + slice_013_boundary_success_cases + slice_014_boundary_success_cases + slice_015_boundary_success_cases + slice_016_boundary_success_cases + slice_017_boundary_success_cases + slice_018_boundary_success_cases + slice_019_boundary_success_cases + slice_020_boundary_success_cases + slice_021_boundary_success_cases + slice_022_boundary_success_cases + slice_023_boundary_success_cases + slice_024_boundary_success_cases + slice_025_boundary_success_cases + slice_026_boundary_success_cases + slice_027_boundary_success_cases
 
     failure_cases = [
         ("", "ENACT_ERR_PARSE_MISSING_DOT"),
@@ -1107,7 +1165,7 @@ def main() -> int:
         ("x:=y.", "ENACT_ERR_NAME_UNBOUND"),
         ("x+1; x:=2.", "ENACT_ERR_NAME_UNBOUND"),
         ("x:=1; y.", "ENACT_ERR_NAME_UNBOUND"),
-    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases + slice_010_robustness_failure_cases + slice_011_robustness_failure_cases + slice_012_robustness_failure_cases + slice_013_robustness_failure_cases + slice_014_robustness_failure_cases + slice_015_robustness_failure_cases + slice_016_robustness_failure_cases + slice_017_robustness_failure_cases + slice_018_robustness_failure_cases + slice_019_robustness_failure_cases + slice_020_robustness_failure_cases + slice_021_robustness_failure_cases + slice_022_robustness_failure_cases + slice_023_robustness_failure_cases + slice_024_robustness_failure_cases + slice_025_robustness_failure_cases + slice_026_robustness_failure_cases
+    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases + slice_010_robustness_failure_cases + slice_011_robustness_failure_cases + slice_012_robustness_failure_cases + slice_013_robustness_failure_cases + slice_014_robustness_failure_cases + slice_015_robustness_failure_cases + slice_016_robustness_failure_cases + slice_017_robustness_failure_cases + slice_018_robustness_failure_cases + slice_019_robustness_failure_cases + slice_020_robustness_failure_cases + slice_021_robustness_failure_cases + slice_022_robustness_failure_cases + slice_023_robustness_failure_cases + slice_024_robustness_failure_cases + slice_025_robustness_failure_cases + slice_026_robustness_failure_cases + slice_027_robustness_failure_cases
 
     token_failure_cases = [
         ("$x.", "ENACT_ERR_LEX_INVALID_CHAR"),
@@ -1171,6 +1229,8 @@ def main() -> int:
     print(f"slice 025 robustness regression checks: {len(slice_025_robustness_failure_cases)}")
     print(f"slice 026 boundary regression checks: {len(slice_026_token_cases) + len(slice_026_boundary_success_cases)}")
     print(f"slice 026 robustness regression checks: {len(slice_026_robustness_failure_cases)}")
+    print(f"slice 027 boundary regression checks: {len(slice_027_token_cases) + len(slice_027_boundary_success_cases)}")
+    print(f"slice 027 robustness regression checks: {len(slice_027_robustness_failure_cases)}")
     return 0
 
 
