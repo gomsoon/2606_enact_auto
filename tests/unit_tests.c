@@ -286,6 +286,8 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *append = enact_builtin_lookup("append");
     const EnactBuiltin *size = enact_builtin_lookup("size");
     const EnactBuiltin *map = enact_builtin_lookup("map");
+    const EnactBuiltin *filter = enact_builtin_lookup("filter");
+    const EnactBuiltin *all = enact_builtin_lookup("all");
     EnactBuiltinPartial *append_partial;
     EnactBuiltinPartial *other_append_partial;
     EnactValue builtin_value;
@@ -298,8 +300,11 @@ static void test_builtin_helpers(void)
     EnactValue args[1];
     EnactValue append_args[2];
     EnactValue map_args[2];
+    EnactValue predicate_args[2];
     EnactValue inner_left_value;
     EnactValue inner_right_value;
+    EnactValue inner_true_value;
+    EnactValue inner_false_value;
     EnactValue bad_prefix_args[1];
     EnactValue result;
     EnactList *list;
@@ -307,8 +312,12 @@ static void test_builtin_helpers(void)
     EnactList *right_list;
     EnactList *inner_left_list;
     EnactList *inner_right_list;
+    EnactList *inner_true_list;
+    EnactList *inner_false_list;
     EnactList *outer_tail;
     EnactList *outer_list;
+    EnactList *predicate_tail;
+    EnactList *predicate_list;
     EnactDiag diag;
     EnactEnv env;
     EnactAst *call;
@@ -319,6 +328,8 @@ static void test_builtin_helpers(void)
     require_true(append != NULL, "append builtin lookup succeeds");
     require_true(size != NULL, "size builtin lookup succeeds");
     require_true(map != NULL, "map builtin lookup succeeds");
+    require_true(filter != NULL, "filter builtin lookup succeeds");
+    require_true(all != NULL, "all builtin lookup succeeds");
     require_true(enact_builtin_lookup("missing") == NULL, "missing builtin lookup fails");
     require_true(enact_builtin_lookup(NULL) == NULL, "null builtin lookup fails");
     require_true(strcmp(enact_builtin_name(hd), "hd") == 0, "hd builtin name");
@@ -327,6 +338,8 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(append) == 2, "append builtin arity");
     require_true(enact_builtin_arity(size) == 1, "size builtin arity");
     require_true(enact_builtin_arity(map) == 2, "map builtin arity");
+    require_true(enact_builtin_arity(filter) == 2, "filter builtin arity");
+    require_true(enact_builtin_arity(all) == 2, "all builtin arity");
     require_true(enact_builtin_arity(NULL) == 0, "null builtin arity");
     require_true(enact_builtin_partial_builtin(NULL) == NULL, "null partial builtin accessor");
     require_true(enact_builtin_partial_argument_count(NULL) == 0, "null partial argument count");
@@ -461,6 +474,43 @@ static void test_builtin_helpers(void)
         }
     }
 
+    head = enact_value_make_bool(true);
+    inner_true_list = enact_list_cons(&head, NULL);
+    head = enact_value_make_bool(false);
+    inner_false_list = enact_list_cons(&head, NULL);
+    require_true(inner_true_list != NULL && inner_false_list != NULL, "predicate inner lists created");
+    if (inner_true_list && inner_false_list) {
+        inner_true_value = enact_value_make_list(inner_true_list);
+        inner_false_value = enact_value_make_list(inner_false_list);
+        predicate_tail = enact_list_cons(&inner_false_value, NULL);
+        predicate_list = enact_list_cons(&inner_true_value, predicate_tail);
+        enact_value_free(&inner_true_value);
+        enact_value_free(&inner_false_value);
+        enact_list_release(predicate_tail);
+        require_true(predicate_list != NULL, "predicate outer list created");
+        if (predicate_list) {
+            predicate_args[0] = enact_value_make_builtin(hd);
+            predicate_args[1] = enact_value_make_list(predicate_list);
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(filter, predicate_args, 2, &result, &diag), "filter builtin apply succeeds");
+            require_true(result.kind == ENACT_VALUE_LIST, "filter builtin result kind");
+            require_true(result.as.as_list != NULL, "filter builtin keeps one item");
+            require_true(enact_list_head(result.as.as_list)->kind == ENACT_VALUE_LIST, "filter kept item kind");
+            require_true(
+                enact_list_head(enact_list_head(result.as.as_list)->as.as_list)->as.as_bool,
+                "filter kept true-headed list");
+            require_true(enact_list_tail(result.as.as_list) == NULL, "filter builtin result tail nil");
+            enact_value_free(&result);
+
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(all, predicate_args, 2, &result, &diag), "all builtin apply succeeds");
+            require_true(result.kind == ENACT_VALUE_BOOL, "all builtin result kind");
+            require_true(!result.as.as_bool, "all builtin result false");
+            enact_value_free(&result);
+            enact_value_free(&predicate_args[1]);
+        }
+    }
+
     args[0] = enact_value_make_bool(true);
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(hd, args, 1, &result, &diag), "hd non-list fails");
@@ -516,6 +566,12 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "map", &lookup_value), "lookup installed map");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed map value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "filter", &lookup_value), "lookup installed filter");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed filter value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "all", &lookup_value), "lookup installed all");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed all value kind");
     enact_value_free(&lookup_value);
     require_true(!enact_install_builtins(NULL), "install builtins null env fails");
 
