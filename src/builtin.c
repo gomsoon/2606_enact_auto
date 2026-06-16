@@ -585,6 +585,42 @@ static int enact_builtin_all(
     return 1;
 }
 
+static int enact_builtin_exists(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *list = NULL;
+    bool result = false;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_callable(&arguments[0], diag)) {
+        return 0;
+    }
+    if (!enact_builtin_require_list(&arguments[1], &list, diag)) {
+        return 0;
+    }
+
+    while (list) {
+        const EnactValue *head = enact_list_head(list);
+
+        if (!head || !enact_builtin_apply_predicate(&arguments[0], head, &result, diag)) {
+            return 0;
+        }
+        if (result) {
+            *out = enact_value_make_bool(true);
+            return 1;
+        }
+
+        list = enact_list_tail(list);
+    }
+
+    *out = enact_value_make_bool(false);
+    return 1;
+}
+
 static int enact_builtin_reduce(
     const EnactValue *arguments,
     size_t argument_count,
@@ -914,6 +950,7 @@ static const EnactBuiltin builtin_table[] = {
     {"map", 2, enact_builtin_map},
     {"filter", 2, enact_builtin_filter},
     {"all", 2, enact_builtin_all},
+    {"exists", 2, enact_builtin_exists},
     {"reduce", 3, enact_builtin_reduce},
     {"member", 2, enact_builtin_member},
     {"remove", 2, enact_builtin_remove},
