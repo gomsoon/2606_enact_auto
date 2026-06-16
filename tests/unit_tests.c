@@ -1394,6 +1394,8 @@ static void test_eval_edge_cases(void)
 static void test_api_and_scan_helpers(void)
 {
     EnactResult result;
+    EnactResult stateless_result;
+    EnactSession session;
     EnactDiag diag;
     EnactList *list;
     const EnactValue *head;
@@ -1413,6 +1415,74 @@ static void test_api_and_scan_helpers(void)
     require_true(!result.ok, "unexpected token parse fails");
     require_true(result.error.code == ENACT_ERR_PARSE_UNMATCHED_PAREN, "unexpected token code");
     enact_result_free(&result);
+
+    require_true(!enact_session_init(NULL), "session init null fails");
+    enact_session_free(NULL);
+    result = enact_session_eval_text(NULL, "1.");
+    require_true(!result.ok, "session eval null session fails");
+    require_true(result.error.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "session eval null session code");
+    enact_result_free(&result);
+
+    require_true(enact_session_init(&session), "session init succeeds");
+
+    result = enact_session_eval_text(&session, "version().");
+    require_true(result.ok, "session has installed builtins");
+    require_true(result.value.kind == ENACT_VALUE_STRING, "session builtin result kind");
+    require_true(strcmp(result.value.as.as_string, "enact-auto 0.1.0") == 0, "session builtin result value");
+    enact_result_free(&result);
+
+    result = enact_session_eval_text(&session, "x:=1.");
+    require_true(result.ok, "session assignment succeeds");
+    require_true(result.value.kind == ENACT_VALUE_INT, "session assignment result kind");
+    require_true(result.value.as.as_int == 1, "session assignment result value");
+    enact_result_free(&result);
+
+    result = enact_session_eval_text(&session, "x+2.");
+    require_true(result.ok, "session binding persists");
+    require_true(result.value.kind == ENACT_VALUE_INT, "session persisted result kind");
+    require_true(result.value.as.as_int == 3, "session persisted result value");
+    enact_result_free(&result);
+
+    result = enact_session_eval_text(&session, "missing.");
+    require_true(!result.ok, "session eval failure reports error");
+    require_true(result.error.code == ENACT_ERR_NAME_UNBOUND, "session eval failure code");
+    enact_result_free(&result);
+
+    result = enact_session_eval_text(&session, "x.");
+    require_true(result.ok, "session survives eval failure");
+    require_true(result.value.kind == ENACT_VALUE_INT, "session survives failure result kind");
+    require_true(result.value.as.as_int == 1, "session survives failure result value");
+    enact_result_free(&result);
+
+    result = enact_session_eval_text(&session, "base:=10.");
+    require_true(result.ok, "session base assignment succeeds");
+    enact_result_free(&result);
+    result = enact_session_eval_text(&session, "add_base(y):=base+y.");
+    require_true(result.ok, "session function definition succeeds");
+    enact_result_free(&result);
+    result = enact_session_eval_text(&session, "base:=20.");
+    require_true(result.ok, "session rebinding succeeds");
+    enact_result_free(&result);
+    result = enact_session_eval_text(&session, "add_base(1).");
+    require_true(result.ok, "session function captures definition env");
+    require_true(result.value.kind == ENACT_VALUE_INT, "session captured function result kind");
+    require_true(result.value.as.as_int == 11, "session captured function result value");
+    enact_result_free(&result);
+
+    stateless_result = enact_eval_text("solo:=9.");
+    require_true(stateless_result.ok, "stateless assignment succeeds");
+    enact_result_free(&stateless_result);
+    stateless_result = enact_eval_text("solo.");
+    require_true(!stateless_result.ok, "stateless eval does not persist binding");
+    require_true(stateless_result.error.code == ENACT_ERR_NAME_UNBOUND, "stateless eval unbound code");
+    enact_result_free(&stateless_result);
+
+    enact_session_free(&session);
+    result = enact_session_eval_text(&session, "x.");
+    require_true(!result.ok, "session eval after free fails");
+    require_true(result.error.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "session eval after free code");
+    enact_result_free(&result);
+    enact_session_free(&session);
 
     tmp = tmpfile();
     require_true(tmp != NULL, "tmpfile created");

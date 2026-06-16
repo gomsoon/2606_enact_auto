@@ -3,6 +3,7 @@
 
 #include "api.h"
 #include "ast.h"
+#include "builtin.h"
 #include "diag.h"
 #include "eval.h"
 #include "parser_state.h"
@@ -51,13 +52,18 @@ static void enact_fill_parse_error(EnactParseContext *context, const EnactScanne
     enact_diag_set(&context->diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, (int)state->token_offset);
 }
 
-EnactResult enact_eval_text(const char *source)
+static int enact_parse_text(const char *source, EnactAst **out, EnactDiag *diag)
 {
     EnactParseContext context;
     EnactScannerState state;
-    EnactResult result;
     YY_BUFFER_STATE buffer;
 
+    if (!out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    *out = NULL;
     if (!source) {
         source = "";
     }
@@ -85,26 +91,120 @@ EnactResult enact_eval_text(const char *source)
     enact_set_scanner_state(NULL);
 
     if (context.diag.code == ENACT_OK && context.root != NULL) {
-        EnactDiag eval_diag;
+        *out = context.root;
+        return 1;
+    }
 
-        enact_diag_reset(&eval_diag);
-        if (enact_eval_ast(context.root, &result.value, &eval_diag)) {
-            result.ok = true;
-            result.error.code = ENACT_OK;
-            result.error.offset = -1;
-            result.error.message = enact_error_message(ENACT_OK);
-        } else {
-            result.ok = false;
-            result.error = eval_diag;
-        }
+    if (diag) {
+        *diag = context.diag;
+    }
+    enact_ast_free(context.root);
+    return 0;
+}
+
+static EnactResult enact_eval_parsed_ast(EnactAst *root, EnactEnv *env)
+{
+    EnactResult result;
+    EnactDiag eval_diag;
+
+    enact_diag_reset(&eval_diag);
+    if (enact_eval_ast_with_env(root, env, &result.value, &eval_diag)) {
+        result.ok = true;
+        result.error.code = ENACT_OK;
+        result.error.offset = -1;
+        result.error.message = enact_error_message(ENACT_OK);
     } else {
         result.ok = false;
-        result.error = context.diag;
+        result.error = eval_diag;
         result.value = enact_value_make_int(0);
     }
 
-    enact_ast_free(context.root);
     return result;
+}
+
+EnactResult enact_eval_text(const char *source)
+{
+    EnactResult result;
+    EnactDiag parse_diag;
+    EnactAst *root = NULL;
+    EnactEnv env;
+
+    enact_diag_reset(&parse_diag);
+    if (!enact_parse_text(source, &root, &parse_diag)) {
+        result.ok = false;
+        result.error = parse_diag;
+        result.value = enact_value_make_int(0);
+        return result;
+    }
+
+    enact_env_init(&env);
+    if (!enact_install_builtins(&env)) {
+        enact_ast_free(root);
+        result.ok = false;
+        enact_diag_reset(&result.error);
+        enact_diag_set(&result.error, ENACT_ERR_OUT_OF_MEMORY, -1);
+        result.value = enact_value_make_int(0);
+        return result;
+    }
+
+    result = enact_eval_parsed_ast(root, &env);
+    enact_env_free(&env);
+    enact_ast_free(root);
+    return result;
+}
+
+int enact_session_init(EnactSession *session)
+{
+    if (!session) {
+        return 0;
+    }
+
+    session->initialized = false;
+    enact_env_init(&session->env);
+    if (!enact_install_builtins(&session->env)) {
+        enact_env_free(&session->env);
+        return 0;
+    }
+
+    session->initialized = true;
+    return 1;
+}
+
+EnactResult enact_session_eval_text(EnactSession *session, const char *source)
+{
+    EnactResult result;
+    EnactDiag parse_diag;
+    EnactAst *root = NULL;
+
+    if (!session || !session->initialized) {
+        result.ok = false;
+        enact_diag_reset(&result.error);
+        enact_diag_set(&result.error, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        result.value = enact_value_make_int(0);
+        return result;
+    }
+
+    enact_diag_reset(&parse_diag);
+    if (!enact_parse_text(source, &root, &parse_diag)) {
+        result.ok = false;
+        result.error = parse_diag;
+        result.value = enact_value_make_int(0);
+        return result;
+    }
+
+    result = enact_eval_parsed_ast(root, &session->env);
+    enact_ast_free(root);
+    return result;
+}
+
+void enact_session_free(EnactSession *session)
+{
+    if (!session || !session->initialized) {
+        return;
+    }
+
+    enact_env_free(&session->env);
+    session->initialized = false;
 }
 
 void enact_result_free(EnactResult *result)

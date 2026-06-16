@@ -220,9 +220,30 @@ static int enact_run_source(const char *source, int token_mode)
     }
 }
 
+static int enact_run_session_source(EnactSession *session, const char *source)
+{
+    EnactResult result = enact_session_eval_text(session, source);
+
+    if (!result.ok) {
+        enact_print_diag(stderr, &result.error);
+        enact_result_free(&result);
+        return 1;
+    }
+
+    enact_print_value(stdout, &result.value);
+    enact_result_free(&result);
+    return 0;
+}
+
 static int enact_run_lines(int token_mode)
 {
     int exit_status = 0;
+    EnactSession session;
+
+    if (!token_mode && !enact_session_init(&session)) {
+        fputs("failed to initialize session\n", stderr);
+        return 2;
+    }
 
     for (;;) {
         char *source = enact_read_line(stdin);
@@ -230,13 +251,19 @@ static int enact_run_lines(int token_mode)
 
         if (!source) {
             if (ferror(stdin)) {
+                if (!token_mode) {
+                    enact_session_free(&session);
+                }
                 fputs("failed to read input\n", stderr);
                 return 2;
+            }
+            if (!token_mode) {
+                enact_session_free(&session);
             }
             return exit_status;
         }
 
-        status = enact_run_source(source, token_mode);
+        status = token_mode ? enact_run_source(source, token_mode) : enact_run_session_source(&session, source);
         free(source);
         if (status != 0) {
             exit_status = status;

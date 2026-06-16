@@ -113,6 +113,59 @@ def expect_tty_line(source: str, expected_stdout: str) -> None:
         os.close(master_fd)
 
 
+def expect_tty_fragments(source: str, expected_fragments: list[str]) -> None:
+    master_fd, slave_fd = pty.openpty()
+    proc: subprocess.Popen[bytes] | None = None
+    output = ""
+    fragment_index = 0
+    search_from = 0
+
+    try:
+        proc = subprocess.Popen(
+            [str(BIN)],
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            close_fds=True,
+        )
+        os.close(slave_fd)
+        slave_fd = -1
+
+        os.write(master_fd, source.encode())
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline and fragment_index < len(expected_fragments):
+            readable, _, _ = select.select([master_fd], [], [], 0.1)
+            if not readable:
+                continue
+            chunk = os.read(master_fd, 4096)
+            if not chunk:
+                break
+            output += chunk.decode(errors="replace").replace("\r\n", "\n")
+
+            while fragment_index < len(expected_fragments):
+                found = output.find(expected_fragments[fragment_index], search_from)
+                if found < 0:
+                    break
+                search_from = found + len(expected_fragments[fragment_index])
+                fragment_index += 1
+
+        if fragment_index < len(expected_fragments):
+            raise AssertionError(
+                f"expected tty fragments {expected_fragments!r} for {source!r}, got {output!r}"
+            )
+    finally:
+        if slave_fd >= 0:
+            os.close(slave_fd)
+        if proc is not None and proc.poll() is None:
+            try:
+                os.write(master_fd, b"\x04")
+                proc.wait(timeout=1.0)
+            except (OSError, subprocess.TimeoutExpired):
+                proc.terminate()
+                proc.wait(timeout=1.0)
+        os.close(master_fd)
+
+
 def main() -> int:
     if not BIN.exists():
         print(f"missing binary: {BIN}", file=sys.stderr)
@@ -1002,6 +1055,28 @@ def main() -> int:
         ("version:=1; version().", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
     ]
 
+    slice_030_boundary_tty_cases = [
+        ("x:=1.\nx+2.\n", ["1\n", "3\n"]),
+        ("x:=1.\nx:=x+4.\nx.\n", ["1\n", "5\n", "5\n"]),
+        ("base:=10.\nadd_base(y):=base+y.\nbase:=20.\nadd_base(1).\n", ["10\n", "<function>\n", "20\n", "11\n"]),
+        ("fact(n):=n==0 then 1 else n*fact(n-1).\nfact(5).\n", ["<function>\n", "120\n"]),
+        ("add(x,y):=x+y.\ninc:=add(1).\ninc(4).\n", ["<function>\n", "<function>\n", "5\n"]),
+        ("version().\nisObject(1).\n", ["\"enact-auto 0.1.0\"\n", "false\n"]),
+        ("version:=()::\"local\".\nversion().\n", ["<function>\n", "\"local\"\n"]),
+        ("x:=1.\nx where x:=2.\nx.\n", ["1\n", "2\n", "1\n"]),
+        ("xs:=(1,2,3).\nmap(x::x+1,xs).\nreduce((a,x)::a+x,0,xs).\n", ["1:2:3:nil\n", "2:3:4:nil\n", "6\n"]),
+    ]
+
+    slice_030_robustness_tty_cases = [
+        ("x:=5.\nmissing.\nx.\n", ["5\n", "ENACT_ERR_NAME_UNBOUND", "5\n"]),
+        ("x:=7.\n(.\nx.\n", ["7\n", "ENACT_ERR_PARSE_UNMATCHED_PAREN", "7\n"]),
+        ("x:=2.\nx+true.\nx+1.\n", ["2\n", "ENACT_ERR_TYPE_EXPECTED_INT", "3\n"]),
+        ("hd:=1.\nhd(1:nil).\nhd.\n", ["1\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION", "1\n"]),
+        ("x:=1.\ny:=missing.\ny.\nx.\n", ["1\n", "ENACT_ERR_NAME_UNBOUND", "ENACT_ERR_NAME_UNBOUND", "1\n"]),
+        ("inc(x):=x+1.\ninc(true).\ninc(2).\n", ["<function>\n", "ENACT_ERR_TYPE_EXPECTED_INT", "3\n"]),
+        ("x:=1.\nf():=9.\nf(x:=2).\nx.\n", ["1\n", "<function>\n", "ENACT_ERR_ARITY_MISMATCH", "1\n"]),
+    ]
+
     token_cases = [
         ("-1.", "TOK_UMINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         ("1-2.", "TOK_INT_LITERAL TOK_MINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
@@ -1273,8 +1348,14 @@ def main() -> int:
 
     expect_tty_line("1+2.\n", "3\n")
 
+    for source, expected_fragments in slice_030_boundary_tty_cases:
+        expect_tty_fragments(source, expected_fragments)
+
+    for source, expected_fragments in slice_030_robustness_tty_cases:
+        expect_tty_fragments(source, expected_fragments)
+
     total = len(token_cases) + len(token_failure_cases) + len(success_cases) + len(failure_cases)
-    total += 1
+    total += 1 + len(slice_030_boundary_tty_cases) + len(slice_030_robustness_tty_cases)
     print(f"passed {total} checks")
     print(f"slice 008 boundary regression checks: {len(slice_008_token_cases) + len(slice_008_boundary_success_cases)}")
     print(f"slice 008 robustness regression checks: {len(slice_008_robustness_failure_cases)}")
@@ -1320,6 +1401,8 @@ def main() -> int:
     print(f"slice 028 robustness regression checks: {len(slice_028_robustness_failure_cases)}")
     print(f"slice 029 boundary regression checks: {len(slice_029_boundary_success_cases)}")
     print(f"slice 029 robustness regression checks: {len(slice_029_robustness_failure_cases)}")
+    print(f"slice 030 boundary regression checks: {len(slice_030_boundary_tty_cases)}")
+    print(f"slice 030 robustness regression checks: {len(slice_030_robustness_tty_cases)}")
     return 0
 
 
