@@ -140,6 +140,7 @@ static void test_value_helpers(void)
     EnactAst *function_body;
     EnactFunction *function;
     EnactFunction *partial_function;
+    EnactFunction *recursive_function;
     EnactValue function_value;
     EnactValue function_copy;
     EnactValue partial_args[2];
@@ -203,6 +204,12 @@ static void test_value_helpers(void)
     require_true(enact_function_new(empty_params, function_body, &empty_env) == NULL, "function new empty params fails");
     require_true(enact_function_new(params, NULL, &empty_env) == NULL, "function new null body fails");
     require_true(enact_function_new(params, function_body, NULL) == NULL, "function new null env fails");
+    require_true(
+        enact_function_new_recursive(params, function_body, &empty_env, NULL) == NULL,
+        "recursive function new null name fails");
+    require_true(
+        enact_function_new_recursive(params, function_body, &empty_env, "") == NULL,
+        "recursive function new empty name fails");
     require_true(enact_function_partial(NULL, partial_args, 1) == NULL, "function partial null function fails");
     params_clone = enact_name_list_clone(params);
     require_true(params_clone != NULL, "name list clone succeeds");
@@ -259,12 +266,36 @@ static void test_value_helpers(void)
             "function partial all arguments fails");
         enact_function_release(function);
     }
+    recursive_function = enact_function_new_recursive(two_params, function_body, &empty_env, "self");
+    require_true(recursive_function != NULL, "recursive function created");
+    if (recursive_function) {
+        require_true(
+            strcmp(enact_function_recursive_name(recursive_function), "self") == 0,
+            "recursive function name accessor");
+        partial_args[0] = enact_value_make_int(7);
+        partial_function = enact_function_partial(recursive_function, partial_args, 1);
+        require_true(partial_function != NULL, "recursive function partial succeeds");
+        if (partial_function) {
+            require_true(enact_function_recursive_name(partial_function) == NULL, "partial recursive name cleared");
+            require_true(
+                enact_env_lookup(enact_function_env(partial_function), "self", &partial_lookup),
+                "recursive partial captures original self");
+            require_true(partial_lookup.kind == ENACT_VALUE_FUNCTION, "recursive partial self kind");
+            require_true(
+                partial_lookup.as.as_function == recursive_function,
+                "recursive partial self points to original");
+            enact_value_free(&partial_lookup);
+            enact_function_release(partial_function);
+        }
+        enact_function_release(recursive_function);
+    }
     require_true(enact_function_retain(NULL) == NULL, "function retain null fails");
     enact_function_release(NULL);
     require_true(enact_function_arity(NULL) == 0, "function null arity");
     require_true(strcmp(enact_function_param_name(NULL, 0), "") == 0, "function null param accessor");
     require_true(enact_function_body(NULL) == NULL, "function null body accessor");
     require_true(enact_function_env(NULL) == NULL, "function null env accessor");
+    require_true(enact_function_recursive_name(NULL) == NULL, "function null recursive name accessor");
     function_value = enact_value_make_function(NULL);
     require_true(!enact_value_copy(&function_copy, &function_value), "function value copy null payload fails");
     enact_value_free(&function_value);

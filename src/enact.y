@@ -129,6 +129,18 @@ static EnactAst *enact_make_assignment(char *name, EnactAst *value)
     return ast;
 }
 
+static EnactAst *enact_make_recursive_assignment(char *name, EnactAst *value)
+{
+    EnactAst *ast = enact_ast_new_recursive_assignment(name, value);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_function_literal(EnactNameList *param_names, EnactAst *body)
 {
     EnactAst *ast = enact_ast_new_function_literal(param_names, body);
@@ -447,7 +459,7 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
             return NULL;
         }
 
-        result = enact_make_assignment(name, function);
+        result = enact_make_recursive_assignment(name, function);
         if (!result) {
             free(name);
             enact_ast_free(function);

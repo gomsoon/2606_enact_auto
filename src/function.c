@@ -8,6 +8,7 @@ struct EnactFunction {
     EnactNameList *param_names;
     EnactAst *body;
     EnactEnv captured_env;
+    char *recursive_name;
 };
 
 static char *enact_function_copy_text(const char *text)
@@ -57,7 +58,11 @@ static EnactNameList *enact_function_remaining_params(const EnactFunction *funct
     return remaining;
 }
 
-EnactFunction *enact_function_new(const EnactNameList *param_names, const EnactAst *body, const EnactEnv *env)
+static EnactFunction *enact_function_new_with_recursive_name(
+    const EnactNameList *param_names,
+    const EnactAst *body,
+    const EnactEnv *env,
+    const char *recursive_name)
 {
     EnactFunction *function;
 
@@ -91,7 +96,36 @@ EnactFunction *enact_function_new(const EnactNameList *param_names, const EnactA
         return NULL;
     }
 
+    if (recursive_name) {
+        function->recursive_name = enact_function_copy_text(recursive_name);
+        if (!function->recursive_name) {
+            enact_env_free(&function->captured_env);
+            enact_ast_free(function->body);
+            enact_name_list_free(function->param_names);
+            free(function);
+            return NULL;
+        }
+    }
+
     return function;
+}
+
+EnactFunction *enact_function_new(const EnactNameList *param_names, const EnactAst *body, const EnactEnv *env)
+{
+    return enact_function_new_with_recursive_name(param_names, body, env, NULL);
+}
+
+EnactFunction *enact_function_new_recursive(
+    const EnactNameList *param_names,
+    const EnactAst *body,
+    const EnactEnv *env,
+    const char *recursive_name)
+{
+    if (!recursive_name || recursive_name[0] == '\0') {
+        return NULL;
+    }
+
+    return enact_function_new_with_recursive_name(param_names, body, env, recursive_name);
 }
 
 EnactFunction *enact_function_partial(
@@ -111,6 +145,15 @@ EnactFunction *enact_function_partial(
 
     if (!enact_env_clone(&partial_env, &function->captured_env)) {
         return NULL;
+    }
+
+    if (function->recursive_name) {
+        EnactValue self = enact_value_make_function((EnactFunction *)function);
+
+        if (!enact_env_define(&partial_env, function->recursive_name, self)) {
+            enact_env_free(&partial_env);
+            return NULL;
+        }
     }
 
     for (index = 0; index < argument_count; index += 1) {
@@ -156,6 +199,7 @@ void enact_function_release(EnactFunction *function)
     enact_name_list_free(function->param_names);
     enact_ast_free(function->body);
     enact_env_free(&function->captured_env);
+    free(function->recursive_name);
     free(function);
 }
 
@@ -177,4 +221,9 @@ const EnactAst *enact_function_body(const EnactFunction *function)
 const EnactEnv *enact_function_env(const EnactFunction *function)
 {
     return function ? &function->captured_env : NULL;
+}
+
+const char *enact_function_recursive_name(const EnactFunction *function)
+{
+    return function ? function->recursive_name : NULL;
 }

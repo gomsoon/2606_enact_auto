@@ -340,6 +340,31 @@ static int enact_eval_assignment(const EnactAst *ast, EnactEnv *env, EnactValue 
 {
     EnactValue value;
 
+    if (ast->as.assignment.recursive_function &&
+        ast->as.assignment.value &&
+        ast->as.assignment.value->kind == AST_FUNCTION_LITERAL) {
+        EnactFunction *function = enact_function_new_recursive(
+            ast->as.assignment.value->as.function_literal.param_names,
+            ast->as.assignment.value->as.function_literal.body,
+            env,
+            ast->as.assignment.name);
+
+        if (!function) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        value = enact_value_make_function(function);
+        if (!enact_env_define(env, ast->as.assignment.name, value)) {
+            enact_value_free(&value);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        *out = value;
+        return 1;
+    }
+
     if (!enact_eval_value(ast->as.assignment.value, env, &value, diag)) {
         return 0;
     }
@@ -537,6 +562,16 @@ int enact_eval_apply_callable(
     if (!enact_env_clone(&local, enact_function_env(function))) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
+    }
+
+    if (enact_function_recursive_name(function)) {
+        EnactValue self = enact_value_make_function(function);
+
+        if (!enact_env_define(&local, enact_function_recursive_name(function), self)) {
+            enact_env_free(&local);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
     }
 
     for (index = 0; index < argument_count; index += 1) {

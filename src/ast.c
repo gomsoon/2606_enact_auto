@@ -356,7 +356,7 @@ EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value)
     return ast;
 }
 
-EnactAst *enact_ast_new_assignment(char *name, EnactAst *value)
+static EnactAst *enact_ast_new_assignment_with_flag(char *name, EnactAst *value, int recursive_function)
 {
     EnactAst *ast = enact_ast_alloc(AST_ASSIGN);
     if (!ast) {
@@ -365,7 +365,18 @@ EnactAst *enact_ast_new_assignment(char *name, EnactAst *value)
 
     ast->as.assignment.name = name;
     ast->as.assignment.value = value;
+    ast->as.assignment.recursive_function = recursive_function;
     return ast;
+}
+
+EnactAst *enact_ast_new_assignment(char *name, EnactAst *value)
+{
+    return enact_ast_new_assignment_with_flag(name, value, 0);
+}
+
+EnactAst *enact_ast_new_recursive_assignment(char *name, EnactAst *value)
+{
+    return enact_ast_new_assignment_with_flag(name, value, 1);
 }
 
 EnactAst *enact_ast_new_function_literal(EnactNameList *param_names, EnactAst *body)
@@ -522,7 +533,7 @@ static EnactAst *enact_ast_clone_assignment(const EnactAst *ast)
         return NULL;
     }
 
-    copy = enact_ast_new_assignment(name, value);
+    copy = enact_ast_new_assignment_with_flag(name, value, ast->as.assignment.recursive_function);
     if (!copy) {
         free(name);
         enact_ast_free(value);

@@ -82,6 +82,7 @@ struct EnactAst {
         struct {
             char *name;
             EnactAst *value;
+            int recursive_function;
         } assignment;
         struct {
             EnactNameList *param_names;
@@ -119,6 +120,7 @@ EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *righ
 EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false);
 EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value);
 EnactAst *enact_ast_new_assignment(char *name, EnactAst *value);
+EnactAst *enact_ast_new_recursive_assignment(char *name, EnactAst *value);
 EnactAst *enact_ast_new_function_literal(EnactNameList *param_names, EnactAst *body);
 EnactAst *enact_ast_new_call(EnactAst *callee, EnactAstList *arguments);
 EnactAst *enact_ast_clone(const EnactAst *ast);
