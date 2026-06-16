@@ -423,10 +423,54 @@ static int enact_eval_function_literal(const EnactAst *ast, EnactEnv *env, Enact
     return 1;
 }
 
-static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_check_callable_arity(
+    const EnactValue *callee,
+    size_t argument_count,
+    size_t *arity,
+    size_t *captured_count,
+    EnactDiag *diag)
 {
-    EnactValue callee;
-    EnactValue *arguments = NULL;
+    size_t callable_arity;
+    size_t callable_captured_count = 0;
+
+    if (!callee || !arity || !captured_count) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    if (callee->kind == ENACT_VALUE_FUNCTION) {
+        callable_arity = enact_function_arity(callee->as.as_function);
+    } else if (callee->kind == ENACT_VALUE_BUILTIN) {
+        callable_arity = enact_builtin_arity(callee->as.as_builtin);
+    } else if (callee->kind == ENACT_VALUE_BUILTIN_PARTIAL) {
+        const EnactBuiltin *builtin = enact_builtin_partial_builtin(callee->as.as_builtin_partial);
+
+        callable_captured_count = enact_builtin_partial_argument_count(callee->as.as_builtin_partial);
+        callable_arity = enact_builtin_arity(builtin);
+    } else {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
+        return 0;
+    }
+
+    if (argument_count == 0 ||
+        callable_captured_count >= callable_arity ||
+        argument_count > callable_arity - callable_captured_count) {
+        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+        return 0;
+    }
+
+    *arity = callable_arity;
+    *captured_count = callable_captured_count;
+    return 1;
+}
+
+int enact_eval_apply_callable(
+    const EnactValue *callee,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
     const EnactBuiltin *builtin = NULL;
     EnactBuiltinPartial *builtin_partial = NULL;
     EnactBuiltinPartial *next_builtin_partial = NULL;
@@ -434,8 +478,87 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
     EnactFunction *partial = NULL;
     EnactEnv local;
     int status;
+    size_t arity = 0;
+    size_t captured_count = 0;
+    size_t index;
+
+    if (!out || (argument_count > 0 && !arguments)) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+    if (!enact_eval_check_callable_arity(callee, argument_count, &arity, &captured_count, diag)) {
+        return 0;
+    }
+
+    if (callee->kind == ENACT_VALUE_BUILTIN) {
+        builtin = callee->as.as_builtin;
+        if (argument_count < arity) {
+            next_builtin_partial = enact_builtin_partial_new(builtin, arguments, argument_count);
+            if (!next_builtin_partial) {
+                enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+                return 0;
+            }
+
+            *out = enact_value_make_builtin_partial(next_builtin_partial);
+            return 1;
+        }
+
+        return enact_builtin_apply(builtin, arguments, argument_count, out, diag);
+    }
+
+    if (callee->kind == ENACT_VALUE_BUILTIN_PARTIAL) {
+        builtin_partial = callee->as.as_builtin_partial;
+        if (captured_count + argument_count < arity) {
+            next_builtin_partial = enact_builtin_partial_extend(builtin_partial, arguments, argument_count);
+            if (!next_builtin_partial) {
+                enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+                return 0;
+            }
+
+            *out = enact_value_make_builtin_partial(next_builtin_partial);
+            return 1;
+        }
+
+        return enact_builtin_partial_apply(builtin_partial, arguments, argument_count, out, diag);
+    }
+
+    function = callee->as.as_function;
+    if (argument_count < arity) {
+        partial = enact_function_partial(function, arguments, argument_count);
+        if (!partial) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        *out = enact_value_make_function(partial);
+        return 1;
+    }
+
+    if (!enact_env_clone(&local, enact_function_env(function))) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    for (index = 0; index < argument_count; index += 1) {
+        if (!enact_env_define(&local, enact_function_param_name(function, index), arguments[index])) {
+            enact_env_free(&local);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    }
+
+    status = enact_eval_value(enact_function_body(function), &local, out, diag);
+    enact_env_free(&local);
+    return status;
+}
+
+static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue callee;
+    EnactValue *arguments = NULL;
+    int status;
     size_t argument_count;
-    size_t arity;
+    size_t arity = 0;
     size_t captured_count = 0;
     size_t index;
 
@@ -444,35 +567,8 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
     }
 
     argument_count = enact_ast_list_count(ast->as.call.arguments);
-    if (callee.kind == ENACT_VALUE_FUNCTION) {
-        function = callee.as.as_function;
-        arity = enact_function_arity(function);
-        if (argument_count == 0 || argument_count > arity) {
-            enact_value_free(&callee);
-            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
-            return 0;
-        }
-    } else if (callee.kind == ENACT_VALUE_BUILTIN) {
-        builtin = callee.as.as_builtin;
-        arity = enact_builtin_arity(builtin);
-        if (argument_count == 0 || argument_count > arity) {
-            enact_value_free(&callee);
-            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
-            return 0;
-        }
-    } else if (callee.kind == ENACT_VALUE_BUILTIN_PARTIAL) {
-        builtin_partial = callee.as.as_builtin_partial;
-        builtin = enact_builtin_partial_builtin(builtin_partial);
-        captured_count = enact_builtin_partial_argument_count(builtin_partial);
-        arity = enact_builtin_arity(builtin);
-        if (argument_count == 0 || captured_count >= arity || argument_count > arity - captured_count) {
-            enact_value_free(&callee);
-            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
-            return 0;
-        }
-    } else {
+    if (!enact_eval_check_callable_arity(&callee, argument_count, &arity, &captured_count, diag)) {
         enact_value_free(&callee);
-        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
         return 0;
     }
 
@@ -491,84 +587,9 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
         }
     }
 
-    if (callee.kind == ENACT_VALUE_BUILTIN) {
-        if (argument_count < arity) {
-            next_builtin_partial = enact_builtin_partial_new(builtin, arguments, argument_count);
-            if (!next_builtin_partial) {
-                enact_free_value_array(arguments, argument_count);
-                enact_value_free(&callee);
-                enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-                return 0;
-            }
-
-            *out = enact_value_make_builtin_partial(next_builtin_partial);
-            enact_free_value_array(arguments, argument_count);
-            enact_value_free(&callee);
-            return 1;
-        }
-
-        status = enact_builtin_apply(builtin, arguments, argument_count, out, diag);
-        enact_free_value_array(arguments, argument_count);
-        enact_value_free(&callee);
-        return status;
-    }
-
-    if (callee.kind == ENACT_VALUE_BUILTIN_PARTIAL) {
-        if (captured_count + argument_count < arity) {
-            next_builtin_partial = enact_builtin_partial_extend(builtin_partial, arguments, argument_count);
-            if (!next_builtin_partial) {
-                enact_free_value_array(arguments, argument_count);
-                enact_value_free(&callee);
-                enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-                return 0;
-            }
-
-            *out = enact_value_make_builtin_partial(next_builtin_partial);
-            enact_free_value_array(arguments, argument_count);
-            enact_value_free(&callee);
-            return 1;
-        }
-
-        status = enact_builtin_partial_apply(builtin_partial, arguments, argument_count, out, diag);
-        enact_free_value_array(arguments, argument_count);
-        enact_value_free(&callee);
-        return status;
-    }
-
-    if (argument_count < arity) {
-        partial = enact_function_partial(function, arguments, argument_count);
-        if (!partial) {
-            enact_free_value_array(arguments, argument_count);
-            enact_value_free(&callee);
-            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-            return 0;
-        }
-
-        *out = enact_value_make_function(partial);
-        enact_free_value_array(arguments, argument_count);
-        enact_value_free(&callee);
-        return 1;
-    }
-
-    if (!enact_env_clone(&local, enact_function_env(function))) {
-        enact_free_value_array(arguments, argument_count);
-        enact_value_free(&callee);
-        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-        return 0;
-    }
-
-    for (index = 0; index < argument_count; index += 1) {
-        if (!enact_env_define(&local, enact_function_param_name(function, index), arguments[index])) {
-            enact_env_free(&local);
-            enact_free_value_array(arguments, argument_count);
-            enact_value_free(&callee);
-            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-            return 0;
-        }
-    }
-
-    status = enact_eval_value(enact_function_body(function), &local, out, diag);
-    enact_env_free(&local);
+    (void)arity;
+    (void)captured_count;
+    status = enact_eval_apply_callable(&callee, arguments, argument_count, out, diag);
     enact_free_value_array(arguments, argument_count);
     enact_value_free(&callee);
     return status;

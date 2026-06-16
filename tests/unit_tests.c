@@ -285,6 +285,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *tl = enact_builtin_lookup("tl");
     const EnactBuiltin *append = enact_builtin_lookup("append");
     const EnactBuiltin *size = enact_builtin_lookup("size");
+    const EnactBuiltin *map = enact_builtin_lookup("map");
     EnactBuiltinPartial *append_partial;
     EnactBuiltinPartial *other_append_partial;
     EnactValue builtin_value;
@@ -296,11 +297,18 @@ static void test_builtin_helpers(void)
     EnactValue head;
     EnactValue args[1];
     EnactValue append_args[2];
+    EnactValue map_args[2];
+    EnactValue inner_left_value;
+    EnactValue inner_right_value;
     EnactValue bad_prefix_args[1];
     EnactValue result;
     EnactList *list;
     EnactList *left_list;
     EnactList *right_list;
+    EnactList *inner_left_list;
+    EnactList *inner_right_list;
+    EnactList *outer_tail;
+    EnactList *outer_list;
     EnactDiag diag;
     EnactEnv env;
     EnactAst *call;
@@ -310,6 +318,7 @@ static void test_builtin_helpers(void)
     require_true(tl != NULL, "tl builtin lookup succeeds");
     require_true(append != NULL, "append builtin lookup succeeds");
     require_true(size != NULL, "size builtin lookup succeeds");
+    require_true(map != NULL, "map builtin lookup succeeds");
     require_true(enact_builtin_lookup("missing") == NULL, "missing builtin lookup fails");
     require_true(enact_builtin_lookup(NULL) == NULL, "null builtin lookup fails");
     require_true(strcmp(enact_builtin_name(hd), "hd") == 0, "hd builtin name");
@@ -317,6 +326,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(hd) == 1, "hd builtin arity");
     require_true(enact_builtin_arity(append) == 2, "append builtin arity");
     require_true(enact_builtin_arity(size) == 1, "size builtin arity");
+    require_true(enact_builtin_arity(map) == 2, "map builtin arity");
     require_true(enact_builtin_arity(NULL) == 0, "null builtin arity");
     require_true(enact_builtin_partial_builtin(NULL) == NULL, "null partial builtin accessor");
     require_true(enact_builtin_partial_argument_count(NULL) == 0, "null partial argument count");
@@ -423,6 +433,34 @@ static void test_builtin_helpers(void)
         enact_value_free(&append_args[1]);
     }
 
+    head = enact_value_make_int(1);
+    inner_left_list = enact_list_cons(&head, NULL);
+    head = enact_value_make_int(2);
+    inner_right_list = enact_list_cons(&head, NULL);
+    require_true(inner_left_list != NULL && inner_right_list != NULL, "map inner lists created");
+    if (inner_left_list && inner_right_list) {
+        inner_left_value = enact_value_make_list(inner_left_list);
+        inner_right_value = enact_value_make_list(inner_right_list);
+        outer_tail = enact_list_cons(&inner_right_value, NULL);
+        outer_list = enact_list_cons(&inner_left_value, outer_tail);
+        enact_value_free(&inner_left_value);
+        enact_value_free(&inner_right_value);
+        enact_list_release(outer_tail);
+        require_true(outer_list != NULL, "map outer list created");
+        if (outer_list) {
+            map_args[0] = enact_value_make_builtin(size);
+            map_args[1] = enact_value_make_list(outer_list);
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(map, map_args, 2, &result, &diag), "map builtin apply succeeds");
+            require_true(result.kind == ENACT_VALUE_LIST, "map builtin result kind");
+            require_true(enact_list_head(result.as.as_list)->as.as_int == 1, "map builtin first value");
+            require_true(enact_list_head(enact_list_tail(result.as.as_list))->as.as_int == 1, "map builtin second value");
+            require_true(enact_list_tail(enact_list_tail(result.as.as_list)) == NULL, "map builtin tail nil");
+            enact_value_free(&result);
+            enact_value_free(&map_args[1]);
+        }
+    }
+
     args[0] = enact_value_make_bool(true);
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(hd, args, 1, &result, &diag), "hd non-list fails");
@@ -475,6 +513,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "size", &lookup_value), "lookup installed size");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed size value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "map", &lookup_value), "lookup installed map");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed map value kind");
     enact_value_free(&lookup_value);
     require_true(!enact_install_builtins(NULL), "install builtins null env fails");
 
@@ -1019,6 +1060,9 @@ static void test_api_and_scan_helpers(void)
     EnactDiag diag;
     EnactList *list;
     const EnactValue *head;
+    EnactValue callable_arg;
+    EnactValue applied;
+    EnactValue non_callable;
     FILE *tmp;
     char output[256];
     size_t nread;
@@ -1074,6 +1118,27 @@ static void test_api_and_scan_helpers(void)
         head = enact_list_head(list);
         require_true(head != NULL && head->kind == ENACT_VALUE_INT && head->as.as_int == 3, "tuple-like list third element");
         require_true(enact_list_tail(list) == NULL, "tuple-like list terminates with nil");
+    }
+    enact_result_free(&result);
+
+    result = enact_eval_text("x::x+1.");
+    require_true(result.ok, "callable helper source evaluates");
+    if (result.ok) {
+        callable_arg = enact_value_make_int(4);
+        enact_diag_reset(&diag);
+        require_true(
+            enact_eval_apply_callable(&result.value, &callable_arg, 1, &applied, &diag),
+            "callable helper applies function");
+        require_true(applied.kind == ENACT_VALUE_INT, "callable helper result kind");
+        require_true(applied.as.as_int == 5, "callable helper result value");
+        enact_value_free(&applied);
+
+        non_callable = enact_value_make_int(1);
+        enact_diag_reset(&diag);
+        require_true(
+            !enact_eval_apply_callable(&non_callable, &callable_arg, 1, &applied, &diag),
+            "callable helper rejects non-function");
+        require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_FUNCTION, "callable helper non-function code");
     }
     enact_result_free(&result);
     fclose(tmp);

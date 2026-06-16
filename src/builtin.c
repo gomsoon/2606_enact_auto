@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "builtin.h"
+#include "eval.h"
 
 typedef int (*EnactBuiltinCallback)(
     const EnactValue *arguments,
@@ -107,6 +108,19 @@ static int enact_builtin_require_non_empty_list(const EnactValue *value, EnactLi
     }
     if (!*out) {
         enact_diag_set(diag, ENACT_ERR_LIST_EMPTY, -1);
+        return 0;
+    }
+
+    return 1;
+}
+
+static int enact_builtin_require_callable(const EnactValue *value, EnactDiag *diag)
+{
+    if (!value ||
+        (value->kind != ENACT_VALUE_FUNCTION &&
+         value->kind != ENACT_VALUE_BUILTIN &&
+         value->kind != ENACT_VALUE_BUILTIN_PARTIAL)) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
         return 0;
     }
 
@@ -238,11 +252,79 @@ static int enact_builtin_size(
     return 1;
 }
 
+static int enact_builtin_map_list(
+    const EnactValue *callable,
+    EnactList *list,
+    EnactList **out,
+    EnactDiag *diag)
+{
+    const EnactValue *head;
+    EnactValue mapped_head;
+    EnactList *mapped_tail = NULL;
+    EnactList *result;
+
+    if (!out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+    if (!list) {
+        *out = NULL;
+        return 1;
+    }
+
+    head = enact_list_head(list);
+    if (!head || !enact_eval_apply_callable(callable, head, 1, &mapped_head, diag)) {
+        return 0;
+    }
+
+    if (!enact_builtin_map_list(callable, enact_list_tail(list), &mapped_tail, diag)) {
+        enact_value_free(&mapped_head);
+        return 0;
+    }
+
+    result = enact_list_cons(&mapped_head, mapped_tail);
+    enact_value_free(&mapped_head);
+    enact_list_release(mapped_tail);
+    if (!result) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_map(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *list = NULL;
+    EnactList *result = NULL;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_callable(&arguments[0], diag)) {
+        return 0;
+    }
+    if (!enact_builtin_require_list(&arguments[1], &list, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_map_list(&arguments[0], list, &result, diag)) {
+        return 0;
+    }
+
+    *out = enact_value_make_list(result);
+    return 1;
+}
+
 static const EnactBuiltin builtin_table[] = {
     {"hd", 1, enact_builtin_hd},
     {"tl", 1, enact_builtin_tl},
     {"append", 2, enact_builtin_append},
     {"size", 1, enact_builtin_size},
+    {"map", 2, enact_builtin_map},
 };
 
 static size_t enact_builtin_count(void)
