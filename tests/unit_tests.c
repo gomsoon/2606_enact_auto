@@ -283,13 +283,18 @@ static void test_builtin_helpers(void)
 {
     const EnactBuiltin *hd = enact_builtin_lookup("hd");
     const EnactBuiltin *tl = enact_builtin_lookup("tl");
+    const EnactBuiltin *append = enact_builtin_lookup("append");
+    const EnactBuiltin *size = enact_builtin_lookup("size");
     EnactValue builtin_value;
     EnactValue builtin_copy;
     EnactValue lookup_value;
     EnactValue head;
     EnactValue args[1];
+    EnactValue append_args[2];
     EnactValue result;
     EnactList *list;
+    EnactList *left_list;
+    EnactList *right_list;
     EnactDiag diag;
     EnactEnv env;
     EnactAst *call;
@@ -297,11 +302,15 @@ static void test_builtin_helpers(void)
 
     require_true(hd != NULL, "hd builtin lookup succeeds");
     require_true(tl != NULL, "tl builtin lookup succeeds");
+    require_true(append != NULL, "append builtin lookup succeeds");
+    require_true(size != NULL, "size builtin lookup succeeds");
     require_true(enact_builtin_lookup("missing") == NULL, "missing builtin lookup fails");
     require_true(enact_builtin_lookup(NULL) == NULL, "null builtin lookup fails");
     require_true(strcmp(enact_builtin_name(hd), "hd") == 0, "hd builtin name");
     require_true(strcmp(enact_builtin_name(NULL), "") == 0, "null builtin name");
     require_true(enact_builtin_arity(hd) == 1, "hd builtin arity");
+    require_true(enact_builtin_arity(append) == 2, "append builtin arity");
+    require_true(enact_builtin_arity(size) == 1, "size builtin arity");
     require_true(enact_builtin_arity(NULL) == 0, "null builtin arity");
 
     builtin_value = enact_value_make_builtin(hd);
@@ -339,6 +348,29 @@ static void test_builtin_helpers(void)
     require_true(!enact_builtin_apply(tl, args, 1, &result, &diag), "tl nil fails");
     require_true(diag.code == ENACT_ERR_LIST_EMPTY, "tl nil error code");
 
+    head = enact_value_make_int(1);
+    left_list = enact_list_cons(&head, NULL);
+    head = enact_value_make_int(2);
+    right_list = enact_list_cons(&head, NULL);
+    require_true(left_list != NULL && right_list != NULL, "append test lists created");
+    if (left_list && right_list) {
+        append_args[0] = enact_value_make_list(left_list);
+        append_args[1] = enact_value_make_list(right_list);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(size, append_args, 1, &result, &diag), "size builtin apply succeeds");
+        require_true(result.kind == ENACT_VALUE_INT, "size builtin result kind");
+        require_true(result.as.as_int == 1, "size builtin result value");
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(append, append_args, 2, &result, &diag), "append builtin apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "append builtin result kind");
+        require_true(enact_list_head(result.as.as_list)->as.as_int == 1, "append builtin first value");
+        require_true(enact_list_head(enact_list_tail(result.as.as_list))->as.as_int == 2, "append builtin second value");
+        require_true(enact_list_tail(enact_list_tail(result.as.as_list)) == NULL, "append builtin tail nil");
+        enact_value_free(&result);
+        enact_value_free(&append_args[0]);
+        enact_value_free(&append_args[1]);
+    }
+
     args[0] = enact_value_make_bool(true);
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(hd, args, 1, &result, &diag), "hd non-list fails");
@@ -352,11 +384,25 @@ static void test_builtin_helpers(void)
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(hd, args, 1, NULL, &diag), "null builtin output fails");
     require_true(diag.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "null builtin output code");
+    append_args[0] = enact_value_make_int(1);
+    append_args[1] = enact_value_make_list(NULL);
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(append, append_args, 2, &result, &diag), "append non-list left fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_LIST, "append non-list left code");
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(append, append_args, 1, &result, &diag), "append wrong arity fails");
+    require_true(diag.code == ENACT_ERR_ARITY_MISMATCH, "append wrong arity code");
 
     enact_env_init(&env);
     require_true(enact_install_builtins(&env), "install builtins succeeds");
     require_true(enact_env_lookup(&env, "hd", &lookup_value), "lookup installed hd");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed hd value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "append", &lookup_value), "lookup installed append");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed append value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "size", &lookup_value), "lookup installed size");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed size value kind");
     enact_value_free(&lookup_value);
     require_true(!enact_install_builtins(NULL), "install builtins null env fails");
 
@@ -368,6 +414,20 @@ static void test_builtin_helpers(void)
     require_true(enact_eval_ast_with_env(call, &env, &result, &diag), "builtin ast call evaluates");
     require_true(result.kind == ENACT_VALUE_INT, "builtin ast call result kind");
     require_true(result.as.as_int == 12, "builtin ast call result value");
+    enact_ast_free(call);
+
+    call = enact_ast_new_call(
+        enact_ast_new_identifier(copy_test_name("append")),
+        make_test_ast_list2(
+            enact_ast_new_binary(AST_CONS, enact_ast_new_int(1), enact_ast_new_nil()),
+            enact_ast_new_binary(AST_CONS, enact_ast_new_int(2), enact_ast_new_nil())));
+    require_true(call != NULL, "append builtin ast call created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(call, &env, &result, &diag), "append builtin ast call evaluates");
+    require_true(result.kind == ENACT_VALUE_LIST, "append builtin ast call result kind");
+    require_true(enact_list_head(result.as.as_list)->as.as_int == 1, "append ast first value");
+    require_true(enact_list_head(enact_list_tail(result.as.as_list))->as.as_int == 2, "append ast second value");
+    enact_value_free(&result);
     enact_ast_free(call);
     enact_env_free(&env);
 }

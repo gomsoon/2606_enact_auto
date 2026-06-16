@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <string.h>
 
 #include "builtin.h"
@@ -80,9 +81,94 @@ static int enact_builtin_tl(
     return 1;
 }
 
+static int enact_builtin_append_lists(EnactList *left, EnactList *right, EnactList **out)
+{
+    EnactList *tail = NULL;
+    EnactList *result;
+
+    if (!out) {
+        return 0;
+    }
+    if (!left) {
+        *out = enact_list_retain(right);
+        return right == NULL || *out != NULL;
+    }
+
+    if (!enact_builtin_append_lists(enact_list_tail(left), right, &tail)) {
+        return 0;
+    }
+
+    result = enact_list_cons(enact_list_head(left), tail);
+    enact_list_release(tail);
+    if (!result) {
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_append(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *left = NULL;
+    EnactList *right = NULL;
+    EnactList *result = NULL;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_list(&arguments[0], &left, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_require_list(&arguments[1], &right, diag)) {
+        return 0;
+    }
+
+    if (!enact_builtin_append_lists(left, right, &result)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(result);
+    return 1;
+}
+
+static int enact_builtin_size(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *list = NULL;
+    int32_t count = 0;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_list(&arguments[0], &list, diag)) {
+        return 0;
+    }
+
+    while (list) {
+        if (count == INT_MAX) {
+            enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
+            return 0;
+        }
+        count += 1;
+        list = enact_list_tail(list);
+    }
+
+    *out = enact_value_make_int(count);
+    return 1;
+}
+
 static const EnactBuiltin builtin_table[] = {
     {"hd", 1, enact_builtin_hd},
     {"tl", 1, enact_builtin_tl},
+    {"append", 2, enact_builtin_append},
+    {"size", 1, enact_builtin_size},
 };
 
 static size_t enact_builtin_count(void)
