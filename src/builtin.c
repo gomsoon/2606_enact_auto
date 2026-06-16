@@ -5,6 +5,8 @@
 #include "builtin.h"
 #include "eval.h"
 
+#define ENACT_VERSION_STRING "enact-auto 0.1.0"
+
 typedef int (*EnactBuiltinCallback)(
     const EnactValue *arguments,
     size_t argument_count,
@@ -23,6 +25,25 @@ struct EnactBuiltinPartial {
     EnactValue *arguments;
     size_t argument_count;
 };
+
+static char *enact_builtin_copy_text(const char *text)
+{
+    size_t length;
+    char *copy;
+
+    if (!text) {
+        text = "";
+    }
+
+    length = strlen(text);
+    copy = malloc(length + 1);
+    if (!copy) {
+        return NULL;
+    }
+
+    memcpy(copy, text, length + 1);
+    return copy;
+}
 
 static void enact_builtin_free_argument_values(EnactValue *arguments, size_t argument_count)
 {
@@ -241,6 +262,41 @@ static int enact_builtin_atom(
 
     *out = enact_value_make_bool(
         arguments[0].kind != ENACT_VALUE_LIST || arguments[0].as.as_list == NULL);
+    return 1;
+}
+
+static int enact_builtin_is_object(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)arguments;
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(false);
+    return 1;
+}
+
+static int enact_builtin_version(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    char *version;
+
+    (void)arguments;
+    (void)argument_count;
+
+    version = enact_builtin_copy_text(ENACT_VERSION_STRING);
+    if (!version) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_string(version);
     return 1;
 }
 
@@ -850,6 +906,8 @@ static const EnactBuiltin builtin_table[] = {
     {"hd", 1, enact_builtin_hd},
     {"tl", 1, enact_builtin_tl},
     {"atom", 1, enact_builtin_atom},
+    {"isObject", 1, enact_builtin_is_object},
+    {"version", 0, enact_builtin_version},
     {"list", 1, enact_builtin_list},
     {"append", 2, enact_builtin_append},
     {"size", 1, enact_builtin_size},
