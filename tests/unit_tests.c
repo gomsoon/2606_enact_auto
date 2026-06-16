@@ -288,6 +288,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *map = enact_builtin_lookup("map");
     const EnactBuiltin *filter = enact_builtin_lookup("filter");
     const EnactBuiltin *all = enact_builtin_lookup("all");
+    const EnactBuiltin *reduce = enact_builtin_lookup("reduce");
     EnactBuiltinPartial *append_partial;
     EnactBuiltinPartial *other_append_partial;
     EnactValue builtin_value;
@@ -301,6 +302,7 @@ static void test_builtin_helpers(void)
     EnactValue append_args[2];
     EnactValue map_args[2];
     EnactValue predicate_args[2];
+    EnactValue reduce_args[3];
     EnactValue inner_left_value;
     EnactValue inner_right_value;
     EnactValue inner_true_value;
@@ -318,6 +320,8 @@ static void test_builtin_helpers(void)
     EnactList *outer_list;
     EnactList *predicate_tail;
     EnactList *predicate_list;
+    EnactList *reduce_tail;
+    EnactList *reduce_list;
     EnactDiag diag;
     EnactEnv env;
     EnactAst *call;
@@ -330,6 +334,7 @@ static void test_builtin_helpers(void)
     require_true(map != NULL, "map builtin lookup succeeds");
     require_true(filter != NULL, "filter builtin lookup succeeds");
     require_true(all != NULL, "all builtin lookup succeeds");
+    require_true(reduce != NULL, "reduce builtin lookup succeeds");
     require_true(enact_builtin_lookup("missing") == NULL, "missing builtin lookup fails");
     require_true(enact_builtin_lookup(NULL) == NULL, "null builtin lookup fails");
     require_true(strcmp(enact_builtin_name(hd), "hd") == 0, "hd builtin name");
@@ -340,6 +345,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(map) == 2, "map builtin arity");
     require_true(enact_builtin_arity(filter) == 2, "filter builtin arity");
     require_true(enact_builtin_arity(all) == 2, "all builtin arity");
+    require_true(enact_builtin_arity(reduce) == 3, "reduce builtin arity");
     require_true(enact_builtin_arity(NULL) == 0, "null builtin arity");
     require_true(enact_builtin_partial_builtin(NULL) == NULL, "null partial builtin accessor");
     require_true(enact_builtin_partial_argument_count(NULL) == 0, "null partial argument count");
@@ -440,6 +446,25 @@ static void test_builtin_helpers(void)
                 "append partial exact extension fails");
             enact_value_free(&partial_copy);
             enact_value_free(&partial_value);
+        }
+
+        reduce_tail = enact_list_cons(&append_args[1], NULL);
+        reduce_list = enact_list_cons(&append_args[0], reduce_tail);
+        enact_list_release(reduce_tail);
+        require_true(reduce_list != NULL, "reduce input list created");
+        if (reduce_list) {
+            reduce_args[0] = enact_value_make_builtin(append);
+            reduce_args[1] = enact_value_make_list(NULL);
+            reduce_args[2] = enact_value_make_list(reduce_list);
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(reduce, reduce_args, 3, &result, &diag), "reduce builtin apply succeeds");
+            require_true(result.kind == ENACT_VALUE_LIST, "reduce builtin result kind");
+            require_true(enact_list_head(result.as.as_list)->as.as_int == 1, "reduce builtin first value");
+            require_true(enact_list_head(enact_list_tail(result.as.as_list))->as.as_int == 2, "reduce builtin second value");
+            require_true(enact_list_tail(enact_list_tail(result.as.as_list)) == NULL, "reduce builtin tail nil");
+            enact_value_free(&result);
+            enact_value_free(&reduce_args[1]);
+            enact_value_free(&reduce_args[2]);
         }
 
         enact_value_free(&append_args[0]);
@@ -572,6 +597,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "all", &lookup_value), "lookup installed all");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed all value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "reduce", &lookup_value), "lookup installed reduce");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed reduce value kind");
     enact_value_free(&lookup_value);
     require_true(!enact_install_builtins(NULL), "install builtins null env fails");
 

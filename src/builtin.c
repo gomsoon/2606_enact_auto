@@ -458,6 +458,55 @@ static int enact_builtin_all(
     return 1;
 }
 
+static int enact_builtin_reduce(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *list = NULL;
+    EnactValue accumulator;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_callable(&arguments[0], diag)) {
+        return 0;
+    }
+    if (!enact_builtin_require_list(&arguments[2], &list, diag)) {
+        return 0;
+    }
+    if (!enact_value_copy(&accumulator, &arguments[1])) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    while (list) {
+        const EnactValue *head = enact_list_head(list);
+        EnactValue reducer_arguments[2];
+        EnactValue next_accumulator;
+
+        if (!head) {
+            enact_value_free(&accumulator);
+            enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+            return 0;
+        }
+
+        reducer_arguments[0] = accumulator;
+        reducer_arguments[1] = *head;
+        if (!enact_eval_apply_callable(&arguments[0], reducer_arguments, 2, &next_accumulator, diag)) {
+            enact_value_free(&accumulator);
+            return 0;
+        }
+
+        enact_value_free(&accumulator);
+        accumulator = next_accumulator;
+        list = enact_list_tail(list);
+    }
+
+    *out = accumulator;
+    return 1;
+}
+
 static const EnactBuiltin builtin_table[] = {
     {"hd", 1, enact_builtin_hd},
     {"tl", 1, enact_builtin_tl},
@@ -466,6 +515,7 @@ static const EnactBuiltin builtin_table[] = {
     {"map", 2, enact_builtin_map},
     {"filter", 2, enact_builtin_filter},
     {"all", 2, enact_builtin_all},
+    {"reduce", 3, enact_builtin_reduce},
 };
 
 static size_t enact_builtin_count(void)
