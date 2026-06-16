@@ -315,6 +315,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *hd = enact_builtin_lookup("hd");
     const EnactBuiltin *tl = enact_builtin_lookup("tl");
     const EnactBuiltin *atom = enact_builtin_lookup("atom");
+    const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *append = enact_builtin_lookup("append");
     const EnactBuiltin *size = enact_builtin_lookup("size");
     const EnactBuiltin *map = enact_builtin_lookup("map");
@@ -362,6 +363,7 @@ static void test_builtin_helpers(void)
     require_true(hd != NULL, "hd builtin lookup succeeds");
     require_true(tl != NULL, "tl builtin lookup succeeds");
     require_true(atom != NULL, "atom builtin lookup succeeds");
+    require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(append != NULL, "append builtin lookup succeeds");
     require_true(size != NULL, "size builtin lookup succeeds");
     require_true(map != NULL, "map builtin lookup succeeds");
@@ -374,6 +376,7 @@ static void test_builtin_helpers(void)
     require_true(strcmp(enact_builtin_name(NULL), "") == 0, "null builtin name");
     require_true(enact_builtin_arity(hd) == 1, "hd builtin arity");
     require_true(enact_builtin_arity(atom) == 1, "atom builtin arity");
+    require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_arity(append) == 2, "append builtin arity");
     require_true(enact_builtin_arity(size) == 1, "size builtin arity");
     require_true(enact_builtin_arity(map) == 2, "map builtin arity");
@@ -402,6 +405,13 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_apply(atom, args, 1, &result, &diag), "atom int apply succeeds");
     require_true(result.kind == ENACT_VALUE_BOOL, "atom int result kind");
     require_true(result.as.as_bool, "atom int result true");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(list_builtin, args, 1, &result, &diag), "list int apply succeeds");
+    require_true(result.kind == ENACT_VALUE_LIST, "list int result kind");
+    require_true(result.as.as_list != NULL, "list int result non-empty");
+    require_true(enact_list_head(result.as.as_list)->as.as_int == 1, "list int result head");
+    require_true(enact_list_tail(result.as.as_list) == NULL, "list int result tail nil");
     enact_value_free(&result);
 
     args[0] = enact_value_make_builtin(hd);
@@ -643,6 +653,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "atom", &lookup_value), "lookup installed atom");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed atom value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "list", &lookup_value), "lookup installed list");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed list value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "append", &lookup_value), "lookup installed append");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed append value kind");

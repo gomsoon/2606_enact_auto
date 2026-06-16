@@ -216,6 +216,26 @@ static int enact_builtin_atom(
     return 1;
 }
 
+static int enact_builtin_list(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *result;
+
+    (void)argument_count;
+
+    result = enact_list_cons(&arguments[0], NULL);
+    if (!result) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(result);
+    return 1;
+}
+
 static int enact_builtin_append_lists(EnactList *left, EnactList *right, EnactList **out)
 {
     EnactList *tail = NULL;
@@ -525,6 +545,7 @@ static const EnactBuiltin builtin_table[] = {
     {"hd", 1, enact_builtin_hd},
     {"tl", 1, enact_builtin_tl},
     {"atom", 1, enact_builtin_atom},
+    {"list", 1, enact_builtin_list},
     {"append", 2, enact_builtin_append},
     {"size", 1, enact_builtin_size},
     {"map", 2, enact_builtin_map},

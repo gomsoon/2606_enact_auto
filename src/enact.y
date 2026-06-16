@@ -949,6 +949,13 @@ primary:
             YYABORT;
         }
     }
+    | TOK_LPAREN TOK_RPAREN
+    {
+        $$ = enact_make_nil();
+        if (!$$) {
+            YYABORT;
+        }
+    }
     | TOK_LPAREN tuple_list TOK_RPAREN
     {
         $$ = enact_make_tuple_list($2);
