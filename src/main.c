@@ -190,6 +190,18 @@ static void enact_print_value(FILE *stream, const EnactValue *value)
     fputc('\n', stream);
 }
 
+static int enact_print_script_result(const EnactResult *result, void *user_data)
+{
+    FILE *stream = user_data ? (FILE *)user_data : stdout;
+
+    if (!result || !result->ok) {
+        return 0;
+    }
+
+    enact_print_value(stream, &result->value);
+    return 1;
+}
+
 static int enact_run_source(const char *source, int token_mode)
 {
     if (token_mode) {
@@ -218,6 +230,28 @@ static int enact_run_source(const char *source, int token_mode)
         enact_result_free(&result);
         return 0;
     }
+}
+
+static int enact_run_script(const char *source)
+{
+    EnactSession session;
+    EnactDiag diag;
+    int status;
+
+    if (!enact_session_init(&session)) {
+        fputs("failed to initialize session\n", stderr);
+        return 2;
+    }
+
+    enact_diag_reset(&diag);
+    status = enact_session_eval_script(&session, source, enact_print_script_result, stdout, &diag);
+    enact_session_free(&session);
+    if (!status) {
+        enact_print_diag(stderr, &diag);
+        return 1;
+    }
+
+    return 0;
 }
 
 static int enact_run_session_source(EnactSession *session, const char *source)
@@ -287,7 +321,7 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    status = enact_run_source(source, token_mode);
+    status = token_mode ? enact_run_source(source, token_mode) : enact_run_script(source);
     free(source);
     return status;
 }

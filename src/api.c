@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "api.h"
@@ -102,6 +103,128 @@ static int enact_parse_text(const char *source, EnactAst **out, EnactDiag *diag)
     return 0;
 }
 
+static char *enact_copy_source_range(const char *source, size_t start, size_t end)
+{
+    char *copy;
+    size_t length;
+
+    if (!source || end < start) {
+        return NULL;
+    }
+
+    length = end - start;
+    copy = malloc(length + 1);
+    if (!copy) {
+        return NULL;
+    }
+
+    memcpy(copy, source + start, length);
+    copy[length] = '\0';
+    return copy;
+}
+
+static void enact_skip_script_trivia(const char *source, size_t length, size_t *offset)
+{
+    size_t index;
+
+    if (!source || !offset) {
+        return;
+    }
+
+    index = *offset;
+    while (index < length) {
+        char ch = source[index];
+
+        if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+            index += 1;
+            continue;
+        }
+
+        if (ch == '%') {
+            index += 1;
+            while (index < length && source[index] != '\n') {
+                index += 1;
+            }
+            continue;
+        }
+
+        break;
+    }
+
+    *offset = index;
+}
+
+static int enact_next_script_chunk(
+    const char *source,
+    size_t length,
+    size_t *offset,
+    size_t *start,
+    size_t *end)
+{
+    size_t index;
+    int paren_depth = 0;
+    int in_string = 0;
+    int in_comment = 0;
+
+    if (!source || !offset || !start || !end) {
+        return 0;
+    }
+
+    enact_skip_script_trivia(source, length, offset);
+    if (*offset >= length) {
+        return 0;
+    }
+
+    *start = *offset;
+    for (index = *offset; index < length; index += 1) {
+        char ch = source[index];
+
+        if (in_comment) {
+            if (ch == '\n') {
+                in_comment = 0;
+            }
+            continue;
+        }
+
+        if (in_string) {
+            if (ch == '\\' && index + 1 < length) {
+                index += 1;
+                continue;
+            }
+            if (ch == '"') {
+                in_string = 0;
+            }
+            continue;
+        }
+
+        if (ch == '%') {
+            in_comment = 1;
+            continue;
+        }
+        if (ch == '"') {
+            in_string = 1;
+            continue;
+        }
+        if (ch == '(') {
+            paren_depth += 1;
+            continue;
+        }
+        if (ch == ')') {
+            paren_depth -= 1;
+            continue;
+        }
+        if (ch == '.' && paren_depth == 0) {
+            *end = index + 1;
+            *offset = *end;
+            return 1;
+        }
+    }
+
+    *end = length;
+    *offset = length;
+    return 1;
+}
+
 static EnactResult enact_eval_parsed_ast(EnactAst *root, EnactEnv *env)
 {
     EnactResult result;
@@ -195,6 +318,64 @@ EnactResult enact_session_eval_text(EnactSession *session, const char *source)
     result = enact_eval_parsed_ast(root, &session->env);
     enact_ast_free(root);
     return result;
+}
+
+int enact_session_eval_script(
+    EnactSession *session,
+    const char *source,
+    EnactScriptResultCallback callback,
+    void *user_data,
+    EnactDiag *diag)
+{
+    size_t offset = 0;
+    size_t length;
+
+    if (!session || !session->initialized) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    if (!source) {
+        source = "";
+    }
+
+    length = strlen(source);
+    while (offset < length) {
+        size_t start = 0;
+        size_t end = 0;
+        char *chunk;
+        EnactResult result;
+
+        if (!enact_next_script_chunk(source, length, &offset, &start, &end)) {
+            break;
+        }
+
+        chunk = enact_copy_source_range(source, start, end);
+        if (!chunk) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        result = enact_session_eval_text(session, chunk);
+        free(chunk);
+        if (!result.ok) {
+            if (diag) {
+                *diag = result.error;
+            }
+            enact_result_free(&result);
+            return 0;
+        }
+
+        if (callback && !callback(&result, user_data)) {
+            enact_result_free(&result);
+            enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+            return 0;
+        }
+
+        enact_result_free(&result);
+    }
+
+    return 1;
 }
 
 void enact_session_free(EnactSession *session)

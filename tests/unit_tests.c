@@ -22,6 +22,48 @@ static void require_true(int condition, const char *message)
     }
 }
 
+typedef struct {
+    size_t count;
+    EnactValue values[8];
+} ScriptCapture;
+
+static void script_capture_free(ScriptCapture *capture)
+{
+    size_t index;
+
+    if (!capture) {
+        return;
+    }
+
+    for (index = 0; index < capture->count; index += 1) {
+        enact_value_free(&capture->values[index]);
+    }
+    capture->count = 0;
+}
+
+static int script_capture_result(const EnactResult *result, void *user_data)
+{
+    ScriptCapture *capture = user_data;
+
+    if (!result || !result->ok || !capture || capture->count >= 8) {
+        return 0;
+    }
+    if (!enact_value_copy(&capture->values[capture->count], &result->value)) {
+        return 0;
+    }
+
+    capture->count += 1;
+    return 1;
+}
+
+static int script_reject_result(const EnactResult *result, void *user_data)
+{
+    (void)result;
+    (void)user_data;
+
+    return 0;
+}
+
 static char *copy_test_name(const char *name)
 {
     size_t length = strlen(name);
@@ -1396,6 +1438,7 @@ static void test_api_and_scan_helpers(void)
     EnactResult result;
     EnactResult stateless_result;
     EnactSession session;
+    ScriptCapture capture;
     EnactDiag diag;
     EnactList *list;
     const EnactValue *head;
@@ -1467,6 +1510,56 @@ static void test_api_and_scan_helpers(void)
     require_true(result.ok, "session function captures definition env");
     require_true(result.value.kind == ENACT_VALUE_INT, "session captured function result kind");
     require_true(result.value.as.as_int == 11, "session captured function result value");
+    enact_result_free(&result);
+
+    memset(&capture, 0, sizeof(capture));
+    enact_diag_reset(&diag);
+    require_true(
+        enact_session_eval_script(&session, "script_x:=1.\nscript_x+2.", script_capture_result, &capture, &diag),
+        "session script evaluates multiple chunks");
+    require_true(capture.count == 2, "session script result count");
+    require_true(capture.values[0].kind == ENACT_VALUE_INT, "session script first kind");
+    require_true(capture.values[0].as.as_int == 1, "session script first value");
+    require_true(capture.values[1].kind == ENACT_VALUE_INT, "session script second kind");
+    require_true(capture.values[1].as.as_int == 3, "session script second value");
+    script_capture_free(&capture);
+
+    result = enact_session_eval_text(&session, "script_x+3.");
+    require_true(result.ok, "session script leaves bindings");
+    require_true(result.value.kind == ENACT_VALUE_INT, "session script binding result kind");
+    require_true(result.value.as.as_int == 4, "session script binding result value");
+    enact_result_free(&result);
+
+    memset(&capture, 0, sizeof(capture));
+    enact_diag_reset(&diag);
+    require_true(
+        enact_session_eval_script(&session, "   % only a comment\n  ", script_capture_result, &capture, &diag),
+        "session script accepts trivia-only input");
+    require_true(capture.count == 0, "session script trivia-only result count");
+    script_capture_free(&capture);
+
+    enact_diag_reset(&diag);
+    require_true(
+        !enact_session_eval_script(&session, "1.", script_reject_result, NULL, &diag),
+        "session script callback failure fails");
+    require_true(diag.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "session script callback failure code");
+
+    enact_diag_reset(&diag);
+    require_true(
+        !enact_session_eval_script(NULL, "1.", script_capture_result, &capture, &diag),
+        "session script null session fails");
+    require_true(diag.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "session script null session code");
+
+    enact_diag_reset(&diag);
+    require_true(
+        !enact_session_eval_script(&session, "script_y:=missing.\nscript_x.", script_capture_result, &capture, &diag),
+        "session script stops on failure");
+    require_true(diag.code == ENACT_ERR_NAME_UNBOUND, "session script failure code");
+
+    result = enact_session_eval_text(&session, "script_x.");
+    require_true(result.ok, "session script survives script failure");
+    require_true(result.value.kind == ENACT_VALUE_INT, "session script survives failure kind");
+    require_true(result.value.as.as_int == 1, "session script survives failure value");
     enact_result_free(&result);
 
     stateless_result = enact_eval_text("solo:=9.");
