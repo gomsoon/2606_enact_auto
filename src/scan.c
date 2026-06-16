@@ -78,6 +78,8 @@ static const char *enact_token_name(int token)
         return "TOK_ELSE";
     case TOK_WHERE:
         return "TOK_WHERE";
+    case TOK_FIX:
+        return "TOK_FIX";
     case TOK_LPAREN:
         return "TOK_LPAREN";
     case TOK_RPAREN:

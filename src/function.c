@@ -175,6 +175,15 @@ EnactFunction *enact_function_partial(
     return partial;
 }
 
+int enact_function_define_capture(EnactFunction *function, const char *name, EnactValue value)
+{
+    if (!function || !name) {
+        return 0;
+    }
+
+    return enact_env_define(&function->captured_env, name, value);
+}
+
 EnactFunction *enact_function_retain(EnactFunction *function)
 {
     if (!function) {

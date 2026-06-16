@@ -117,6 +117,18 @@ static EnactAst *enact_make_where(EnactAst *body, char *name, EnactAst *value)
     return ast;
 }
 
+static EnactAst *enact_make_fix(EnactNameList *names, EnactAst *body)
+{
+    EnactAst *ast = enact_ast_new_fix(names, body);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_assignment(char *name, EnactAst *value)
 {
     EnactAst *ast = enact_ast_new_assignment(name, value);
@@ -264,6 +276,27 @@ static EnactNameList *enact_make_parameter_list(char *name)
     return list;
 }
 
+static int enact_append_unique_name(EnactNameList *list, char *name)
+{
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!list || !name || enact_name_list_contains(list, name)) {
+        free(name);
+        enact_set_unexpected_token_diag();
+        return 0;
+    }
+
+    if (!enact_name_list_append(list, name)) {
+        free(name);
+        if (context) {
+            enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        }
+        return 0;
+    }
+
+    return 1;
+}
+
 static char *enact_take_identifier_name(EnactAst *ast)
 {
     char *name = ast->as.identifier_name;
@@ -321,6 +354,82 @@ static int enact_take_parameter_names_from_list(EnactNameList *names, EnactAstLi
     }
 
     return 1;
+}
+
+static EnactAst *enact_fix_lhs_unwrap_group(EnactAst *ast)
+{
+    while (ast && ast->kind == AST_GROUP) {
+        ast = ast->as.unary.child;
+    }
+
+    return ast;
+}
+
+static int enact_take_fix_name(EnactNameList *names, EnactAst *ast)
+{
+    char *name;
+
+    ast = enact_fix_lhs_unwrap_group(ast);
+    if (!names || !ast || ast->kind != AST_IDENTIFIER) {
+        enact_set_unexpected_token_diag();
+        return 0;
+    }
+
+    name = enact_take_identifier_name(ast);
+    return enact_append_unique_name(names, name);
+}
+
+static int enact_take_fix_names_from_lhs(EnactNameList *names, EnactAst *ast, int allow_nil)
+{
+    ast = enact_fix_lhs_unwrap_group(ast);
+    if (!ast) {
+        enact_set_unexpected_token_diag();
+        return 0;
+    }
+
+    if (ast->kind == AST_CONS) {
+        return enact_take_fix_names_from_lhs(names, ast->as.binary.left, 0) &&
+            enact_take_fix_names_from_lhs(names, ast->as.binary.right, 1);
+    }
+
+    if (allow_nil && ast->kind == AST_NIL) {
+        return 1;
+    }
+
+    return enact_take_fix_name(names, ast);
+}
+
+static EnactAst *enact_make_fix_from_lhs(EnactAst *lhs, EnactAst *body)
+{
+    EnactNameList *names = enact_name_list_new();
+    EnactAst *result;
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!names) {
+        enact_ast_free(lhs);
+        enact_ast_free(body);
+        if (context) {
+            enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        }
+        return NULL;
+    }
+
+    if (!enact_take_fix_names_from_lhs(names, lhs, 0) || enact_name_list_count(names) == 0) {
+        enact_name_list_free(names);
+        enact_ast_free(lhs);
+        enact_ast_free(body);
+        return NULL;
+    }
+
+    enact_ast_free(lhs);
+    result = enact_make_fix(names, body);
+    if (!result) {
+        enact_name_list_free(names);
+        enact_ast_free(body);
+        return NULL;
+    }
+
+    return result;
 }
 
 static int enact_take_call_parameter_names_from_lhs(EnactNameList *names, EnactAst *call)
@@ -490,9 +599,9 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
 %token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NIL TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
-%token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_CONS TOK_MOD TOK_WHERE
+%token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_CONS TOK_MOD TOK_WHERE TOK_FIX
 
-%type <ast> expr sequence assignment lambda conditional logical_or logical_and where_expr logical_not comparison cons additive multiplicative unary call application_argument primary
+%type <ast> expr sequence fix_expr assignment lambda conditional logical_or logical_and where_expr logical_not comparison cons additive multiplicative unary call application_argument primary
 %type <ast_list> argument_list tuple_list
 %type <name_list> lambda_head
 
@@ -518,9 +627,23 @@ expr:
     ;
 
 sequence:
-    sequence TOK_SEMI assignment
+    sequence TOK_SEMI fix_expr
     {
         $$ = enact_make_binary(AST_SEQUENCE, $1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | fix_expr
+    {
+        $$ = $1;
+    }
+    ;
+
+fix_expr:
+    assignment TOK_FIX assignment
+    {
+        $$ = enact_make_fix_from_lhs($1, $3);
         if (!$$) {
             YYABORT;
         }

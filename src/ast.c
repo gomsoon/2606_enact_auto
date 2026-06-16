@@ -356,6 +356,18 @@ EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value)
     return ast;
 }
 
+EnactAst *enact_ast_new_fix(EnactNameList *names, EnactAst *body)
+{
+    EnactAst *ast = enact_ast_alloc(AST_FIX);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.fix_expr.names = names;
+    ast->as.fix_expr.body = body;
+    return ast;
+}
+
 static EnactAst *enact_ast_new_assignment_with_flag(char *name, EnactAst *value, int recursive_function)
 {
     EnactAst *ast = enact_ast_alloc(AST_ASSIGN);
@@ -517,6 +529,32 @@ static EnactAst *enact_ast_clone_where(const EnactAst *ast)
     return copy;
 }
 
+static EnactAst *enact_ast_clone_fix(const EnactAst *ast)
+{
+    EnactNameList *names = enact_name_list_clone(ast->as.fix_expr.names);
+    EnactAst *body;
+    EnactAst *copy;
+
+    if (!names) {
+        return NULL;
+    }
+
+    body = enact_ast_clone(ast->as.fix_expr.body);
+    if (!body) {
+        enact_name_list_free(names);
+        return NULL;
+    }
+
+    copy = enact_ast_new_fix(names, body);
+    if (!copy) {
+        enact_name_list_free(names);
+        enact_ast_free(body);
+        return NULL;
+    }
+
+    return copy;
+}
+
 static EnactAst *enact_ast_clone_assignment(const EnactAst *ast)
 {
     char *name = enact_ast_copy_text(ast->as.assignment.name);
@@ -665,6 +703,9 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
     case AST_WHERE:
         copy = enact_ast_clone_where(ast);
         break;
+    case AST_FIX:
+        copy = enact_ast_clone_fix(ast);
+        break;
     case AST_ASSIGN:
         copy = enact_ast_clone_assignment(ast);
         break;
@@ -733,6 +774,10 @@ void enact_ast_free(EnactAst *ast)
         enact_ast_free(ast->as.where_expr.body);
         free(ast->as.where_expr.name);
         enact_ast_free(ast->as.where_expr.value);
+        break;
+    case AST_FIX:
+        enact_name_list_free(ast->as.fix_expr.names);
+        enact_ast_free(ast->as.fix_expr.body);
         break;
     case AST_ASSIGN:
         free(ast->as.assignment.name);

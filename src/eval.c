@@ -1,6 +1,7 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "builtin.h"
 #include "eval.h"
@@ -378,6 +379,166 @@ static int enact_eval_assignment(const EnactAst *ast, EnactEnv *env, EnactValue 
     return 1;
 }
 
+static const EnactAst *enact_unwrap_group(const EnactAst *ast)
+{
+    while (ast && ast->kind == AST_GROUP) {
+        ast = ast->as.unary.child;
+    }
+
+    return ast;
+}
+
+static int enact_fix_name_index(const EnactNameList *names, const char *name, size_t *out)
+{
+    size_t index;
+
+    if (!names || !name || !out) {
+        return 0;
+    }
+
+    for (index = 0; index < enact_name_list_count(names); index += 1) {
+        if (strcmp(enact_name_list_get(names, index), name) == 0) {
+            *out = index;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int enact_collect_fix_assignments(
+    const EnactAst *ast,
+    const EnactNameList *names,
+    const EnactAst **assignments,
+    int *seen,
+    EnactDiag *diag)
+{
+    size_t index = 0;
+
+    ast = enact_unwrap_group(ast);
+    if (!ast) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    if (ast->kind == AST_SEQUENCE) {
+        return enact_collect_fix_assignments(ast->as.binary.left, names, assignments, seen, diag) &&
+            enact_collect_fix_assignments(ast->as.binary.right, names, assignments, seen, diag);
+    }
+
+    if (ast->kind != AST_ASSIGN ||
+        !enact_fix_name_index(names, ast->as.assignment.name, &index) ||
+        seen[index]) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    if (!ast->as.assignment.value || ast->as.assignment.value->kind != AST_FUNCTION_LITERAL) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
+        return 0;
+    }
+
+    seen[index] = 1;
+    assignments[index] = ast;
+    return 1;
+}
+
+static int enact_eval_fix(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    const EnactNameList *names = ast->as.fix_expr.names;
+    const EnactAst **assignments = NULL;
+    EnactValue *values = NULL;
+    int *seen = NULL;
+    size_t count = enact_name_list_count(names);
+    size_t value_count = 0;
+    size_t index;
+    size_t peer;
+    int status = 0;
+
+    if (count == 0) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    assignments = calloc(count, sizeof(*assignments));
+    values = calloc(count, sizeof(*values));
+    seen = calloc(count, sizeof(*seen));
+    if (!assignments || !values || !seen) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        goto cleanup;
+    }
+
+    if (!enact_collect_fix_assignments(ast->as.fix_expr.body, names, assignments, seen, diag)) {
+        goto cleanup;
+    }
+
+    for (index = 0; index < count; index += 1) {
+        const EnactAst *assignment = assignments[index];
+        const EnactAst *function_literal;
+        EnactFunction *function;
+
+        if (!seen[index] || !assignment) {
+            enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+            goto cleanup;
+        }
+
+        function_literal = assignment->as.assignment.value;
+        function = enact_function_new_recursive(
+            function_literal->as.function_literal.param_names,
+            function_literal->as.function_literal.body,
+            env,
+            enact_name_list_get(names, index));
+        if (!function) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            goto cleanup;
+        }
+
+        values[index] = enact_value_make_function(function);
+        value_count += 1;
+    }
+
+    for (index = 0; index < count; index += 1) {
+        for (peer = 0; peer < count; peer += 1) {
+            if (peer == index) {
+                continue;
+            }
+            if (!enact_function_define_capture(
+                    values[index].as.as_function,
+                    enact_name_list_get(names, peer),
+                    values[peer])) {
+                enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+                goto cleanup;
+            }
+        }
+    }
+
+    for (index = 0; index < count; index += 1) {
+        if (!enact_env_define(env, enact_name_list_get(names, index), values[index])) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            goto cleanup;
+        }
+    }
+
+    for (index = 0; index + 1 < count; index += 1) {
+        enact_value_free(&values[index]);
+    }
+
+    *out = values[count - 1];
+    status = 1;
+    values[count - 1] = enact_value_make_int(0);
+
+cleanup:
+    if (!status && values) {
+        for (index = 0; index < value_count; index += 1) {
+            enact_value_free(&values[index]);
+        }
+    }
+    free(seen);
+    free(values);
+    free(assignments);
+    return status;
+}
+
 static int enact_eval_where(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactEnv local;
@@ -727,6 +888,8 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
         return enact_eval_conditional(ast, env, out, diag);
     case AST_WHERE:
         return enact_eval_where(ast, env, out, diag);
+    case AST_FIX:
+        return enact_eval_fix(ast, env, out, diag);
     case AST_ASSIGN:
         return enact_eval_assignment(ast, env, out, diag);
     case AST_FUNCTION_LITERAL:

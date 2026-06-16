@@ -287,6 +287,21 @@ static void test_value_helpers(void)
             enact_value_free(&partial_lookup);
             enact_function_release(partial_function);
         }
+        require_true(
+            !enact_function_define_capture(NULL, "peer", enact_value_make_int(3)),
+            "function define capture null function fails");
+        require_true(
+            !enact_function_define_capture(recursive_function, NULL, enact_value_make_int(3)),
+            "function define capture null name fails");
+        require_true(
+            enact_function_define_capture(recursive_function, "peer", enact_value_make_int(3)),
+            "function define capture succeeds");
+        require_true(
+            enact_env_lookup(enact_function_env(recursive_function), "peer", &partial_lookup),
+            "function define capture binding visible");
+        require_true(partial_lookup.kind == ENACT_VALUE_INT, "function define capture value kind");
+        require_true(partial_lookup.as.as_int == 3, "function define capture value");
+        enact_value_free(&partial_lookup);
         enact_function_release(recursive_function);
     }
     require_true(enact_function_retain(NULL) == NULL, "function retain null fails");
@@ -1025,6 +1040,30 @@ static void test_ast_clone_helpers(void)
     require_true(enact_eval_ast(clone, &value, &diag), "call clone evaluates");
     require_true(value.kind == ENACT_VALUE_INT, "call clone result kind");
     require_true(value.as.as_int == 7, "call clone result value");
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
+    {
+        const char *fix_names[] = {"f"};
+        const char *param_names[] = {"x"};
+        EnactNameList *fixed = make_test_name_list(fix_names, 1);
+
+        params = make_test_name_list(param_names, 1);
+        original = enact_ast_new_fix(
+            fixed,
+            enact_ast_new_assignment(
+                copy_test_name("f"),
+                enact_ast_new_function_literal(
+                    params,
+                    enact_ast_new_identifier(copy_test_name("x")))));
+    }
+    require_true(original != NULL, "fix clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "fix clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "fix clone evaluates");
+    require_true(value.kind == ENACT_VALUE_FUNCTION, "fix clone result kind");
+    enact_value_free(&value);
     enact_ast_free(clone);
     enact_ast_free(original);
 }

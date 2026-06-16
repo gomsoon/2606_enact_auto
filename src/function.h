@@ -16,6 +16,7 @@ EnactFunction *enact_function_partial(
     const EnactFunction *function,
     const EnactValue *arguments,
     size_t argument_count);
+int enact_function_define_capture(EnactFunction *function, const char *name, EnactValue value);
 EnactFunction *enact_function_retain(EnactFunction *function);
 void enact_function_release(EnactFunction *function);
 size_t enact_function_arity(const EnactFunction *function);

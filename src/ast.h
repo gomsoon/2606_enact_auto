@@ -29,6 +29,7 @@ typedef enum {
     AST_OR,
     AST_IF_ELSE,
     AST_WHERE,
+    AST_FIX,
     AST_ASSIGN,
     AST_FUNCTION_LITERAL,
     AST_CALL,
@@ -80,6 +81,10 @@ struct EnactAst {
             EnactAst *value;
         } where_expr;
         struct {
+            EnactNameList *names;
+            EnactAst *body;
+        } fix_expr;
+        struct {
             char *name;
             EnactAst *value;
             int recursive_function;
@@ -119,6 +124,7 @@ EnactAst *enact_ast_new_unary(EnactAstKind kind, EnactAst *child);
 EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *right);
 EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false);
 EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value);
+EnactAst *enact_ast_new_fix(EnactNameList *names, EnactAst *body);
 EnactAst *enact_ast_new_assignment(char *name, EnactAst *value);
 EnactAst *enact_ast_new_recursive_assignment(char *name, EnactAst *value);
 EnactAst *enact_ast_new_function_literal(EnactNameList *param_names, EnactAst *body);
