@@ -264,6 +264,15 @@ static int enact_builtin_list(
     return 1;
 }
 
+static int enact_builtin_unitset(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    return enact_builtin_list(arguments, argument_count, out, diag);
+}
+
 static int enact_builtin_append_lists(EnactList *left, EnactList *right, EnactList **out)
 {
     EnactList *tail = NULL;
@@ -850,6 +859,7 @@ static const EnactBuiltin builtin_table[] = {
     {"reduce", 3, enact_builtin_reduce},
     {"member", 2, enact_builtin_member},
     {"remove", 2, enact_builtin_remove},
+    {"unitset", 1, enact_builtin_unitset},
     {"union", 2, enact_builtin_union},
     {"difference", 2, enact_builtin_difference},
     {"intersection", 2, enact_builtin_intersection},

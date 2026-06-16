@@ -362,6 +362,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *reduce = enact_builtin_lookup("reduce");
     const EnactBuiltin *member = enact_builtin_lookup("member");
     const EnactBuiltin *remove = enact_builtin_lookup("remove");
+    const EnactBuiltin *unitset = enact_builtin_lookup("unitset");
     const EnactBuiltin *union_builtin = enact_builtin_lookup("union");
     const EnactBuiltin *difference = enact_builtin_lookup("difference");
     const EnactBuiltin *intersection = enact_builtin_lookup("intersection");
@@ -416,6 +417,7 @@ static void test_builtin_helpers(void)
     require_true(reduce != NULL, "reduce builtin lookup succeeds");
     require_true(member != NULL, "member builtin lookup succeeds");
     require_true(remove != NULL, "remove builtin lookup succeeds");
+    require_true(unitset != NULL, "unitset builtin lookup succeeds");
     require_true(union_builtin != NULL, "union builtin lookup succeeds");
     require_true(difference != NULL, "difference builtin lookup succeeds");
     require_true(intersection != NULL, "intersection builtin lookup succeeds");
@@ -434,6 +436,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(reduce) == 3, "reduce builtin arity");
     require_true(enact_builtin_arity(member) == 2, "member builtin arity");
     require_true(enact_builtin_arity(remove) == 2, "remove builtin arity");
+    require_true(enact_builtin_arity(unitset) == 1, "unitset builtin arity");
     require_true(enact_builtin_arity(union_builtin) == 2, "union builtin arity");
     require_true(enact_builtin_arity(difference) == 2, "difference builtin arity");
     require_true(enact_builtin_arity(intersection) == 2, "intersection builtin arity");
@@ -541,6 +544,13 @@ static void test_builtin_helpers(void)
         require_true(enact_builtin_apply(remove, set_args, 2, &result, &diag), "remove builtin apply succeeds");
         require_true(result.kind == ENACT_VALUE_LIST, "remove builtin result kind");
         require_true(result.as.as_list == NULL, "remove singleton result nil");
+        enact_value_free(&result);
+
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(unitset, set_args, 1, &result, &diag), "unitset builtin apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "unitset builtin result kind");
+        require_true(enact_list_head(result.as.as_list)->as.as_int == 1, "unitset builtin first value");
+        require_true(enact_list_tail(result.as.as_list) == NULL, "unitset builtin tail nil");
         enact_value_free(&result);
 
         enact_diag_reset(&diag);
@@ -773,6 +783,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "remove", &lookup_value), "lookup installed remove");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed remove value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "unitset", &lookup_value), "lookup installed unitset");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed unitset value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "union", &lookup_value), "lookup installed union");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed union value kind");
