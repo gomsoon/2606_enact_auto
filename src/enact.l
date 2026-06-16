@@ -132,6 +132,7 @@ STRING_CHAR ([^"\\\r\n]|\\.)
 "and" { return enact_emit_simple_token(TOK_AND, 1); }
 "or" { return enact_emit_simple_token(TOK_OR, 1); }
 "if" { return enact_emit_simple_token(TOK_IF, 1); }
+"then" { return enact_emit_simple_token(TOK_THEN, 1); }
 "else" { return enact_emit_simple_token(TOK_ELSE, 1); }
 "where" { return enact_emit_simple_token(TOK_WHERE, 1); }
 "fix" { return enact_emit_simple_token(TOK_FIX, 1); }

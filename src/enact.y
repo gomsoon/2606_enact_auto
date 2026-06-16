@@ -597,7 +597,7 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 %token <u64> TOK_INT_LITERAL
 %token <text> TOK_IDENTIFIER TOK_STRING_LITERAL
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
-%token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NIL TOK_NOT TOK_AND TOK_OR TOK_IF TOK_ELSE
+%token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NIL TOK_NOT TOK_AND TOK_OR TOK_IF TOK_THEN TOK_ELSE
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
 %token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_CONS TOK_MOD TOK_WHERE TOK_FIX
 
@@ -705,6 +705,13 @@ conditional:
     logical_or
     {
         $$ = $1;
+    }
+    | logical_or TOK_THEN conditional TOK_ELSE conditional
+    {
+        $$ = enact_make_conditional($1, $3, $5);
+        if (!$$) {
+            YYABORT;
+        }
     }
     | logical_or TOK_IF logical_or TOK_ELSE conditional
     {

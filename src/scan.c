@@ -74,6 +74,8 @@ static const char *enact_token_name(int token)
         return "TOK_OR";
     case TOK_IF:
         return "TOK_IF";
+    case TOK_THEN:
+        return "TOK_THEN";
     case TOK_ELSE:
         return "TOK_ELSE";
     case TOK_WHERE:
