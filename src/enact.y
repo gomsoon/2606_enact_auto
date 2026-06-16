@@ -153,6 +153,8 @@ static EnactAst *enact_make_call(EnactAst *callee, EnactAstList *arguments)
     return ast;
 }
 
+static void enact_set_unexpected_token_diag(void);
+
 static EnactAstList *enact_make_argument_list(EnactAst *argument)
 {
     EnactAstList *list = enact_ast_list_new();
@@ -186,6 +188,43 @@ static EnactAstList *enact_append_argument(EnactAstList *list, EnactAst *argumen
     return list;
 }
 
+static EnactAst *enact_make_tuple_list(EnactAstList *elements)
+{
+    EnactAst *tail;
+    size_t index;
+
+    if (!elements || enact_ast_list_count(elements) < 2) {
+        enact_ast_list_free(elements);
+        enact_set_unexpected_token_diag();
+        return NULL;
+    }
+
+    tail = enact_make_nil();
+    if (!tail) {
+        enact_ast_list_free(elements);
+        return NULL;
+    }
+
+    for (index = enact_ast_list_count(elements); index > 0; index -= 1) {
+        EnactAst *head = elements->items[index - 1];
+        EnactAst *next;
+
+        elements->items[index - 1] = NULL;
+        next = enact_make_binary(AST_CONS, head, tail);
+        if (!next) {
+            enact_ast_free(head);
+            enact_ast_free(tail);
+            enact_ast_list_free(elements);
+            return NULL;
+        }
+
+        tail = next;
+    }
+
+    enact_ast_list_free(elements);
+    return tail;
+}
+
 static void enact_set_unexpected_token_diag(void)
 {
     EnactParseContext *context = enact_get_parse_context();
@@ -202,36 +241,6 @@ static EnactNameList *enact_make_parameter_list(char *name)
     EnactParseContext *context = enact_get_parse_context();
 
     if (!list || !enact_name_list_append(list, name)) {
-        enact_name_list_free(list);
-        free(name);
-        if (context) {
-            enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-        }
-        return NULL;
-    }
-
-    return list;
-}
-
-static EnactNameList *enact_append_parameter(EnactNameList *list, char *name)
-{
-    EnactParseContext *context = enact_get_parse_context();
-
-    if (!list || !name) {
-        enact_name_list_free(list);
-        free(name);
-        enact_set_unexpected_token_diag();
-        return NULL;
-    }
-
-    if (enact_name_list_contains(list, name)) {
-        enact_name_list_free(list);
-        free(name);
-        enact_set_unexpected_token_diag();
-        return NULL;
-    }
-
-    if (!enact_name_list_append(list, name)) {
         enact_name_list_free(list);
         free(name);
         if (context) {
@@ -353,6 +362,36 @@ static EnactNameList *enact_take_call_parameter_names(EnactAst *call)
     return names;
 }
 
+static EnactNameList *enact_take_parameter_names_from_tuple(EnactAstList *arguments)
+{
+    EnactNameList *names;
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!arguments || enact_ast_list_count(arguments) < 2) {
+        enact_ast_list_free(arguments);
+        enact_set_unexpected_token_diag();
+        return NULL;
+    }
+
+    names = enact_name_list_new();
+    if (!names) {
+        enact_ast_list_free(arguments);
+        if (context) {
+            enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        }
+        return NULL;
+    }
+
+    if (!enact_take_parameter_names_from_list(names, arguments)) {
+        enact_name_list_free(names);
+        enact_ast_list_free(arguments);
+        return NULL;
+    }
+
+    enact_ast_list_free(arguments);
+    return names;
+}
+
 static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 {
     EnactAst *result;
@@ -442,8 +481,8 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 %token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_CONS TOK_MOD TOK_WHERE
 
 %type <ast> expr sequence assignment lambda conditional logical_or logical_and where_expr logical_not comparison cons additive multiplicative unary call application_argument primary
-%type <ast_list> argument_list
-%type <name_list> lambda_head parameter_list
+%type <ast_list> argument_list tuple_list
+%type <name_list> lambda_head
 
 %destructor { enact_ast_free($$); } <ast>
 %destructor { enact_ast_list_free($$); } <ast_list>
@@ -518,30 +557,9 @@ lambda_head:
             YYABORT;
         }
     }
-    | TOK_LPAREN parameter_list TOK_RPAREN
+    | TOK_LPAREN tuple_list TOK_RPAREN
     {
-        $$ = $2;
-    }
-    ;
-
-parameter_list:
-    TOK_IDENTIFIER TOK_COMMA TOK_IDENTIFIER
-    {
-        EnactNameList *list = enact_make_parameter_list($1);
-
-        if (!list) {
-            free($3);
-            YYABORT;
-        }
-
-        $$ = enact_append_parameter(list, $3);
-        if (!$$) {
-            YYABORT;
-        }
-    }
-    | parameter_list TOK_COMMA TOK_IDENTIFIER
-    {
-        $$ = enact_append_parameter($1, $3);
+        $$ = enact_take_parameter_names_from_tuple($2);
         if (!$$) {
             YYABORT;
         }
@@ -843,6 +861,30 @@ argument_list:
     }
     ;
 
+tuple_list:
+    assignment TOK_COMMA assignment
+    {
+        EnactAstList *list = enact_make_argument_list($1);
+
+        if (!list) {
+            enact_ast_free($3);
+            YYABORT;
+        }
+
+        $$ = enact_append_argument(list, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | tuple_list TOK_COMMA assignment
+    {
+        $$ = enact_append_argument($1, $3);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    ;
+
 primary:
     TOK_INT_LITERAL
     {
@@ -891,6 +933,13 @@ primary:
     | TOK_LPAREN expr TOK_RPAREN
     {
         $$ = enact_make_unary(AST_GROUP, $2);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_LPAREN tuple_list TOK_RPAREN
+    {
+        $$ = enact_make_tuple_list($2);
         if (!$$) {
             YYABORT;
         }

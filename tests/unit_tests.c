@@ -1017,6 +1017,8 @@ static void test_api_and_scan_helpers(void)
 {
     EnactResult result;
     EnactDiag diag;
+    EnactList *list;
+    const EnactValue *head;
     FILE *tmp;
     char output[256];
     size_t nread;
@@ -1057,6 +1059,23 @@ static void test_api_and_scan_helpers(void)
     nread = fread(output, 1, sizeof(output) - 1, tmp);
     output[nread] = '\0';
     require_true(strcmp(output, "TOK_INT_LITERAL TOK_DOT TOK_EOF\n") == 0, "token dump null diag stdout");
+
+    result = enact_eval_text("(1,2,3).");
+    require_true(result.ok, "tuple-like list eval succeeds");
+    require_true(result.value.kind == ENACT_VALUE_LIST, "tuple-like list result kind");
+    if (result.ok && result.value.kind == ENACT_VALUE_LIST) {
+        list = result.value.as.as_list;
+        head = enact_list_head(list);
+        require_true(head != NULL && head->kind == ENACT_VALUE_INT && head->as.as_int == 1, "tuple-like list first element");
+        list = enact_list_tail(list);
+        head = enact_list_head(list);
+        require_true(head != NULL && head->kind == ENACT_VALUE_INT && head->as.as_int == 2, "tuple-like list second element");
+        list = enact_list_tail(list);
+        head = enact_list_head(list);
+        require_true(head != NULL && head->kind == ENACT_VALUE_INT && head->as.as_int == 3, "tuple-like list third element");
+        require_true(enact_list_tail(list) == NULL, "tuple-like list terminates with nil");
+    }
+    enact_result_free(&result);
     fclose(tmp);
 }
 
