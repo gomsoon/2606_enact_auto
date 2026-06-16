@@ -160,6 +160,34 @@ static int enact_builtin_apply_predicate(
     return status;
 }
 
+static int enact_builtin_list_contains_value(
+    EnactList *list,
+    const EnactValue *needle,
+    bool *out)
+{
+    if (!needle || !out) {
+        return 0;
+    }
+
+    while (list) {
+        const EnactValue *head = enact_list_head(list);
+        bool equal = false;
+
+        if (!head || !enact_value_equal(head, needle, &equal)) {
+            return 0;
+        }
+        if (equal) {
+            *out = true;
+            return 1;
+        }
+
+        list = enact_list_tail(list);
+    }
+
+    *out = false;
+    return 1;
+}
+
 static int enact_builtin_hd(
     const EnactValue *arguments,
     size_t argument_count,
@@ -541,6 +569,274 @@ static int enact_builtin_reduce(
     return 1;
 }
 
+static int enact_builtin_member(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *list = NULL;
+    bool found = false;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_list(&arguments[1], &list, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_list_contains_value(list, &arguments[0], &found)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_bool(found);
+    return 1;
+}
+
+static int enact_builtin_remove_one(
+    const EnactValue *needle,
+    EnactList *list,
+    bool *removed,
+    EnactList **out)
+{
+    const EnactValue *head;
+    EnactList *tail = NULL;
+    EnactList *result;
+    bool equal = false;
+
+    if (!needle || !removed || !out) {
+        return 0;
+    }
+    if (!list) {
+        *out = NULL;
+        return 1;
+    }
+
+    head = enact_list_head(list);
+    if (!head) {
+        return 0;
+    }
+    if (!*removed && !enact_value_equal(head, needle, &equal)) {
+        return 0;
+    }
+    if (!*removed && equal) {
+        EnactList *rest = enact_list_retain(enact_list_tail(list));
+
+        if (enact_list_tail(list) && !rest) {
+            return 0;
+        }
+        *removed = true;
+        *out = rest;
+        return 1;
+    }
+
+    if (!enact_builtin_remove_one(needle, enact_list_tail(list), removed, &tail)) {
+        return 0;
+    }
+
+    result = enact_list_cons(head, tail);
+    enact_list_release(tail);
+    if (!result) {
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_remove(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *list = NULL;
+    EnactList *result = NULL;
+    bool removed = false;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_list(&arguments[1], &list, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_remove_one(&arguments[0], list, &removed, &result)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(result);
+    return 1;
+}
+
+static int enact_builtin_difference_lists(
+    EnactList *left,
+    EnactList *right,
+    EnactList **out)
+{
+    const EnactValue *head;
+    EnactList *filtered_tail = NULL;
+    EnactList *result;
+    bool in_right = false;
+
+    if (!out) {
+        return 0;
+    }
+    if (!left) {
+        *out = NULL;
+        return 1;
+    }
+
+    head = enact_list_head(left);
+    if (!head || !enact_builtin_list_contains_value(right, head, &in_right)) {
+        return 0;
+    }
+    if (!enact_builtin_difference_lists(enact_list_tail(left), right, &filtered_tail)) {
+        return 0;
+    }
+
+    if (in_right) {
+        *out = filtered_tail;
+        return 1;
+    }
+
+    result = enact_list_cons(head, filtered_tail);
+    enact_list_release(filtered_tail);
+    if (!result) {
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_difference(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *left = NULL;
+    EnactList *right = NULL;
+    EnactList *result = NULL;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_list(&arguments[0], &left, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_require_list(&arguments[1], &right, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_difference_lists(left, right, &result)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(result);
+    return 1;
+}
+
+static int enact_builtin_union(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *left = NULL;
+    EnactList *right = NULL;
+    EnactList *left_only = NULL;
+    EnactList *result = NULL;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_list(&arguments[0], &left, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_require_list(&arguments[1], &right, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_difference_lists(left, right, &left_only)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!enact_builtin_append_lists(left_only, right, &result)) {
+        enact_list_release(left_only);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    enact_list_release(left_only);
+    *out = enact_value_make_list(result);
+    return 1;
+}
+
+static int enact_builtin_intersection_lists(
+    EnactList *left,
+    EnactList *right,
+    EnactList **out)
+{
+    const EnactValue *head;
+    EnactList *filtered_tail = NULL;
+    EnactList *result;
+    bool in_right = false;
+
+    if (!out) {
+        return 0;
+    }
+    if (!left) {
+        *out = NULL;
+        return 1;
+    }
+
+    head = enact_list_head(left);
+    if (!head || !enact_builtin_list_contains_value(right, head, &in_right)) {
+        return 0;
+    }
+    if (!enact_builtin_intersection_lists(enact_list_tail(left), right, &filtered_tail)) {
+        return 0;
+    }
+
+    if (!in_right) {
+        *out = filtered_tail;
+        return 1;
+    }
+
+    result = enact_list_cons(head, filtered_tail);
+    enact_list_release(filtered_tail);
+    if (!result) {
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_intersection(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *left = NULL;
+    EnactList *right = NULL;
+    EnactList *result = NULL;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_list(&arguments[0], &left, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_require_list(&arguments[1], &right, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_intersection_lists(left, right, &result)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(result);
+    return 1;
+}
+
 static const EnactBuiltin builtin_table[] = {
     {"hd", 1, enact_builtin_hd},
     {"tl", 1, enact_builtin_tl},
@@ -552,6 +848,11 @@ static const EnactBuiltin builtin_table[] = {
     {"filter", 2, enact_builtin_filter},
     {"all", 2, enact_builtin_all},
     {"reduce", 3, enact_builtin_reduce},
+    {"member", 2, enact_builtin_member},
+    {"remove", 2, enact_builtin_remove},
+    {"union", 2, enact_builtin_union},
+    {"difference", 2, enact_builtin_difference},
+    {"intersection", 2, enact_builtin_intersection},
 };
 
 static size_t enact_builtin_count(void)
