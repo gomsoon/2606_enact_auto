@@ -202,6 +202,20 @@ static int enact_builtin_tl(
     return 1;
 }
 
+static int enact_builtin_atom(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(
+        arguments[0].kind != ENACT_VALUE_LIST || arguments[0].as.as_list == NULL);
+    return 1;
+}
+
 static int enact_builtin_append_lists(EnactList *left, EnactList *right, EnactList **out)
 {
     EnactList *tail = NULL;
@@ -510,6 +524,7 @@ static int enact_builtin_reduce(
 static const EnactBuiltin builtin_table[] = {
     {"hd", 1, enact_builtin_hd},
     {"tl", 1, enact_builtin_tl},
+    {"atom", 1, enact_builtin_atom},
     {"append", 2, enact_builtin_append},
     {"size", 1, enact_builtin_size},
     {"map", 2, enact_builtin_map},
