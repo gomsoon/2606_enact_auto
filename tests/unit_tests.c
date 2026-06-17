@@ -597,6 +597,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *classof = enact_builtin_lookup("classof");
     const EnactBuiltin *attrs = enact_builtin_lookup("attrs");
     const EnactBuiltin *methods = enact_builtin_lookup("methods");
+    const EnactBuiltin *classes = enact_builtin_lookup("classes");
     const EnactBuiltin *supers = enact_builtin_lookup("supers");
     const EnactBuiltin *superiors = enact_builtin_lookup("superiors");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
@@ -667,6 +668,7 @@ static void test_builtin_helpers(void)
     require_true(classof != NULL, "classof builtin lookup succeeds");
     require_true(attrs != NULL, "attrs builtin lookup succeeds");
     require_true(methods != NULL, "methods builtin lookup succeeds");
+    require_true(classes != NULL, "classes builtin lookup succeeds");
     require_true(supers != NULL, "supers builtin lookup succeeds");
     require_true(superiors != NULL, "superiors builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
@@ -695,6 +697,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(classof) == 1, "classof builtin arity");
     require_true(enact_builtin_arity(attrs) == 1, "attrs builtin arity");
     require_true(enact_builtin_arity(methods) == 1, "methods builtin arity");
+    require_true(enact_builtin_arity(classes) == 1, "classes builtin arity");
     require_true(enact_builtin_arity(supers) == 1, "supers builtin arity");
     require_true(enact_builtin_arity(superiors) == 1, "superiors builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
@@ -793,6 +796,16 @@ static void test_builtin_helpers(void)
         require_true(result.kind == ENACT_VALUE_LIST, "methods root class result kind");
         require_true(result.as.as_list == NULL, "methods root class result nil");
         enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(classes, args, 1, &result, &diag), "classes root class apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "classes root class result kind");
+        require_true(result.as.as_list != NULL, "classes root class result non-empty");
+        require_true(enact_list_head(result.as.as_list)->kind == ENACT_VALUE_CLASS, "classes root class head kind");
+        require_true(
+            enact_list_head(result.as.as_list)->as.as_class == object_class,
+            "classes root class head identity");
+        require_true(enact_list_tail(result.as.as_list) == NULL, "classes root class result tail nil");
+        enact_value_free(&result);
         node_class = enact_class_new_with_superclass("Node", object_class);
         require_true(node_class != NULL, "supers test subclass created");
         if (node_class) {
@@ -806,6 +819,21 @@ static void test_builtin_helpers(void)
                 enact_list_head(result.as.as_list)->as.as_class == object_class,
                 "supers subclass head identity");
             require_true(enact_list_tail(result.as.as_list) == NULL, "supers subclass result tail nil");
+            enact_value_free(&result);
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(classes, args, 1, &result, &diag), "classes subclass apply succeeds");
+            require_true(result.kind == ENACT_VALUE_LIST, "classes subclass result kind");
+            require_true(result.as.as_list != NULL, "classes subclass result non-empty");
+            require_true(
+                enact_list_head(result.as.as_list)->as.as_class == node_class,
+                "classes subclass head identity");
+            require_true(enact_list_tail(result.as.as_list) != NULL, "classes subclass tail non-empty");
+            require_true(
+                enact_list_head(enact_list_tail(result.as.as_list))->as.as_class == object_class,
+                "classes subclass tail identity");
+            require_true(
+                enact_list_tail(enact_list_tail(result.as.as_list)) == NULL,
+                "classes subclass result ends");
             enact_value_free(&result);
             enact_diag_reset(&diag);
             require_true(enact_builtin_apply(superiors, args, 1, &result, &diag), "superiors subclass apply succeeds");
@@ -858,6 +886,9 @@ static void test_builtin_helpers(void)
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(methods, args, 1, &result, &diag), "methods int fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "methods int error code");
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(classes, args, 1, &result, &diag), "classes int fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "classes int error code");
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(version_builtin, NULL, 0, &result, &diag), "version apply succeeds");
     require_true(result.kind == ENACT_VALUE_STRING, "version result kind");
@@ -1187,6 +1218,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "methods", &lookup_value), "lookup installed methods");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed methods value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "classes", &lookup_value), "lookup installed classes");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed classes value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "supers", &lookup_value), "lookup installed supers");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed supers value kind");
