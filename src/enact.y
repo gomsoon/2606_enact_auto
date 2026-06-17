@@ -956,6 +956,21 @@ unary:
             YYABORT;
         }
     }
+    | TOK_NEW TOK_IDENTIFIER
+    {
+        EnactAst *class_expr = enact_make_identifier($2);
+
+        if (!class_expr) {
+            free($2);
+            YYABORT;
+        }
+
+        $$ = enact_make_unary(AST_NEW, class_expr);
+        if (!$$) {
+            enact_ast_free(class_expr);
+            YYABORT;
+        }
+    }
     | call
     {
         $$ = $1;

@@ -12,6 +12,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 FILES = [
     "ast.c.gcov",
     "function.c.gcov",
+    "object.c.gcov",
     "builtin.c.gcov",
     "value.c.gcov",
     "diag.c.gcov",

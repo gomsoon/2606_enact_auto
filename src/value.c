@@ -3,6 +3,7 @@
 
 #include "builtin.h"
 #include "function.h"
+#include "object.h"
 #include "value.h"
 
 struct EnactList {
@@ -133,6 +134,12 @@ int enact_value_equal(const EnactValue *left, const EnactValue *right, bool *out
     case ENACT_VALUE_ATOM:
         *out = strcmp(left->as.as_atom, right->as.as_atom) == 0;
         return 1;
+    case ENACT_VALUE_CLASS:
+        *out = left->as.as_class == right->as.as_class;
+        return 1;
+    case ENACT_VALUE_OBJECT:
+        *out = left->as.as_object == right->as.as_object;
+        return 1;
     case ENACT_VALUE_FUNCTION:
         *out = left->as.as_function == right->as.as_function;
         return 1;
@@ -168,6 +175,14 @@ int enact_value_copy(EnactValue *out, const EnactValue *in)
         out->kind = ENACT_VALUE_ATOM;
         out->as.as_atom = enact_value_copy_string(in->as.as_atom);
         return out->as.as_atom != NULL;
+    case ENACT_VALUE_CLASS:
+        out->kind = ENACT_VALUE_CLASS;
+        out->as.as_class = enact_class_retain(in->as.as_class);
+        return out->as.as_class != NULL;
+    case ENACT_VALUE_OBJECT:
+        out->kind = ENACT_VALUE_OBJECT;
+        out->as.as_object = enact_object_retain(in->as.as_object);
+        return out->as.as_object != NULL;
     case ENACT_VALUE_FUNCTION:
         out->kind = ENACT_VALUE_FUNCTION;
         out->as.as_function = enact_function_retain(in->as.as_function);
@@ -201,6 +216,10 @@ void enact_value_free(EnactValue *value)
         free(value->as.as_string);
     } else if (value->kind == ENACT_VALUE_ATOM) {
         free(value->as.as_atom);
+    } else if (value->kind == ENACT_VALUE_CLASS) {
+        enact_class_release(value->as.as_class);
+    } else if (value->kind == ENACT_VALUE_OBJECT) {
+        enact_object_release(value->as.as_object);
     } else if (value->kind == ENACT_VALUE_FUNCTION) {
         enact_function_release(value->as.as_function);
     } else if (value->kind == ENACT_VALUE_LIST) {

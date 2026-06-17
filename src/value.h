@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 typedef struct EnactFunction EnactFunction;
+typedef struct EnactClass EnactClass;
+typedef struct EnactObject EnactObject;
 typedef struct EnactList EnactList;
 typedef struct EnactBuiltin EnactBuiltin;
 typedef struct EnactBuiltinPartial EnactBuiltinPartial;
@@ -14,6 +16,8 @@ typedef enum {
     ENACT_VALUE_BOOL,
     ENACT_VALUE_STRING,
     ENACT_VALUE_ATOM,
+    ENACT_VALUE_CLASS,
+    ENACT_VALUE_OBJECT,
     ENACT_VALUE_FUNCTION,
     ENACT_VALUE_LIST,
     ENACT_VALUE_BUILTIN,
@@ -27,6 +31,8 @@ typedef struct {
         bool as_bool;
         char *as_string;
         char *as_atom;
+        EnactClass *as_class;
+        EnactObject *as_object;
         EnactFunction *as_function;
         EnactList *as_list;
         const EnactBuiltin *as_builtin;
@@ -76,6 +82,24 @@ static inline EnactValue enact_value_make_function(EnactFunction *function)
 
     result.kind = ENACT_VALUE_FUNCTION;
     result.as.as_function = function;
+    return result;
+}
+
+static inline EnactValue enact_value_make_class(EnactClass *class_value)
+{
+    EnactValue result;
+
+    result.kind = ENACT_VALUE_CLASS;
+    result.as.as_class = class_value;
+    return result;
+}
+
+static inline EnactValue enact_value_make_object(EnactObject *object)
+{
+    EnactValue result;
+
+    result.kind = ENACT_VALUE_OBJECT;
+    result.as.as_object = object;
     return result;
 }
 

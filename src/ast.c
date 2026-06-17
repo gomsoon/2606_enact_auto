@@ -696,6 +696,7 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
     case AST_GROUP:
     case AST_UNARY_NEG:
     case AST_NOT:
+    case AST_NEW:
         copy = enact_ast_clone_unary(ast);
         break;
     case AST_ADD:
@@ -765,6 +766,7 @@ void enact_ast_free(EnactAst *ast)
     case AST_GROUP:
     case AST_UNARY_NEG:
     case AST_NOT:
+    case AST_NEW:
         enact_ast_free(ast->as.unary.child);
         break;
     case AST_ADD:

@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "api.h"
+#include "object.h"
 
 static char *enact_read_all(FILE *stream)
 {
@@ -177,6 +178,12 @@ static void enact_print_value_inner(FILE *stream, const EnactValue *value)
         break;
     case ENACT_VALUE_ATOM:
         enact_print_atom_inner(stream, value->as.as_atom);
+        break;
+    case ENACT_VALUE_CLASS:
+        fprintf(stream, "<class %s>", enact_class_name(value->as.as_class));
+        break;
+    case ENACT_VALUE_OBJECT:
+        fprintf(stream, "<object %s>", enact_class_name(enact_object_class(value->as.as_object)));
         break;
     case ENACT_VALUE_FUNCTION:
         fputs("<function>", stream);

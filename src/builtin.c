@@ -4,6 +4,7 @@
 
 #include "builtin.h"
 #include "eval.h"
+#include "object.h"
 
 #define ENACT_VERSION_STRING "enact-auto 0.1.0"
 
@@ -271,11 +272,10 @@ static int enact_builtin_is_object(
     EnactValue *out,
     EnactDiag *diag)
 {
-    (void)arguments;
     (void)argument_count;
     (void)diag;
 
-    *out = enact_value_make_bool(false);
+    *out = enact_value_make_bool(arguments[0].kind == ENACT_VALUE_OBJECT);
     return 1;
 }
 
@@ -1156,6 +1156,8 @@ int enact_builtin_partial_apply(
 int enact_install_builtins(EnactEnv *env)
 {
     size_t index;
+    EnactClass *object_class;
+    EnactValue object_value;
 
     if (!env) {
         return 0;
@@ -1168,6 +1170,18 @@ int enact_install_builtins(EnactEnv *env)
             return 0;
         }
     }
+
+    object_class = enact_class_new("Object");
+    if (!object_class) {
+        return 0;
+    }
+
+    object_value = enact_value_make_class(object_class);
+    if (!enact_env_define(env, "Object", object_value)) {
+        enact_value_free(&object_value);
+        return 0;
+    }
+    enact_value_free(&object_value);
 
     return 1;
 }

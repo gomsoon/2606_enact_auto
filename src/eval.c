@@ -6,6 +6,7 @@
 #include "builtin.h"
 #include "eval.h"
 #include "function.h"
+#include "object.h"
 
 static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag);
 
@@ -89,6 +90,17 @@ static int enact_require_list(const EnactValue *value, EnactList **out, EnactDia
     }
 
     *out = value->as.as_list;
+    return 1;
+}
+
+static int enact_require_class(const EnactValue *value, EnactClass **out, EnactDiag *diag)
+{
+    if (value->kind != ENACT_VALUE_CLASS) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+        return 0;
+    }
+
+    *out = value->as.as_class;
     return 1;
 }
 
@@ -245,6 +257,31 @@ static int enact_eval_cons(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
     }
 
     *out = enact_value_make_list(list);
+    return 1;
+}
+
+static int enact_eval_new(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue class_value;
+    EnactClass *class_type = NULL;
+    EnactObject *object;
+
+    if (!enact_eval_value(ast->as.unary.child, env, &class_value, diag)) {
+        return 0;
+    }
+    if (!enact_require_class(&class_value, &class_type, diag)) {
+        enact_value_free(&class_value);
+        return 0;
+    }
+
+    object = enact_object_new(class_type);
+    enact_value_free(&class_value);
+    if (!object) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_object(object);
     return 1;
 }
 
@@ -878,6 +915,8 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
         enact_value_free(&child);
         *out = enact_value_make_bool(!bool_value);
         return 1;
+    case AST_NEW:
+        return enact_eval_new(ast, env, out, diag);
     case AST_ADD:
     case AST_SUB:
     case AST_MUL:

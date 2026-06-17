@@ -10,6 +10,7 @@
 #include "env.h"
 #include "eval.h"
 #include "function.h"
+#include "object.h"
 #include "parser_state.h"
 
 static int failures;
@@ -140,6 +141,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_INT), "ENACT_ERR_TYPE_EXPECTED_INT") == 0, "error code expected int");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "ENACT_ERR_TYPE_EXPECTED_FUNCTION") == 0, "error code expected function");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_LIST), "ENACT_ERR_TYPE_EXPECTED_LIST") == 0, "error code expected list");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_CLASS), "ENACT_ERR_TYPE_EXPECTED_CLASS") == 0, "error code expected class");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "ENACT_ERR_TYPE_EQUALITY_MISMATCH") == 0, "error code equality mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LIST_EMPTY), "ENACT_ERR_LIST_EMPTY") == 0, "error code list empty");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ARITY_MISMATCH), "ENACT_ERR_ARITY_MISMATCH") == 0, "error code arity mismatch");
@@ -155,6 +157,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_INT), "integer value required") == 0, "error message expected int");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "function value required") == 0, "error message expected function");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_LIST), "list value required") == 0, "error message expected list");
+    require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_CLASS), "class value required") == 0, "error message expected class");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "cannot compare values of different kinds") == 0, "error message equality mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_LIST_EMPTY), "non-empty list required") == 0, "error message list empty");
     require_true(strcmp(enact_error_message(ENACT_ERR_ARITY_MISMATCH), "function arity mismatch") == 0, "error message arity mismatch");
@@ -177,10 +180,19 @@ static void test_value_helpers(void)
     EnactValue atom_value = enact_value_make_atom(copy_test_name("hello"));
     EnactValue string_copy;
     EnactValue atom_copy;
+    EnactValue class_value;
+    EnactValue class_copy;
+    EnactValue object_value;
+    EnactValue object_copy;
+    EnactValue other_object_value;
     EnactValue list_head;
     EnactValue list_value;
     EnactValue list_copy;
     EnactList *list;
+    EnactClass *empty_class;
+    EnactClass *object_class;
+    EnactObject *object;
+    EnactObject *other_object;
     bool values_equal = false;
     EnactEnv empty_env;
     EnactAst *function_body;
@@ -248,6 +260,70 @@ static void test_value_helpers(void)
     enact_list_release(NULL);
     require_true(enact_list_head(NULL) == NULL, "list head null");
     require_true(enact_list_tail(NULL) == NULL, "list tail null");
+
+    empty_class = enact_class_new(NULL);
+    require_true(empty_class != NULL, "empty-name class created");
+    if (empty_class) {
+        require_true(strcmp(enact_class_name(empty_class), "") == 0, "empty-name class name");
+        enact_class_release(empty_class);
+    }
+    require_true(enact_class_retain(NULL) == NULL, "class retain null");
+    enact_class_release(NULL);
+    require_true(strcmp(enact_class_name(NULL), "") == 0, "class name null");
+    require_true(enact_object_new(NULL) == NULL, "object new null class fails");
+    require_true(enact_object_retain(NULL) == NULL, "object retain null");
+    enact_object_release(NULL);
+    require_true(enact_object_class(NULL) == NULL, "object class null");
+
+    object_class = enact_class_new("Object");
+    require_true(object_class != NULL, "root class created");
+    if (object_class) {
+        class_value = enact_value_make_class(object_class);
+        require_true(class_value.kind == ENACT_VALUE_CLASS, "class value kind");
+        require_true(strcmp(enact_class_name(class_value.as.as_class), "Object") == 0, "class value name");
+        require_true(enact_value_copy(&class_copy, &class_value), "class value copy succeeds");
+        require_true(class_copy.kind == ENACT_VALUE_CLASS, "class copy kind");
+        require_true(class_copy.as.as_class == class_value.as.as_class, "class copy retains same class");
+        require_true(enact_value_equal(&class_value, &class_copy, &values_equal), "class value equality succeeds");
+        require_true(values_equal, "class value equality true");
+
+        object = enact_object_new(object_class);
+        other_object = enact_object_new(object_class);
+        require_true(object != NULL && other_object != NULL, "root objects created");
+        if (object && other_object) {
+            object_value = enact_value_make_object(object);
+            other_object_value = enact_value_make_object(other_object);
+            require_true(object_value.kind == ENACT_VALUE_OBJECT, "object value kind");
+            require_true(
+                enact_object_class(object_value.as.as_object) == object_class,
+                "object value class pointer");
+            require_true(
+                strcmp(enact_class_name(enact_object_class(object_value.as.as_object)), "Object") == 0,
+                "object value class name");
+            require_true(enact_value_copy(&object_copy, &object_value), "object value copy succeeds");
+            require_true(object_copy.kind == ENACT_VALUE_OBJECT, "object copy kind");
+            require_true(object_copy.as.as_object == object_value.as.as_object, "object copy retains same object");
+            require_true(enact_value_equal(&object_value, &object_copy, &values_equal), "object value equality succeeds");
+            require_true(values_equal, "object copy equality true");
+            require_true(
+                enact_value_equal(&object_value, &other_object_value, &values_equal),
+                "independent object equality succeeds");
+            require_true(!values_equal, "independent object equality false");
+            enact_value_free(&object_copy);
+            enact_value_free(&other_object_value);
+            enact_value_free(&object_value);
+        } else {
+            enact_object_release(object);
+            enact_object_release(other_object);
+        }
+
+        enact_value_free(&class_copy);
+        enact_value_free(&class_value);
+    }
+    class_value = enact_value_make_class(NULL);
+    require_true(!enact_value_copy(&class_copy, &class_value), "null class copy fails");
+    object_value = enact_value_make_object(NULL);
+    require_true(!enact_value_copy(&object_copy, &object_value), "null object copy fails");
     require_true(!enact_value_equal(NULL, &int_value, &values_equal), "value equality null left fails");
     require_true(!enact_value_equal(&int_value, NULL, &values_equal), "value equality null right fails");
     require_true(!enact_value_equal(&int_value, &int_value, NULL), "value equality null out fails");
@@ -461,6 +537,8 @@ static void test_builtin_helpers(void)
     EnactList *predicate_list;
     EnactList *reduce_tail;
     EnactList *reduce_list;
+    EnactClass *object_class;
+    EnactObject *object;
     EnactDiag diag;
     EnactEnv env;
     EnactAst *call;
@@ -536,11 +614,32 @@ static void test_builtin_helpers(void)
     require_true(result.kind == ENACT_VALUE_BOOL, "isObject int result kind");
     require_true(!result.as.as_bool, "isObject int result false");
     enact_value_free(&result);
+    object_class = enact_class_new("Object");
+    object = object_class ? enact_object_new(object_class) : NULL;
+    require_true(object_class != NULL && object != NULL, "isObject test object created");
+    if (object_class && object) {
+        args[0] = enact_value_make_object(object);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(is_object, args, 1, &result, &diag), "isObject object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "isObject object result kind");
+        require_true(result.as.as_bool, "isObject object result true");
+        enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(atom, args, 1, &result, &diag), "atom object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "atom object result kind");
+        require_true(result.as.as_bool, "atom object result true");
+        enact_value_free(&result);
+        enact_value_free(&args[0]);
+    } else {
+        enact_object_release(object);
+    }
+    enact_class_release(object_class);
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(version_builtin, NULL, 0, &result, &diag), "version apply succeeds");
     require_true(result.kind == ENACT_VALUE_STRING, "version result kind");
     require_true(strcmp(result.as.as_string, "enact-auto 0.1.0") == 0, "version result value");
     enact_value_free(&result);
+    args[0] = enact_value_make_int(1);
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(list_builtin, args, 1, &result, &diag), "list int apply succeeds");
     require_true(result.kind == ENACT_VALUE_LIST, "list int result kind");
@@ -901,6 +1000,10 @@ static void test_builtin_helpers(void)
     require_true(enact_env_lookup(&env, "intersection", &lookup_value), "lookup installed intersection");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed intersection value kind");
     enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "Object", &lookup_value), "lookup installed Object");
+    require_true(lookup_value.kind == ENACT_VALUE_CLASS, "installed Object value kind");
+    require_true(strcmp(enact_class_name(lookup_value.as.as_class), "Object") == 0, "installed Object class name");
+    enact_value_free(&lookup_value);
     require_true(!enact_install_builtins(NULL), "install builtins null env fails");
 
     call = enact_ast_new_call(
@@ -1216,6 +1319,20 @@ static void test_ast_clone_helpers(void)
     enact_ast_free(clone);
     enact_ast_free(original);
 
+    original = enact_ast_new_unary(AST_NEW, enact_ast_new_identifier(copy_test_name("Object")));
+    require_true(original != NULL, "new Object clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "new Object clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "new Object clone evaluates");
+    require_true(value.kind == ENACT_VALUE_OBJECT, "new Object clone result kind");
+    require_true(
+        strcmp(enact_class_name(enact_object_class(value.as.as_object)), "Object") == 0,
+        "new Object clone result class");
+    enact_value_free(&value);
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
     original = enact_ast_new_binary(AST_CONS, enact_ast_new_int(1), enact_ast_new_nil());
     require_true(original != NULL, "cons clone source created");
     clone = enact_ast_clone(original);
@@ -1336,6 +1453,8 @@ static void test_eval_edge_cases(void)
     EnactAst bool_false = {0};
     EnactAst string_node = {0};
     EnactAst atom_node = {0};
+    EnactAst object_identifier = {0};
+    EnactAst new_node = {0};
     EnactAst eq_node = {0};
     EnactAst neq_node = {0};
     EnactAst lt_node = {0};
@@ -1388,6 +1507,8 @@ static void test_eval_edge_cases(void)
     string_node.as.string_value = "unit";
     atom_node.kind = AST_ATOM_LITERAL;
     atom_node.as.atom_value = "unit";
+    object_identifier.kind = AST_IDENTIFIER;
+    object_identifier.as.identifier_name = "Object";
 
     eq_node.kind = AST_EQ;
     eq_node.as.binary.left = &bool_true;
@@ -1474,6 +1595,21 @@ static void test_eval_edge_cases(void)
     require_true(enact_eval_ast(&conditional_node, &value, &diag), "conditional skips false branch");
     require_true(value.kind == ENACT_VALUE_INT, "conditional selected kind");
     require_true(value.as.as_int == 7, "conditional selected value");
+
+    new_node.kind = AST_NEW;
+    new_node.as.unary.child = &object_identifier;
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&new_node, &value, &diag), "new Object ast succeeds");
+    require_true(value.kind == ENACT_VALUE_OBJECT, "new Object ast result kind");
+    require_true(
+        strcmp(enact_class_name(enact_object_class(value.as.as_object)), "Object") == 0,
+        "new Object ast class name");
+    enact_value_free(&value);
+
+    new_node.as.unary.child = &int_one;
+    enact_diag_reset(&diag);
+    require_true(!enact_eval_ast(&new_node, &value, &diag), "new non-class ast fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "new non-class ast code");
 
     call_node = enact_ast_new_call(enact_ast_new_int(1), make_test_ast_list1(enact_ast_new_int(0)));
     require_true(call_node != NULL, "non-function call ast created");

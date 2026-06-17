@@ -14,6 +14,7 @@ typedef enum {
     AST_GROUP,
     AST_UNARY_NEG,
     AST_NOT,
+    AST_NEW,
     AST_ADD,
     AST_SUB,
     AST_MUL,

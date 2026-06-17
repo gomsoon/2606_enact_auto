@@ -15,6 +15,7 @@ GENERATED_H := $(BUILD_DIR)/enact.tab.h
 OBJS := \
 	$(BUILD_DIR)/ast.o \
 	$(BUILD_DIR)/function.o \
+	$(BUILD_DIR)/object.o \
 	$(BUILD_DIR)/builtin.o \
 	$(BUILD_DIR)/value.o \
 	$(BUILD_DIR)/diag.o \
@@ -30,6 +31,7 @@ OBJS := \
 LIB_OBJS := \
 	$(BUILD_DIR)/ast.o \
 	$(BUILD_DIR)/function.o \
+	$(BUILD_DIR)/object.o \
 	$(BUILD_DIR)/builtin.o \
 	$(BUILD_DIR)/value.o \
 	$(BUILD_DIR)/diag.o \
@@ -46,6 +48,7 @@ DEPS := $(OBJS:.o=.d) $(BUILD_DIR)/unit_tests.d
 HANDWRITTEN_C_COVERAGE_SRCS := \
 	$(SRC_DIR)/ast.c \
 	$(SRC_DIR)/function.c \
+	$(SRC_DIR)/object.c \
 	$(SRC_DIR)/builtin.c \
 	$(SRC_DIR)/value.c \
 	$(SRC_DIR)/diag.c \
