@@ -328,6 +328,30 @@ static int enact_builtin_attrs(
     return 1;
 }
 
+static int enact_builtin_methods(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *names = NULL;
+
+    (void)argument_count;
+
+    if (arguments[0].kind != ENACT_VALUE_CLASS) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+        return 0;
+    }
+
+    if (!enact_class_method_names(arguments[0].as.as_class, &names)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(names);
+    return 1;
+}
+
 static int enact_builtin_supers(
     const EnactValue *arguments,
     size_t argument_count,
@@ -1084,6 +1108,7 @@ static const EnactBuiltin builtin_table[] = {
     {"isObject", 1, enact_builtin_is_object},
     {"classof", 1, enact_builtin_classof},
     {"attrs", 1, enact_builtin_attrs},
+    {"methods", 1, enact_builtin_methods},
     {"supers", 1, enact_builtin_supers},
     {"superiors", 1, enact_builtin_superiors},
     {"version", 0, enact_builtin_version},

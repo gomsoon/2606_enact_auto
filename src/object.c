@@ -185,6 +185,39 @@ EnactFunction *enact_class_lookup_method(const EnactClass *class_value, const ch
     return NULL;
 }
 
+int enact_class_method_names(const EnactClass *class_value, EnactList **out)
+{
+    const EnactMethod *method;
+    EnactList *names = NULL;
+
+    if (!class_value || !out) {
+        return 0;
+    }
+
+    for (method = class_value->methods; method; method = method->next) {
+        EnactList *next;
+        EnactValue name_value;
+        char *name_copy = enact_object_copy_text(method->name);
+
+        if (!name_copy) {
+            enact_list_release(names);
+            return 0;
+        }
+
+        name_value = enact_value_make_atom(name_copy);
+        next = enact_list_cons(&name_value, names);
+        enact_value_free(&name_value);
+        enact_list_release(names);
+        if (!next) {
+            return 0;
+        }
+        names = next;
+    }
+
+    *out = names;
+    return 1;
+}
+
 EnactObject *enact_object_new(EnactClass *class_value)
 {
     EnactObject *object;

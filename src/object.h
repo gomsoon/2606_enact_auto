@@ -15,6 +15,7 @@ const char *enact_class_name(const EnactClass *class_value);
 EnactClass *enact_class_superclass(const EnactClass *class_value);
 int enact_class_define_method(EnactClass *class_value, const char *name, EnactFunction *function);
 EnactFunction *enact_class_lookup_method(const EnactClass *class_value, const char *name);
+int enact_class_method_names(const EnactClass *class_value, EnactList **out);
 
 EnactObject *enact_object_new(EnactClass *class_value);
 EnactObject *enact_object_retain(EnactObject *object);
