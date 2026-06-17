@@ -1456,6 +1456,23 @@ static void test_ast_clone_helpers(void)
     enact_ast_free(clone);
     enact_ast_free(original);
 
+    original = enact_ast_new_attribute_assignment(
+        enact_ast_new_with(
+            enact_ast_new_unary(AST_NEW, enact_ast_new_identifier(copy_test_name("Object"))),
+            copy_test_name("x"),
+            enact_ast_new_int(42)),
+        copy_test_name("x"),
+        enact_ast_new_int(43));
+    require_true(original != NULL, "attribute assignment clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "attribute assignment clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "attribute assignment clone evaluates");
+    require_true(value.kind == ENACT_VALUE_INT, "attribute assignment clone result kind");
+    require_true(value.as.as_int == 43, "attribute assignment clone result value");
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
     original = enact_ast_new_binary(AST_CONS, enact_ast_new_int(1), enact_ast_new_nil());
     require_true(original != NULL, "cons clone source created");
     clone = enact_ast_clone(original);
@@ -1875,6 +1892,25 @@ static void test_api_and_scan_helpers(void)
     require_true(capture.values[1].kind == ENACT_VALUE_OBJECT, "session script attribute object kind");
     require_true(capture.values[2].kind == ENACT_VALUE_INT, "session script attribute value kind");
     require_true(capture.values[2].as.as_int == 17, "session script attribute value");
+    script_capture_free(&capture);
+
+    memset(&capture, 0, sizeof(capture));
+    enact_diag_reset(&diag);
+    require_true(
+        enact_session_eval_script(
+            &session,
+            "class AssignNode < Object\nassign_n:=new AssignNode with x:=1\nassign_n.x:=2\nassign_n.x\n",
+            script_capture_result,
+            &capture,
+            &diag),
+        "session script accepts dot attribute assignment");
+    require_true(capture.count == 4, "session script attribute assignment result count");
+    require_true(capture.values[0].kind == ENACT_VALUE_CLASS, "session script attribute assignment class kind");
+    require_true(capture.values[1].kind == ENACT_VALUE_OBJECT, "session script attribute assignment object kind");
+    require_true(capture.values[2].kind == ENACT_VALUE_INT, "session script attribute assignment write kind");
+    require_true(capture.values[2].as.as_int == 2, "session script attribute assignment write value");
+    require_true(capture.values[3].kind == ENACT_VALUE_INT, "session script attribute assignment read kind");
+    require_true(capture.values[3].as.as_int == 2, "session script attribute assignment read value");
     script_capture_free(&capture);
 
     result = enact_session_eval_text(&session, "script_x+3.");

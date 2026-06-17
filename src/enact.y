@@ -117,6 +117,18 @@ static EnactAst *enact_make_attribute(EnactAst *object, char *name)
     return ast;
 }
 
+static EnactAst *enact_make_attribute_assignment(EnactAst *object, char *name, EnactAst *value)
+{
+    EnactAst *ast = enact_ast_new_attribute_assignment(object, name, value);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_binary(EnactAstKind kind, EnactAst *left, EnactAst *right)
 {
     EnactAst *ast = enact_ast_new_binary(kind, left, right);
@@ -613,6 +625,23 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
         enact_ast_free(lhs);
         result = enact_make_assignment(name, value);
         if (!result) {
+            free(name);
+            enact_ast_free(value);
+            return NULL;
+        }
+        return result;
+    }
+
+    if (lhs->kind == AST_ATTRIBUTE) {
+        EnactAst *object = lhs->as.attribute.object;
+        char *name = lhs->as.attribute.name;
+
+        lhs->as.attribute.object = NULL;
+        lhs->as.attribute.name = NULL;
+        enact_ast_free(lhs);
+        result = enact_make_attribute_assignment(object, name, value);
+        if (!result) {
+            enact_ast_free(object);
             free(name);
             enact_ast_free(value);
             return NULL;

@@ -1429,6 +1429,43 @@ def main() -> int:
         ("class Node < Object\nclassof(new Node)+1\n", "ENACT_ERR_TYPE_EXPECTED_INT"),
     ]
 
+    slice_041_token_cases = [
+        ("obj.x:=1.", "TOK_IDENTIFIER TOK_ATTR_DOT TOK_IDENTIFIER TOK_ASSIGN TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
+        ("obj.child.x:=2.", "TOK_IDENTIFIER TOK_ATTR_DOT TOK_IDENTIFIER TOK_ATTR_DOT TOK_IDENTIFIER TOK_ASSIGN TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
+    ]
+
+    slice_041_boundary_success_cases = [
+        ("class Node < Object\nn:=new Node with x:=1\nn.x:=2\nn.x\n", "<class Node>\n<object Node>\n2\n2\n"),
+        ("class Node < Object\nn:=new Node\nn.x:=1\nn.x\n", "<class Node>\n<object Node>\n1\n1\n"),
+        ("class Node < Object\nn:=new Node\n(n.x:=2)+3\nn.x\n", "<class Node>\n<object Node>\n5\n2\n"),
+        ("class Node < Object\nn:=new Node with x:=1\nn.x:=n.x+1\nn.x\n", "<class Node>\n<object Node>\n2\n2\n"),
+        ("class Node < Object\nn:=new Node with child:=new Node\nn.child.x:=7\nn.child.x\n", "<class Node>\n<object Node>\n7\n7\n"),
+        ("class Node < Object\nn:=new Node\nn.child:=new Node\nclassof(n.child)==Node\n", "<class Node>\n<object Node>\n<object Node>\ntrue\n"),
+        ("class Node < Object\nn:=new Node\nn.f:=x::x+1\nn.f(4)\n", "<class Node>\n<object Node>\n<function>\n5\n"),
+        ("class Node < Object\nn:=new Node\nn.cls:=Node\nn.cls==Node\n", "<class Node>\n<object Node>\n<class Node>\ntrue\n"),
+        ("class Node < Object\nn:=new Node\nn.items:=(1,2)\nn.items\n", "<class Node>\n<object Node>\n1:2:nil\n1:2:nil\n"),
+        ("class Node < Object\nn:=new Node\nn.x:=1; n.x:=n.x+2; n.x\n", "<class Node>\n<object Node>\n3\n"),
+        ("class Node < Object\nn:=new Node\nsetx(o,v):=o.x:=v\nsetx(n,8)\nn.x\n", "<class Node>\n<object Node>\n<function>\n8\n8\n"),
+        ("class Node < Object\nmap(x::x.value:=x.value+1,(new Node with value:=1,new Node with value:=2))\n", "<class Node>\n2:3:nil\n"),
+        ("class Node < Object\n(n:=new Node).x:=9\nn.x\n", "<class Node>\n9\n9\n"),
+        ("class Node < Object\nn:=new Node\nn.x:=1\nclassof(n)==Node\n", "<class Node>\n<object Node>\n1\ntrue\n"),
+    ]
+
+    slice_041_robustness_failure_cases = [
+        ("1.x:=2\n", "ENACT_ERR_TYPE_EXPECTED_OBJECT"),
+        ("1.x:=missing\n", "ENACT_ERR_TYPE_EXPECTED_OBJECT"),
+        ("class Node < Object\nNode.x:=2\n", "ENACT_ERR_TYPE_EXPECTED_OBJECT"),
+        ("missing.x:=1\n", "ENACT_ERR_NAME_UNBOUND"),
+        ("class Node < Object\nn:=new Node\nn.x:=missing\n", "ENACT_ERR_NAME_UNBOUND"),
+        ("class Node < Object\nn:=new Node\nn.x:=1+true\n", "ENACT_ERR_TYPE_EXPECTED_INT"),
+        ("class Node < Object\nn:=new Node\nn.x:=1.y\n", "ENACT_ERR_TYPE_EXPECTED_OBJECT"),
+        ("class Node < Object\nn:=new Node\nn.x:=1\nn.x()\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("class Node < Object\nn:=new Node\nnot (n.x:=1)\n", "ENACT_ERR_TYPE_EXPECTED_BOOL"),
+        ("class Node < Object\nn:=new Node\nn.x(1):=2\n", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("class Node < Object\nn:=new Node\nn.:=1\n", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+        ("class Node < Object\nn:=new Node\nn.x:=\n", "ENACT_ERR_PARSE_UNEXPECTED_TOKEN"),
+    ]
+
     token_cases = [
         ("-1.", "TOK_UMINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         ("1-2.", "TOK_INT_LITERAL TOK_MINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
@@ -1462,7 +1499,7 @@ def main() -> int:
         ("1 if true else 2.", "TOK_INT_LITERAL TOK_IF TOK_TRUE TOK_ELSE TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         (" \t\n(8+2)/5.", "TOK_LPAREN TOK_INT_LITERAL TOK_PLUS TOK_INT_LITERAL TOK_RPAREN TOK_SLASH TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         (long_comment, "TOK_LPAREN TOK_INT_LITERAL TOK_PLUS TOK_INT_LITERAL TOK_RPAREN TOK_SLASH TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
-    ] + slice_008_token_cases + slice_009_token_cases + slice_010_token_cases + slice_013_token_cases + slice_017_token_cases + slice_023_token_cases + slice_024_token_cases + slice_026_token_cases + slice_027_token_cases + slice_033_token_cases + slice_034_token_cases + slice_035_token_cases + slice_039_token_cases
+    ] + slice_008_token_cases + slice_009_token_cases + slice_010_token_cases + slice_013_token_cases + slice_017_token_cases + slice_023_token_cases + slice_024_token_cases + slice_026_token_cases + slice_027_token_cases + slice_033_token_cases + slice_034_token_cases + slice_035_token_cases + slice_039_token_cases + slice_041_token_cases
 
     success_cases = [
         ("1+2.", "3\n"),
@@ -1574,7 +1611,7 @@ def main() -> int:
         ("1 if x where x:=true else 2.", "1\n"),
         ("true and x where x:=true.", "true\n"),
         ("x:=1; (x where x:=2); x.", "1\n"),
-    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases + slice_010_boundary_success_cases + slice_011_boundary_success_cases + slice_012_boundary_success_cases + slice_013_boundary_success_cases + slice_014_boundary_success_cases + slice_015_boundary_success_cases + slice_016_boundary_success_cases + slice_017_boundary_success_cases + slice_018_boundary_success_cases + slice_019_boundary_success_cases + slice_020_boundary_success_cases + slice_021_boundary_success_cases + slice_022_boundary_success_cases + slice_023_boundary_success_cases + slice_024_boundary_success_cases + slice_025_boundary_success_cases + slice_026_boundary_success_cases + slice_027_boundary_success_cases + slice_028_boundary_success_cases + slice_029_boundary_success_cases + slice_031_boundary_success_cases + slice_032_boundary_success_cases + slice_033_boundary_success_cases + slice_034_boundary_success_cases + slice_035_boundary_success_cases + slice_036_boundary_success_cases + slice_037_boundary_success_cases + slice_038_boundary_success_cases + slice_039_boundary_success_cases + slice_040_boundary_success_cases
+    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases + slice_010_boundary_success_cases + slice_011_boundary_success_cases + slice_012_boundary_success_cases + slice_013_boundary_success_cases + slice_014_boundary_success_cases + slice_015_boundary_success_cases + slice_016_boundary_success_cases + slice_017_boundary_success_cases + slice_018_boundary_success_cases + slice_019_boundary_success_cases + slice_020_boundary_success_cases + slice_021_boundary_success_cases + slice_022_boundary_success_cases + slice_023_boundary_success_cases + slice_024_boundary_success_cases + slice_025_boundary_success_cases + slice_026_boundary_success_cases + slice_027_boundary_success_cases + slice_028_boundary_success_cases + slice_029_boundary_success_cases + slice_031_boundary_success_cases + slice_032_boundary_success_cases + slice_033_boundary_success_cases + slice_034_boundary_success_cases + slice_035_boundary_success_cases + slice_036_boundary_success_cases + slice_037_boundary_success_cases + slice_038_boundary_success_cases + slice_039_boundary_success_cases + slice_040_boundary_success_cases + slice_041_boundary_success_cases
 
     failure_cases = [
         ("1", "ENACT_ERR_PARSE_MISSING_DOT"),
@@ -1675,7 +1712,7 @@ def main() -> int:
         ("x:=y.", "ENACT_ERR_NAME_UNBOUND"),
         ("x+1; x:=2.", "ENACT_ERR_NAME_UNBOUND"),
         ("x:=1; y.", "ENACT_ERR_NAME_UNBOUND"),
-    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases + slice_010_robustness_failure_cases + slice_011_robustness_failure_cases + slice_012_robustness_failure_cases + slice_013_robustness_failure_cases + slice_014_robustness_failure_cases + slice_015_robustness_failure_cases + slice_016_robustness_failure_cases + slice_017_robustness_failure_cases + slice_018_robustness_failure_cases + slice_019_robustness_failure_cases + slice_020_robustness_failure_cases + slice_021_robustness_failure_cases + slice_022_robustness_failure_cases + slice_023_robustness_failure_cases + slice_024_robustness_failure_cases + slice_025_robustness_failure_cases + slice_026_robustness_failure_cases + slice_027_robustness_failure_cases + slice_028_robustness_failure_cases + slice_029_robustness_failure_cases + slice_031_robustness_failure_cases + slice_032_robustness_failure_cases + slice_033_robustness_failure_cases + slice_034_robustness_failure_cases + slice_035_robustness_failure_cases + slice_036_robustness_failure_cases + slice_037_robustness_failure_cases + slice_038_robustness_failure_cases + slice_039_robustness_failure_cases + slice_040_robustness_failure_cases
+    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases + slice_010_robustness_failure_cases + slice_011_robustness_failure_cases + slice_012_robustness_failure_cases + slice_013_robustness_failure_cases + slice_014_robustness_failure_cases + slice_015_robustness_failure_cases + slice_016_robustness_failure_cases + slice_017_robustness_failure_cases + slice_018_robustness_failure_cases + slice_019_robustness_failure_cases + slice_020_robustness_failure_cases + slice_021_robustness_failure_cases + slice_022_robustness_failure_cases + slice_023_robustness_failure_cases + slice_024_robustness_failure_cases + slice_025_robustness_failure_cases + slice_026_robustness_failure_cases + slice_027_robustness_failure_cases + slice_028_robustness_failure_cases + slice_029_robustness_failure_cases + slice_031_robustness_failure_cases + slice_032_robustness_failure_cases + slice_033_robustness_failure_cases + slice_034_robustness_failure_cases + slice_035_robustness_failure_cases + slice_036_robustness_failure_cases + slice_037_robustness_failure_cases + slice_038_robustness_failure_cases + slice_039_robustness_failure_cases + slice_040_robustness_failure_cases + slice_041_robustness_failure_cases
 
     token_failure_cases = [
         ("$x.", "ENACT_ERR_LEX_INVALID_CHAR"),
@@ -1787,6 +1824,8 @@ def main() -> int:
     print(f"slice 039 robustness regression checks: {len(slice_039_robustness_failure_cases)}")
     print(f"slice 040 boundary regression checks: {len(slice_040_boundary_success_cases)}")
     print(f"slice 040 robustness regression checks: {len(slice_040_robustness_failure_cases)}")
+    print(f"slice 041 boundary regression checks: {len(slice_041_token_cases) + len(slice_041_boundary_success_cases)}")
+    print(f"slice 041 robustness regression checks: {len(slice_041_robustness_failure_cases)}")
     return 0
 
 

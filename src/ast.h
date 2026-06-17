@@ -17,6 +17,7 @@ typedef enum {
     AST_NEW,
     AST_WITH,
     AST_ATTRIBUTE,
+    AST_ATTRIBUTE_ASSIGN,
     AST_ADD,
     AST_SUB,
     AST_MUL,
@@ -82,6 +83,11 @@ struct EnactAst {
             char *name;
         } attribute;
         struct {
+            EnactAst *object;
+            char *name;
+            EnactAst *value;
+        } attribute_assignment;
+        struct {
             EnactAst *left;
             EnactAst *right;
         } binary;
@@ -143,6 +149,7 @@ EnactAst *enact_ast_new_identifier(char *name);
 EnactAst *enact_ast_new_unary(EnactAstKind kind, EnactAst *child);
 EnactAst *enact_ast_new_with(EnactAst *object, char *name, EnactAst *value);
 EnactAst *enact_ast_new_attribute(EnactAst *object, char *name);
+EnactAst *enact_ast_new_attribute_assignment(EnactAst *object, char *name, EnactAst *value);
 EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *right);
 EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false);
 EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value);

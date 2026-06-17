@@ -354,6 +354,19 @@ EnactAst *enact_ast_new_attribute(EnactAst *object, char *name)
     return ast;
 }
 
+EnactAst *enact_ast_new_attribute_assignment(EnactAst *object, char *name, EnactAst *value)
+{
+    EnactAst *ast = enact_ast_alloc(AST_ATTRIBUTE_ASSIGN);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.attribute_assignment.object = object;
+    ast->as.attribute_assignment.name = name;
+    ast->as.attribute_assignment.value = value;
+    return ast;
+}
+
 EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *right)
 {
     EnactAst *ast = enact_ast_alloc(kind);
@@ -562,6 +575,41 @@ static EnactAst *enact_ast_clone_attribute(const EnactAst *ast)
     if (!copy) {
         enact_ast_free(object);
         free(name);
+        return NULL;
+    }
+
+    return copy;
+}
+
+static EnactAst *enact_ast_clone_attribute_assignment(const EnactAst *ast)
+{
+    EnactAst *object = enact_ast_clone(ast->as.attribute_assignment.object);
+    char *name;
+    EnactAst *value;
+    EnactAst *copy;
+
+    if (!object) {
+        return NULL;
+    }
+
+    name = enact_ast_copy_text(ast->as.attribute_assignment.name);
+    if (!name) {
+        enact_ast_free(object);
+        return NULL;
+    }
+
+    value = enact_ast_clone(ast->as.attribute_assignment.value);
+    if (!value) {
+        free(name);
+        enact_ast_free(object);
+        return NULL;
+    }
+
+    copy = enact_ast_new_attribute_assignment(object, name, value);
+    if (!copy) {
+        enact_ast_free(object);
+        free(name);
+        enact_ast_free(value);
         return NULL;
     }
 
@@ -829,6 +877,9 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
     case AST_ATTRIBUTE:
         copy = enact_ast_clone_attribute(ast);
         break;
+    case AST_ATTRIBUTE_ASSIGN:
+        copy = enact_ast_clone_attribute_assignment(ast);
+        break;
     case AST_ADD:
     case AST_SUB:
     case AST_MUL:
@@ -910,6 +961,11 @@ void enact_ast_free(EnactAst *ast)
     case AST_ATTRIBUTE:
         enact_ast_free(ast->as.attribute.object);
         free(ast->as.attribute.name);
+        break;
+    case AST_ATTRIBUTE_ASSIGN:
+        enact_ast_free(ast->as.attribute_assignment.object);
+        free(ast->as.attribute_assignment.name);
+        enact_ast_free(ast->as.attribute_assignment.value);
         break;
     case AST_ADD:
     case AST_SUB:
