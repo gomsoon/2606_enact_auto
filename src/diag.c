@@ -33,6 +33,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_TYPE_EXPECTED_LIST";
     case ENACT_ERR_TYPE_EXPECTED_CLASS:
         return "ENACT_ERR_TYPE_EXPECTED_CLASS";
+    case ENACT_ERR_TYPE_EXPECTED_OBJECT:
+        return "ENACT_ERR_TYPE_EXPECTED_OBJECT";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:
         return "ENACT_ERR_TYPE_EQUALITY_MISMATCH";
     case ENACT_ERR_LIST_EMPTY:
@@ -41,6 +43,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_ARITY_MISMATCH";
     case ENACT_ERR_NAME_UNBOUND:
         return "ENACT_ERR_NAME_UNBOUND";
+    case ENACT_ERR_ATTRIBUTE_UNBOUND:
+        return "ENACT_ERR_ATTRIBUTE_UNBOUND";
     case ENACT_ERR_LOAD_FILE:
         return "ENACT_ERR_LOAD_FILE";
     case ENACT_ERR_OUT_OF_MEMORY:
@@ -83,6 +87,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "list value required";
     case ENACT_ERR_TYPE_EXPECTED_CLASS:
         return "class value required";
+    case ENACT_ERR_TYPE_EXPECTED_OBJECT:
+        return "object value required";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:
         return "cannot compare values of different kinds";
     case ENACT_ERR_LIST_EMPTY:
@@ -91,6 +97,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "function arity mismatch";
     case ENACT_ERR_NAME_UNBOUND:
         return "unbound identifier";
+    case ENACT_ERR_ATTRIBUTE_UNBOUND:
+        return "unbound attribute";
     case ENACT_ERR_LOAD_FILE:
         return "could not load file";
     case ENACT_ERR_OUT_OF_MEMORY:

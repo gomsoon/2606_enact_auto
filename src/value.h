@@ -24,7 +24,7 @@ typedef enum {
     ENACT_VALUE_BUILTIN_PARTIAL
 } EnactValueKind;
 
-typedef struct {
+typedef struct EnactValue {
     EnactValueKind kind;
     union {
         int32_t as_int;

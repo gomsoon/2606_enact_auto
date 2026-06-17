@@ -117,6 +117,26 @@ static int enact_is_identifier_char(char ch)
         ch == '_';
 }
 
+static int enact_is_identifier_start(char ch)
+{
+    return (ch >= 'A' && ch <= 'Z') ||
+        (ch >= 'a' && ch <= 'z') ||
+        ch == '_';
+}
+
+static int enact_dot_starts_attribute_access(const char *source, size_t length, size_t index)
+{
+    char previous;
+
+    if (!source || index == 0 || index + 1 >= length) {
+        return 0;
+    }
+
+    previous = source[index - 1];
+    return enact_is_identifier_start(source[index + 1]) &&
+        (enact_is_identifier_char(previous) || previous == ')');
+}
+
 static void enact_skip_script_trivia(const char *source, size_t length, size_t *offset)
 {
     size_t index;
@@ -240,7 +260,7 @@ static int enact_next_script_chunk(
             }
             return 1;
         }
-        if (ch == '.' && paren_depth == 0) {
+        if (ch == '.' && paren_depth == 0 && !enact_dot_starts_attribute_access(source, length, index)) {
             *end = index + 1;
             *offset = *end;
             return 1;

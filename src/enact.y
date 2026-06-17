@@ -93,6 +93,30 @@ static EnactAst *enact_make_unary(EnactAstKind kind, EnactAst *child)
     return ast;
 }
 
+static EnactAst *enact_make_with(EnactAst *object, char *name, EnactAst *value)
+{
+    EnactAst *ast = enact_ast_new_with(object, name, value);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
+static EnactAst *enact_make_attribute(EnactAst *object, char *name)
+{
+    EnactAst *ast = enact_ast_new_attribute(object, name);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_binary(EnactAstKind kind, EnactAst *left, EnactAst *right)
 {
     EnactAst *ast = enact_ast_new_binary(kind, left, right);
@@ -655,13 +679,16 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 
 %token <u64> TOK_INT_LITERAL
 %token <text> TOK_IDENTIFIER TOK_STRING_LITERAL TOK_ATOM_LITERAL
-%token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
+%token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ATTR_DOT TOK_ERROR
 %token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NIL TOK_NOT TOK_AND TOK_OR TOK_IF TOK_THEN TOK_ELSE
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
 %token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_CONS TOK_MOD TOK_WHERE TOK_FIX TOK_LOAD
-%token TOK_CLASS TOK_NEW TOK_WITH
+%token TOK_CLASS TOK_NEW
 
-%type <ast> expr sequence fix_expr assignment class_definition lambda conditional logical_or logical_and where_expr logical_not comparison cons additive multiplicative unary call application_argument primary
+%precedence LOWER_THAN_WITH
+%right TOK_WITH
+
+%type <ast> expr sequence fix_expr assignment class_definition with_expr lambda conditional logical_or logical_and where_expr logical_not comparison cons additive multiplicative unary call application_argument primary
 %type <ast_list> argument_list tuple_list
 %type <name_list> lambda_head
 
@@ -726,10 +753,11 @@ assignment:
             YYABORT;
         }
     }
-    | lambda
+    | with_expr
     {
         $$ = $1;
     }
+    %prec LOWER_THAN_WITH
     ;
 
 class_definition:
@@ -752,6 +780,24 @@ class_definition:
     }
     ;
 
+with_expr:
+    with_expr TOK_WITH TOK_IDENTIFIER TOK_ASSIGN lambda
+    {
+        $$ = enact_make_with($1, $3, $5);
+        if (!$$) {
+            enact_ast_free($1);
+            free($3);
+            enact_ast_free($5);
+            YYABORT;
+        }
+    }
+    | lambda
+    {
+        $$ = $1;
+    }
+    %prec LOWER_THAN_WITH
+    ;
+
 lambda:
     lambda_head TOK_LAMBDA assignment
     {
@@ -762,6 +808,7 @@ lambda:
             YYABORT;
         }
     }
+    %prec LOWER_THAN_WITH
     | conditional
     {
         $$ = $1;
@@ -1036,6 +1083,15 @@ call:
         if (!$$) {
             enact_ast_free($1);
             enact_ast_list_free($3);
+            YYABORT;
+        }
+    }
+    | call TOK_ATTR_DOT TOK_IDENTIFIER
+    {
+        $$ = enact_make_attribute($1, $3);
+        if (!$$) {
+            enact_ast_free($1);
+            free($3);
             YYABORT;
         }
     }

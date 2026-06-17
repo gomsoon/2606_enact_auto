@@ -104,6 +104,17 @@ static int enact_require_class(const EnactValue *value, EnactClass **out, EnactD
     return 1;
 }
 
+static int enact_require_object(const EnactValue *value, EnactObject **out, EnactDiag *diag)
+{
+    if (value->kind != ENACT_VALUE_OBJECT) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_OBJECT, -1);
+        return 0;
+    }
+
+    *out = value->as.as_object;
+    return 1;
+}
+
 static int enact_eval_arithmetic_binary(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left_value;
@@ -315,6 +326,64 @@ static int enact_eval_class_def(const EnactAst *ast, EnactEnv *env, EnactValue *
     }
 
     *out = result;
+    return 1;
+}
+
+static int enact_eval_with(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue object_value;
+    EnactValue attribute_value;
+    EnactObject *object = NULL;
+
+    if (!enact_eval_value(ast->as.with_expr.object, env, &object_value, diag)) {
+        return 0;
+    }
+    if (!enact_require_object(&object_value, &object, diag)) {
+        enact_value_free(&object_value);
+        return 0;
+    }
+    if (!enact_eval_value(ast->as.with_expr.value, env, &attribute_value, diag)) {
+        enact_value_free(&object_value);
+        return 0;
+    }
+    if (!enact_object_define_attribute(object, ast->as.with_expr.name, attribute_value)) {
+        enact_value_free(&attribute_value);
+        enact_value_free(&object_value);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    enact_value_free(&attribute_value);
+    *out = object_value;
+    return 1;
+}
+
+static int enact_eval_attribute(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue object_value;
+    EnactObject *object = NULL;
+    int lookup_result;
+
+    if (!enact_eval_value(ast->as.attribute.object, env, &object_value, diag)) {
+        return 0;
+    }
+    if (!enact_require_object(&object_value, &object, diag)) {
+        enact_value_free(&object_value);
+        return 0;
+    }
+    lookup_result = enact_object_lookup_attribute(object, ast->as.attribute.name, out);
+    if (lookup_result < 0) {
+        enact_value_free(&object_value);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!lookup_result) {
+        enact_value_free(&object_value);
+        enact_diag_set(diag, ENACT_ERR_ATTRIBUTE_UNBOUND, -1);
+        return 0;
+    }
+
+    enact_value_free(&object_value);
     return 1;
 }
 
@@ -950,6 +1019,10 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
         return 1;
     case AST_NEW:
         return enact_eval_new(ast, env, out, diag);
+    case AST_WITH:
+        return enact_eval_with(ast, env, out, diag);
+    case AST_ATTRIBUTE:
+        return enact_eval_attribute(ast, env, out, diag);
     case AST_ADD:
     case AST_SUB:
     case AST_MUL:

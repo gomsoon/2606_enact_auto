@@ -98,6 +98,8 @@ static const char *enact_token_name(int token)
         return "TOK_RPAREN";
     case TOK_DOT:
         return "TOK_DOT";
+    case TOK_ATTR_DOT:
+        return "TOK_ATTR_DOT";
     case TOK_ERROR:
         return "TOK_ERROR";
     case 0:

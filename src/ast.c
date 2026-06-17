@@ -329,6 +329,31 @@ EnactAst *enact_ast_new_unary(EnactAstKind kind, EnactAst *child)
     return ast;
 }
 
+EnactAst *enact_ast_new_with(EnactAst *object, char *name, EnactAst *value)
+{
+    EnactAst *ast = enact_ast_alloc(AST_WITH);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.with_expr.object = object;
+    ast->as.with_expr.name = name;
+    ast->as.with_expr.value = value;
+    return ast;
+}
+
+EnactAst *enact_ast_new_attribute(EnactAst *object, char *name)
+{
+    EnactAst *ast = enact_ast_alloc(AST_ATTRIBUTE);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.attribute.object = object;
+    ast->as.attribute.name = name;
+    return ast;
+}
+
 EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *right)
 {
     EnactAst *ast = enact_ast_alloc(kind);
@@ -476,6 +501,67 @@ static EnactAst *enact_ast_clone_binary(const EnactAst *ast)
     if (!copy) {
         enact_ast_free(left);
         enact_ast_free(right);
+        return NULL;
+    }
+
+    return copy;
+}
+
+static EnactAst *enact_ast_clone_with(const EnactAst *ast)
+{
+    EnactAst *object = enact_ast_clone(ast->as.with_expr.object);
+    char *name;
+    EnactAst *value;
+    EnactAst *copy;
+
+    if (!object) {
+        return NULL;
+    }
+
+    name = enact_ast_copy_text(ast->as.with_expr.name);
+    if (!name) {
+        enact_ast_free(object);
+        return NULL;
+    }
+
+    value = enact_ast_clone(ast->as.with_expr.value);
+    if (!value) {
+        free(name);
+        enact_ast_free(object);
+        return NULL;
+    }
+
+    copy = enact_ast_new_with(object, name, value);
+    if (!copy) {
+        enact_ast_free(object);
+        free(name);
+        enact_ast_free(value);
+        return NULL;
+    }
+
+    return copy;
+}
+
+static EnactAst *enact_ast_clone_attribute(const EnactAst *ast)
+{
+    EnactAst *object = enact_ast_clone(ast->as.attribute.object);
+    char *name;
+    EnactAst *copy;
+
+    if (!object) {
+        return NULL;
+    }
+
+    name = enact_ast_copy_text(ast->as.attribute.name);
+    if (!name) {
+        enact_ast_free(object);
+        return NULL;
+    }
+
+    copy = enact_ast_new_attribute(object, name);
+    if (!copy) {
+        enact_ast_free(object);
+        free(name);
         return NULL;
     }
 
@@ -737,6 +823,12 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
     case AST_NEW:
         copy = enact_ast_clone_unary(ast);
         break;
+    case AST_WITH:
+        copy = enact_ast_clone_with(ast);
+        break;
+    case AST_ATTRIBUTE:
+        copy = enact_ast_clone_attribute(ast);
+        break;
     case AST_ADD:
     case AST_SUB:
     case AST_MUL:
@@ -809,6 +901,15 @@ void enact_ast_free(EnactAst *ast)
     case AST_NOT:
     case AST_NEW:
         enact_ast_free(ast->as.unary.child);
+        break;
+    case AST_WITH:
+        enact_ast_free(ast->as.with_expr.object);
+        free(ast->as.with_expr.name);
+        enact_ast_free(ast->as.with_expr.value);
+        break;
+    case AST_ATTRIBUTE:
+        enact_ast_free(ast->as.attribute.object);
+        free(ast->as.attribute.name);
         break;
     case AST_ADD:
     case AST_SUB:

@@ -294,6 +294,7 @@ STRING_CHAR ([^"\\\r\n]|\\.)
 "+" { return enact_emit_simple_token(TOK_PLUS, 1); }
 "*" { return enact_emit_simple_token(TOK_STAR, 1); }
 "/" { return enact_emit_simple_token(TOK_SLASH, 1); }
+"."/{IDENT_START} { return enact_emit_simple_token(TOK_ATTR_DOT, 1); }
 "." { return enact_emit_simple_token(TOK_DOT, 1); }
 
 "-" {

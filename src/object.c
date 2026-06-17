@@ -2,6 +2,13 @@
 #include <string.h>
 
 #include "object.h"
+#include "value.h"
+
+typedef struct EnactAttribute {
+    char *name;
+    EnactValue value;
+    struct EnactAttribute *next;
+} EnactAttribute;
 
 struct EnactClass {
     size_t ref_count;
@@ -12,6 +19,7 @@ struct EnactClass {
 struct EnactObject {
     size_t ref_count;
     EnactClass *class_value;
+    EnactAttribute *attributes;
 };
 
 static char *enact_object_copy_text(const char *text)
@@ -116,6 +124,18 @@ EnactObject *enact_object_new(EnactClass *class_value)
     return object;
 }
 
+static void enact_attribute_release_all(EnactAttribute *attribute)
+{
+    while (attribute) {
+        EnactAttribute *next = attribute->next;
+
+        free(attribute->name);
+        enact_value_free(&attribute->value);
+        free(attribute);
+        attribute = next;
+    }
+}
+
 EnactObject *enact_object_retain(EnactObject *object)
 {
     if (!object) {
@@ -138,10 +158,70 @@ void enact_object_release(EnactObject *object)
     }
 
     enact_class_release(object->class_value);
+    enact_attribute_release_all(object->attributes);
     free(object);
 }
 
 EnactClass *enact_object_class(const EnactObject *object)
 {
     return object ? object->class_value : NULL;
+}
+
+int enact_object_define_attribute(EnactObject *object, const char *name, EnactValue value)
+{
+    EnactAttribute *attribute;
+    char *name_copy;
+    EnactValue value_copy;
+
+    if (!object || !name) {
+        return 0;
+    }
+
+    if (!enact_value_copy(&value_copy, &value)) {
+        return 0;
+    }
+
+    for (attribute = object->attributes; attribute; attribute = attribute->next) {
+        if (strcmp(attribute->name, name) == 0) {
+            enact_value_free(&attribute->value);
+            attribute->value = value_copy;
+            return 1;
+        }
+    }
+
+    name_copy = enact_object_copy_text(name);
+    if (!name_copy) {
+        enact_value_free(&value_copy);
+        return 0;
+    }
+
+    attribute = calloc(1, sizeof(*attribute));
+    if (!attribute) {
+        free(name_copy);
+        enact_value_free(&value_copy);
+        return 0;
+    }
+
+    attribute->name = name_copy;
+    attribute->value = value_copy;
+    attribute->next = object->attributes;
+    object->attributes = attribute;
+    return 1;
+}
+
+int enact_object_lookup_attribute(const EnactObject *object, const char *name, EnactValue *out)
+{
+    const EnactAttribute *attribute;
+
+    if (!object || !name || !out) {
+        return 0;
+    }
+
+    for (attribute = object->attributes; attribute; attribute = attribute->next) {
+        if (strcmp(attribute->name, name) == 0) {
+            return enact_value_copy(out, &attribute->value) ? 1 : -1;
+        }
+    }
+
+    return 0;
 }

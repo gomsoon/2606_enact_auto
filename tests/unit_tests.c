@@ -142,10 +142,12 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "ENACT_ERR_TYPE_EXPECTED_FUNCTION") == 0, "error code expected function");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_LIST), "ENACT_ERR_TYPE_EXPECTED_LIST") == 0, "error code expected list");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_CLASS), "ENACT_ERR_TYPE_EXPECTED_CLASS") == 0, "error code expected class");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_OBJECT), "ENACT_ERR_TYPE_EXPECTED_OBJECT") == 0, "error code expected object");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "ENACT_ERR_TYPE_EQUALITY_MISMATCH") == 0, "error code equality mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LIST_EMPTY), "ENACT_ERR_LIST_EMPTY") == 0, "error code list empty");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ARITY_MISMATCH), "ENACT_ERR_ARITY_MISMATCH") == 0, "error code arity mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_NAME_UNBOUND), "ENACT_ERR_NAME_UNBOUND") == 0, "error code unbound name");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_ATTRIBUTE_UNBOUND), "ENACT_ERR_ATTRIBUTE_UNBOUND") == 0, "error code unbound attribute");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LOAD_FILE), "ENACT_ERR_LOAD_FILE") == 0, "error code load file");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_OUT_OF_MEMORY), "ENACT_ERR_OUT_OF_MEMORY") == 0, "error code oom");
     require_true(strcmp(enact_error_code_name((EnactErrorCode)999), "ENACT_ERR_UNKNOWN") == 0, "error code unknown");
@@ -158,10 +160,12 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_FUNCTION), "function value required") == 0, "error message expected function");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_LIST), "list value required") == 0, "error message expected list");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_CLASS), "class value required") == 0, "error message expected class");
+    require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_OBJECT), "object value required") == 0, "error message expected object");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "cannot compare values of different kinds") == 0, "error message equality mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_LIST_EMPTY), "non-empty list required") == 0, "error message list empty");
     require_true(strcmp(enact_error_message(ENACT_ERR_ARITY_MISMATCH), "function arity mismatch") == 0, "error message arity mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_NAME_UNBOUND), "unbound identifier") == 0, "error message unbound name");
+    require_true(strcmp(enact_error_message(ENACT_ERR_ATTRIBUTE_UNBOUND), "unbound attribute") == 0, "error message unbound attribute");
     require_true(strcmp(enact_error_message(ENACT_ERR_LOAD_FILE), "could not load file") == 0, "error message load file");
     require_true(strcmp(enact_error_message(ENACT_ERR_OUT_OF_MEMORY), "out of memory") == 0, "error message oom");
     require_true(strcmp(enact_error_message((EnactErrorCode)999), "unknown error") == 0, "error message unknown");
@@ -185,6 +189,8 @@ static void test_value_helpers(void)
     EnactValue object_value;
     EnactValue object_copy;
     EnactValue other_object_value;
+    EnactValue attribute_value;
+    EnactValue attribute_lookup;
     EnactValue list_head;
     EnactValue list_value;
     EnactValue list_copy;
@@ -276,6 +282,8 @@ static void test_value_helpers(void)
     require_true(enact_object_retain(NULL) == NULL, "object retain null");
     enact_object_release(NULL);
     require_true(enact_object_class(NULL) == NULL, "object class null");
+    require_true(!enact_object_define_attribute(NULL, "x", enact_value_make_int(1)), "object define null object fails");
+    require_true(!enact_object_lookup_attribute(NULL, "x", &attribute_lookup), "object lookup null object fails");
 
     object_class = enact_class_new("Object");
     require_true(object_class != NULL, "root class created");
@@ -316,6 +324,30 @@ static void test_value_helpers(void)
             require_true(object_copy.as.as_object == object_value.as.as_object, "object copy retains same object");
             require_true(enact_value_equal(&object_value, &object_copy, &values_equal), "object value equality succeeds");
             require_true(values_equal, "object copy equality true");
+            attribute_value = enact_value_make_string(copy_test_name("stored"));
+            require_true(
+                enact_object_define_attribute(object_value.as.as_object, "name", attribute_value),
+                "object define string attribute succeeds");
+            enact_value_free(&attribute_value);
+            require_true(
+                enact_object_lookup_attribute(object_value.as.as_object, "name", &attribute_lookup),
+                "object lookup string attribute succeeds");
+            require_true(attribute_lookup.kind == ENACT_VALUE_STRING, "object lookup attribute kind");
+            require_true(strcmp(attribute_lookup.as.as_string, "stored") == 0, "object lookup attribute value");
+            enact_value_free(&attribute_lookup);
+            attribute_value = enact_value_make_int(99);
+            require_true(
+                enact_object_define_attribute(object_value.as.as_object, "name", attribute_value),
+                "object redefine attribute succeeds");
+            require_true(
+                enact_object_lookup_attribute(object_value.as.as_object, "name", &attribute_lookup),
+                "object lookup redefined attribute succeeds");
+            require_true(attribute_lookup.kind == ENACT_VALUE_INT, "object lookup redefined attribute kind");
+            require_true(attribute_lookup.as.as_int == 99, "object lookup redefined attribute value");
+            enact_value_free(&attribute_lookup);
+            require_true(
+                !enact_object_lookup_attribute(object_value.as.as_object, "missing", &attribute_lookup),
+                "object lookup missing attribute fails");
             require_true(
                 enact_value_equal(&object_value, &other_object_value, &values_equal),
                 "independent object equality succeeds");
@@ -1392,6 +1424,22 @@ static void test_ast_clone_helpers(void)
     enact_ast_free(clone);
     enact_ast_free(original);
 
+    original = enact_ast_new_attribute(
+        enact_ast_new_with(
+            enact_ast_new_unary(AST_NEW, enact_ast_new_identifier(copy_test_name("Object"))),
+            copy_test_name("x"),
+            enact_ast_new_int(42)),
+        copy_test_name("x"));
+    require_true(original != NULL, "attribute clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "attribute clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "attribute clone evaluates");
+    require_true(value.kind == ENACT_VALUE_INT, "attribute clone result kind");
+    require_true(value.as.as_int == 42, "attribute clone result value");
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
     original = enact_ast_new_binary(AST_CONS, enact_ast_new_int(1), enact_ast_new_nil());
     require_true(original != NULL, "cons clone source created");
     clone = enact_ast_clone(original);
@@ -1794,6 +1842,23 @@ static void test_api_and_scan_helpers(void)
     require_true(capture.values[0].as.as_int == 6, "session script newline first value");
     require_true(capture.values[1].kind == ENACT_VALUE_INT, "session script newline second kind");
     require_true(capture.values[1].as.as_int == 7, "session script newline second value");
+    script_capture_free(&capture);
+
+    memset(&capture, 0, sizeof(capture));
+    enact_diag_reset(&diag);
+    require_true(
+        enact_session_eval_script(
+            &session,
+            "class AttrNode < Object\nattr_n:=new AttrNode with x:=17\nattr_n.x\n",
+            script_capture_result,
+            &capture,
+            &diag),
+        "session script accepts dot attribute access");
+    require_true(capture.count == 3, "session script attribute result count");
+    require_true(capture.values[0].kind == ENACT_VALUE_CLASS, "session script attribute class kind");
+    require_true(capture.values[1].kind == ENACT_VALUE_OBJECT, "session script attribute object kind");
+    require_true(capture.values[2].kind == ENACT_VALUE_INT, "session script attribute value kind");
+    require_true(capture.values[2].as.as_int == 17, "session script attribute value");
     script_capture_free(&capture);
 
     result = enact_session_eval_text(&session, "script_x+3.");
