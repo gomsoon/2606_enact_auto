@@ -13,6 +13,7 @@ typedef enum {
     ENACT_VALUE_INT,
     ENACT_VALUE_BOOL,
     ENACT_VALUE_STRING,
+    ENACT_VALUE_ATOM,
     ENACT_VALUE_FUNCTION,
     ENACT_VALUE_LIST,
     ENACT_VALUE_BUILTIN,
@@ -25,6 +26,7 @@ typedef struct {
         int32_t as_int;
         bool as_bool;
         char *as_string;
+        char *as_atom;
         EnactFunction *as_function;
         EnactList *as_list;
         const EnactBuiltin *as_builtin;
@@ -56,6 +58,15 @@ static inline EnactValue enact_value_make_string(char *value)
 
     result.kind = ENACT_VALUE_STRING;
     result.as.as_string = value;
+    return result;
+}
+
+static inline EnactValue enact_value_make_atom(char *value)
+{
+    EnactValue result;
+
+    result.kind = ENACT_VALUE_ATOM;
+    result.as.as_atom = value;
     return result;
 }
 

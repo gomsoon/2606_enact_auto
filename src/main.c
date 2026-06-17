@@ -135,6 +135,12 @@ static void enact_print_string_inner(FILE *stream, const char *value)
     fputc('"', stream);
 }
 
+static void enact_print_atom_inner(FILE *stream, const char *value)
+{
+    fputc('\'', stream);
+    fputs(value ? value : "", stream);
+}
+
 static void enact_print_list_inner(FILE *stream, EnactList *list)
 {
     const EnactValue *head;
@@ -168,6 +174,9 @@ static void enact_print_value_inner(FILE *stream, const EnactValue *value)
         break;
     case ENACT_VALUE_STRING:
         enact_print_string_inner(stream, value->as.as_string);
+        break;
+    case ENACT_VALUE_ATOM:
+        enact_print_atom_inner(stream, value->as.as_atom);
         break;
     case ENACT_VALUE_FUNCTION:
         fputs("<function>", stream);

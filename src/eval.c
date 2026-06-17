@@ -828,6 +828,13 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
             return 0;
         }
         return 1;
+    case AST_ATOM_LITERAL:
+        literal = enact_value_make_atom(ast->as.atom_value);
+        if (!enact_value_copy(out, &literal)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        return 1;
     case AST_NIL:
         *out = enact_value_make_list(NULL);
         return 1;

@@ -1,6 +1,7 @@
 CC ?= cc
 CFLAGS ?= -std=c11 -Wall -Wextra -O0 -g
 CPPFLAGS ?= -Isrc -Ibuild
+DEPFLAGS ?= -MMD -MP
 
 BISON ?= bison
 FLEX ?= flex
@@ -40,6 +41,8 @@ LIB_OBJS := \
 	$(BUILD_DIR)/enact.tab.o \
 	$(BUILD_DIR)/lex.yy.o
 
+DEPS := $(OBJS:.o=.d) $(BUILD_DIR)/unit_tests.d
+
 HANDWRITTEN_C_COVERAGE_SRCS := \
 	$(SRC_DIR)/ast.c \
 	$(SRC_DIR)/function.c \
@@ -69,22 +72,22 @@ $(BUILD_DIR)/lex.yy.c: $(SRC_DIR)/enact.l $(BUILD_DIR)/enact.tab.h | $(BUILD_DIR
 	$(FLEX) -o $(BUILD_DIR)/lex.yy.c $(SRC_DIR)/enact.l
 
 $(BUILD_DIR)/enact.tab.o: $(BUILD_DIR)/enact.tab.c $(GENERATED_H) | $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/lex.yy.o: $(BUILD_DIR)/lex.yy.c $(GENERATED_H) | $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/scan.o: $(SRC_DIR)/scan.c $(GENERATED_H) | $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/enact: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $@
 
 $(BUILD_DIR)/unit_tests: $(LIB_OBJS) tests/unit_tests.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/unit_tests.c $(LIB_OBJS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -MF $(BUILD_DIR)/unit_tests.d tests/unit_tests.c $(LIB_OBJS) -o $@
 
 test: $(BUILD_DIR)/enact $(BUILD_DIR)/unit_tests
 	python3 tests/run_tests.py
@@ -101,3 +104,5 @@ clean:
 	rm -f *.gcov
 
 .PHONY: all test coverage clean
+
+-include $(DEPS)

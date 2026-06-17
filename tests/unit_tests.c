@@ -174,7 +174,9 @@ static void test_value_helpers(void)
     EnactValue int_value = enact_value_make_int(-12);
     EnactValue bool_value = enact_value_make_bool(true);
     EnactValue string_value = enact_value_make_string(copy_test_name("hello"));
+    EnactValue atom_value = enact_value_make_atom(copy_test_name("hello"));
     EnactValue string_copy;
+    EnactValue atom_copy;
     EnactValue list_head;
     EnactValue list_value;
     EnactValue list_copy;
@@ -211,6 +213,18 @@ static void test_value_helpers(void)
     require_true(string_copy.as.as_string != string_value.as.as_string, "string copy is deep");
     enact_value_free(&string_copy);
     enact_value_free(&string_value);
+
+    require_true(atom_value.kind == ENACT_VALUE_ATOM, "atom value kind");
+    require_true(atom_value.as.as_atom != NULL, "atom value payload allocated");
+    require_true(strcmp(atom_value.as.as_atom, "hello") == 0, "atom value payload");
+    require_true(enact_value_copy(&atom_copy, &atom_value), "atom value copy succeeds");
+    require_true(atom_copy.kind == ENACT_VALUE_ATOM, "atom copy kind");
+    require_true(strcmp(atom_copy.as.as_atom, "hello") == 0, "atom copy payload");
+    require_true(atom_copy.as.as_atom != atom_value.as.as_atom, "atom copy is deep");
+    require_true(enact_value_equal(&atom_value, &atom_copy, &values_equal), "atom value equality succeeds");
+    require_true(values_equal, "atom value equality true");
+    enact_value_free(&atom_copy);
+    enact_value_free(&atom_value);
 
     list_head = enact_value_make_int(42);
     list = enact_list_cons(&list_head, NULL);
@@ -1178,6 +1192,18 @@ static void test_ast_clone_helpers(void)
     enact_ast_free(clone);
     enact_ast_free(original);
 
+    original = enact_ast_new_atom(NULL);
+    require_true(original != NULL, "null atom clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "null atom clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "null atom clone evaluates");
+    require_true(value.kind == ENACT_VALUE_ATOM, "null atom clone result kind");
+    require_true(strcmp(value.as.as_atom, "") == 0, "null atom clone result value");
+    enact_value_free(&value);
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
     original = enact_ast_new_nil();
     require_true(original != NULL, "nil clone source created");
     clone = enact_ast_clone(original);
@@ -1309,6 +1335,7 @@ static void test_eval_edge_cases(void)
     EnactAst bool_true = {0};
     EnactAst bool_false = {0};
     EnactAst string_node = {0};
+    EnactAst atom_node = {0};
     EnactAst eq_node = {0};
     EnactAst neq_node = {0};
     EnactAst lt_node = {0};
@@ -1359,6 +1386,8 @@ static void test_eval_edge_cases(void)
     bool_false.as.bool_value = 0;
     string_node.kind = AST_STRING_LITERAL;
     string_node.as.string_value = "unit";
+    atom_node.kind = AST_ATOM_LITERAL;
+    atom_node.as.atom_value = "unit";
 
     eq_node.kind = AST_EQ;
     eq_node.as.binary.left = &bool_true;
@@ -1457,6 +1486,12 @@ static void test_eval_edge_cases(void)
     require_true(enact_eval_ast(&string_node, &value, &diag), "string literal ast succeeds");
     require_true(value.kind == ENACT_VALUE_STRING, "string literal ast kind");
     require_true(strcmp(value.as.as_string, "unit") == 0, "string literal ast value");
+    enact_value_free(&value);
+
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(&atom_node, &value, &diag), "atom literal ast succeeds");
+    require_true(value.kind == ENACT_VALUE_ATOM, "atom literal ast kind");
+    require_true(strcmp(value.as.as_atom, "unit") == 0, "atom literal ast value");
     enact_value_free(&value);
 }
 

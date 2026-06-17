@@ -26,6 +26,8 @@ static const char *enact_token_name(int token)
         return "TOK_IDENTIFIER";
     case TOK_STRING_LITERAL:
         return "TOK_STRING_LITERAL";
+    case TOK_ATOM_LITERAL:
+        return "TOK_ATOM_LITERAL";
     case TOK_NIL:
         return "TOK_NIL";
     case TOK_UMINUS:
@@ -154,7 +156,7 @@ int enact_dump_tokens_text(const char *source, FILE *out, EnactDiag *diag)
         }
 
         fprintf(out, "%s%s", first ? "" : " ", enact_token_name(token));
-        if (token == TOK_IDENTIFIER || token == TOK_STRING_LITERAL) {
+        if (token == TOK_IDENTIFIER || token == TOK_STRING_LITERAL || token == TOK_ATOM_LITERAL) {
             free(yylval.text);
         }
         first = false;

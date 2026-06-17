@@ -291,6 +291,17 @@ EnactAst *enact_ast_new_string(char *value)
     return ast;
 }
 
+EnactAst *enact_ast_new_atom(char *value)
+{
+    EnactAst *ast = enact_ast_alloc(AST_ATOM_LITERAL);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.atom_value = value;
+    return ast;
+}
+
 EnactAst *enact_ast_new_nil(void)
 {
     return enact_ast_alloc(AST_NIL);
@@ -659,6 +670,16 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
             free(text);
         }
         break;
+    case AST_ATOM_LITERAL:
+        text = enact_ast_copy_text(ast->as.atom_value);
+        if (!text) {
+            return NULL;
+        }
+        copy = enact_ast_new_atom(text);
+        if (!copy) {
+            free(text);
+        }
+        break;
     case AST_NIL:
         copy = enact_ast_new_nil();
         break;
@@ -734,6 +755,9 @@ void enact_ast_free(EnactAst *ast)
         break;
     case AST_STRING_LITERAL:
         free(ast->as.string_value);
+        break;
+    case AST_ATOM_LITERAL:
+        free(ast->as.atom_value);
         break;
     case AST_IDENTIFIER:
         free(ast->as.identifier_name);

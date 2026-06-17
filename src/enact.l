@@ -53,6 +53,25 @@ static char *enact_copy_yytext(void)
     return copy;
 }
 
+static char *enact_copy_yytext_from(size_t offset)
+{
+    size_t length = (size_t)yyleng;
+    char *copy;
+
+    if (offset > length) {
+        return NULL;
+    }
+
+    copy = malloc(length - offset + 1);
+    if (!copy) {
+        return NULL;
+    }
+
+    memcpy(copy, yytext + offset, length - offset);
+    copy[length - offset] = '\0';
+    return copy;
+}
+
 static char *enact_decode_string_literal(int *bad_escape)
 {
     size_t length = (size_t)yyleng;
@@ -213,6 +232,25 @@ STRING_CHAR ([^"\\\r\n]|\\.)
         enact_diag_set(&context->diag, ENACT_ERR_LEX_BAD_STRING, enact_current_offset_or_unknown(state));
     }
     return TOK_ERROR;
+}
+
+"'"{IDENTIFIER} {
+    EnactScannerState *state = enact_get_scanner_state();
+    EnactParseContext *context = enact_get_parse_context();
+
+    yylval.text = enact_copy_yytext_from(1);
+    if (!yylval.text) {
+        if (context) {
+            enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, enact_current_offset_or_unknown(state));
+        }
+        return TOK_ERROR;
+    }
+
+    if (state) {
+        state->last_token = TOK_ATOM_LITERAL;
+        state->expect_operand = 0;
+    }
+    return TOK_ATOM_LITERAL;
 }
 
 {IDENTIFIER} {

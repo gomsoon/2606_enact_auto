@@ -45,6 +45,18 @@ static EnactAst *enact_make_string(char *value)
     return ast;
 }
 
+static EnactAst *enact_make_atom(char *value)
+{
+    EnactAst *ast = enact_ast_new_atom(value);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_nil(void)
 {
     EnactAst *ast = enact_ast_new_nil();
@@ -630,7 +642,7 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 }
 
 %token <u64> TOK_INT_LITERAL
-%token <text> TOK_IDENTIFIER TOK_STRING_LITERAL
+%token <text> TOK_IDENTIFIER TOK_STRING_LITERAL TOK_ATOM_LITERAL
 %token TOK_UMINUS TOK_PLUS TOK_MINUS TOK_STAR TOK_SLASH TOK_LPAREN TOK_RPAREN TOK_DOT TOK_ERROR
 %token TOK_EQEQ TOK_TRUE TOK_FALSE TOK_NIL TOK_NOT TOK_AND TOK_OR TOK_IF TOK_THEN TOK_ELSE
 %token TOK_NEQ TOK_LT TOK_GT TOK_LTE TOK_GTE
@@ -1034,6 +1046,14 @@ application_argument:
             YYABORT;
         }
     }
+    | TOK_ATOM_LITERAL
+    {
+        $$ = enact_make_atom($1);
+        if (!$$) {
+            free($1);
+            YYABORT;
+        }
+    }
     | TOK_IDENTIFIER
     {
         $$ = enact_make_identifier($1);
@@ -1117,6 +1137,14 @@ primary:
     | TOK_STRING_LITERAL
     {
         $$ = enact_make_string($1);
+        if (!$$) {
+            free($1);
+            YYABORT;
+        }
+    }
+    | TOK_ATOM_LITERAL
+    {
+        $$ = enact_make_atom($1);
         if (!$$) {
             free($1);
             YYABORT;

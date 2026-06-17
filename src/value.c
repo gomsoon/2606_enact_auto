@@ -130,6 +130,9 @@ int enact_value_equal(const EnactValue *left, const EnactValue *right, bool *out
     case ENACT_VALUE_STRING:
         *out = strcmp(left->as.as_string, right->as.as_string) == 0;
         return 1;
+    case ENACT_VALUE_ATOM:
+        *out = strcmp(left->as.as_atom, right->as.as_atom) == 0;
+        return 1;
     case ENACT_VALUE_FUNCTION:
         *out = left->as.as_function == right->as.as_function;
         return 1;
@@ -161,6 +164,10 @@ int enact_value_copy(EnactValue *out, const EnactValue *in)
         out->kind = ENACT_VALUE_STRING;
         out->as.as_string = enact_value_copy_string(in->as.as_string);
         return out->as.as_string != NULL;
+    case ENACT_VALUE_ATOM:
+        out->kind = ENACT_VALUE_ATOM;
+        out->as.as_atom = enact_value_copy_string(in->as.as_atom);
+        return out->as.as_atom != NULL;
     case ENACT_VALUE_FUNCTION:
         out->kind = ENACT_VALUE_FUNCTION;
         out->as.as_function = enact_function_retain(in->as.as_function);
@@ -192,6 +199,8 @@ void enact_value_free(EnactValue *value)
 
     if (value->kind == ENACT_VALUE_STRING) {
         free(value->as.as_string);
+    } else if (value->kind == ENACT_VALUE_ATOM) {
+        free(value->as.as_atom);
     } else if (value->kind == ENACT_VALUE_FUNCTION) {
         enact_function_release(value->as.as_function);
     } else if (value->kind == ENACT_VALUE_LIST) {
