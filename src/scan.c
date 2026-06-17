@@ -86,6 +86,12 @@ static const char *enact_token_name(int token)
         return "TOK_FIX";
     case TOK_LOAD:
         return "TOK_LOAD";
+    case TOK_CLASS:
+        return "TOK_CLASS";
+    case TOK_NEW:
+        return "TOK_NEW";
+    case TOK_WITH:
+        return "TOK_WITH";
     case TOK_LPAREN:
         return "TOK_LPAREN";
     case TOK_RPAREN:
