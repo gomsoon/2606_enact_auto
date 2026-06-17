@@ -5,6 +5,7 @@ typedef struct EnactClass EnactClass;
 typedef struct EnactObject EnactObject;
 typedef struct EnactFunction EnactFunction;
 typedef struct EnactValue EnactValue;
+typedef struct EnactList EnactList;
 
 EnactClass *enact_class_new(const char *name);
 EnactClass *enact_class_new_with_superclass(const char *name, EnactClass *superclass);
@@ -21,5 +22,6 @@ void enact_object_release(EnactObject *object);
 EnactClass *enact_object_class(const EnactObject *object);
 int enact_object_define_attribute(EnactObject *object, const char *name, EnactValue value);
 int enact_object_lookup_attribute(const EnactObject *object, const char *name, EnactValue *out);
+int enact_object_attribute_names(const EnactObject *object, EnactList **out);
 
 #endif

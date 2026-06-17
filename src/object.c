@@ -309,3 +309,36 @@ int enact_object_lookup_attribute(const EnactObject *object, const char *name, E
 
     return 0;
 }
+
+int enact_object_attribute_names(const EnactObject *object, EnactList **out)
+{
+    const EnactAttribute *attribute;
+    EnactList *names = NULL;
+
+    if (!object || !out) {
+        return 0;
+    }
+
+    for (attribute = object->attributes; attribute; attribute = attribute->next) {
+        EnactList *next;
+        EnactValue name_value;
+        char *name_copy = enact_object_copy_text(attribute->name);
+
+        if (!name_copy) {
+            enact_list_release(names);
+            return 0;
+        }
+
+        name_value = enact_value_make_atom(name_copy);
+        next = enact_list_cons(&name_value, names);
+        enact_value_free(&name_value);
+        enact_list_release(names);
+        if (!next) {
+            return 0;
+        }
+        names = next;
+    }
+
+    *out = names;
+    return 1;
+}

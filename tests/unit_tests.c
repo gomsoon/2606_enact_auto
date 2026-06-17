@@ -195,6 +195,7 @@ static void test_value_helpers(void)
     EnactValue list_value;
     EnactValue list_copy;
     EnactList *list;
+    EnactList *attribute_names;
     EnactClass *empty_class;
     EnactClass *object_class;
     EnactClass *node_class;
@@ -286,6 +287,8 @@ static void test_value_helpers(void)
     require_true(enact_object_class(NULL) == NULL, "object class null");
     require_true(!enact_object_define_attribute(NULL, "x", enact_value_make_int(1)), "object define null object fails");
     require_true(!enact_object_lookup_attribute(NULL, "x", &attribute_lookup), "object lookup null object fails");
+    attribute_names = NULL;
+    require_true(!enact_object_attribute_names(NULL, &attribute_names), "object attribute names null object fails");
 
     object_class = enact_class_new("Object");
     require_true(object_class != NULL, "root class created");
@@ -321,6 +324,9 @@ static void test_value_helpers(void)
             require_true(
                 strcmp(enact_class_name(enact_object_class(object_value.as.as_object)), "Object") == 0,
                 "object value class name");
+            require_true(
+                !enact_object_attribute_names(object_value.as.as_object, NULL),
+                "object attribute names null out fails");
             require_true(enact_value_copy(&object_copy, &object_value), "object value copy succeeds");
             require_true(object_copy.kind == ENACT_VALUE_OBJECT, "object copy kind");
             require_true(object_copy.as.as_object == object_value.as.as_object, "object copy retains same object");
@@ -350,6 +356,17 @@ static void test_value_helpers(void)
             require_true(
                 !enact_object_lookup_attribute(object_value.as.as_object, "missing", &attribute_lookup),
                 "object lookup missing attribute fails");
+            attribute_names = NULL;
+            require_true(
+                enact_object_attribute_names(object_value.as.as_object, &attribute_names),
+                "object attribute names succeeds");
+            require_true(attribute_names != NULL, "object attribute names non-empty");
+            require_true(enact_list_head(attribute_names)->kind == ENACT_VALUE_ATOM, "object attribute name kind");
+            require_true(
+                strcmp(enact_list_head(attribute_names)->as.as_atom, "name") == 0,
+                "object attribute name value");
+            require_true(enact_list_tail(attribute_names) == NULL, "object attribute names tail nil");
+            enact_list_release(attribute_names);
             require_true(
                 enact_value_equal(&object_value, &other_object_value, &values_equal),
                 "independent object equality succeeds");
@@ -561,6 +578,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *atom = enact_builtin_lookup("atom");
     const EnactBuiltin *is_object = enact_builtin_lookup("isObject");
     const EnactBuiltin *classof = enact_builtin_lookup("classof");
+    const EnactBuiltin *attrs = enact_builtin_lookup("attrs");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *append = enact_builtin_lookup("append");
@@ -591,6 +609,7 @@ static void test_builtin_helpers(void)
     EnactValue map_args[2];
     EnactValue predicate_args[2];
     EnactValue reduce_args[3];
+    EnactValue attribute_value;
     EnactValue inner_left_value;
     EnactValue inner_right_value;
     EnactValue inner_true_value;
@@ -624,6 +643,7 @@ static void test_builtin_helpers(void)
     require_true(atom != NULL, "atom builtin lookup succeeds");
     require_true(is_object != NULL, "isObject builtin lookup succeeds");
     require_true(classof != NULL, "classof builtin lookup succeeds");
+    require_true(attrs != NULL, "attrs builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(append != NULL, "append builtin lookup succeeds");
@@ -648,6 +668,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(atom) == 1, "atom builtin arity");
     require_true(enact_builtin_arity(is_object) == 1, "isObject builtin arity");
     require_true(enact_builtin_arity(classof) == 1, "classof builtin arity");
+    require_true(enact_builtin_arity(attrs) == 1, "attrs builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_arity(append) == 2, "append builtin arity");
@@ -712,6 +733,21 @@ static void test_builtin_helpers(void)
         require_true(result.as.as_class == object_class, "classof object class identity");
         require_true(strcmp(enact_class_name(result.as.as_class), "Object") == 0, "classof object class name");
         enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(attrs, args, 1, &result, &diag), "attrs empty object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "attrs empty object result kind");
+        require_true(result.as.as_list == NULL, "attrs empty object result nil");
+        enact_value_free(&result);
+        attribute_value = enact_value_make_int(1);
+        require_true(enact_object_define_attribute(object, "x", attribute_value), "attrs test attribute define");
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(attrs, args, 1, &result, &diag), "attrs object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "attrs object result kind");
+        require_true(result.as.as_list != NULL, "attrs object result non-empty");
+        require_true(enact_list_head(result.as.as_list)->kind == ENACT_VALUE_ATOM, "attrs object head kind");
+        require_true(strcmp(enact_list_head(result.as.as_list)->as.as_atom, "x") == 0, "attrs object head value");
+        require_true(enact_list_tail(result.as.as_list) == NULL, "attrs object result tail nil");
+        enact_value_free(&result);
         enact_value_free(&args[0]);
     } else {
         enact_object_release(object);
@@ -721,6 +757,9 @@ static void test_builtin_helpers(void)
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(classof, args, 1, &result, &diag), "classof int fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_OBJECT, "classof int error code");
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(attrs, args, 1, &result, &diag), "attrs int fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_OBJECT, "attrs int error code");
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(version_builtin, NULL, 0, &result, &diag), "version apply succeeds");
     require_true(result.kind == ENACT_VALUE_STRING, "version result kind");
