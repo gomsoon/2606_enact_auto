@@ -6,6 +6,7 @@
 struct EnactClass {
     size_t ref_count;
     char *name;
+    EnactClass *superclass;
 };
 
 struct EnactObject {
@@ -34,6 +35,11 @@ static char *enact_object_copy_text(const char *text)
 
 EnactClass *enact_class_new(const char *name)
 {
+    return enact_class_new_with_superclass(name, NULL);
+}
+
+EnactClass *enact_class_new_with_superclass(const char *name, EnactClass *superclass)
+{
     EnactClass *class_value = calloc(1, sizeof(*class_value));
 
     if (!class_value) {
@@ -47,6 +53,7 @@ EnactClass *enact_class_new(const char *name)
     }
 
     class_value->ref_count = 1;
+    class_value->superclass = enact_class_retain(superclass);
     return class_value;
 }
 
@@ -72,12 +79,18 @@ void enact_class_release(EnactClass *class_value)
     }
 
     free(class_value->name);
+    enact_class_release(class_value->superclass);
     free(class_value);
 }
 
 const char *enact_class_name(const EnactClass *class_value)
 {
     return class_value ? class_value->name : "";
+}
+
+EnactClass *enact_class_superclass(const EnactClass *class_value)
+{
+    return class_value ? class_value->superclass : NULL;
 }
 
 EnactObject *enact_object_new(EnactClass *class_value)

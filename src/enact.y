@@ -141,6 +141,18 @@ static EnactAst *enact_make_fix(EnactNameList *names, EnactAst *body)
     return ast;
 }
 
+static EnactAst *enact_make_class_def(char *name, EnactAst *superclass)
+{
+    EnactAst *ast = enact_ast_new_class_def(name, superclass);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_assignment(char *name, EnactAst *value)
 {
     EnactAst *ast = enact_ast_new_assignment(name, value);
@@ -649,7 +661,7 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 %token TOK_ASSIGN TOK_LAMBDA TOK_SEMI TOK_COMMA TOK_CONS TOK_MOD TOK_WHERE TOK_FIX TOK_LOAD
 %token TOK_CLASS TOK_NEW TOK_WITH
 
-%type <ast> expr sequence fix_expr assignment lambda conditional logical_or logical_and where_expr logical_not comparison cons additive multiplicative unary call application_argument primary
+%type <ast> expr sequence fix_expr assignment class_definition lambda conditional logical_or logical_and where_expr logical_not comparison cons additive multiplicative unary call application_argument primary
 %type <ast_list> argument_list tuple_list
 %type <name_list> lambda_head
 
@@ -703,7 +715,11 @@ fix_expr:
     ;
 
 assignment:
-    call TOK_ASSIGN assignment
+    class_definition
+    {
+        $$ = $1;
+    }
+    | call TOK_ASSIGN assignment
     {
         $$ = enact_make_assignment_from_lhs($1, $3);
         if (!$$) {
@@ -713,6 +729,26 @@ assignment:
     | lambda
     {
         $$ = $1;
+    }
+    ;
+
+class_definition:
+    TOK_CLASS TOK_IDENTIFIER TOK_LT TOK_IDENTIFIER
+    {
+        EnactAst *superclass = enact_make_identifier($4);
+
+        if (!superclass) {
+            free($2);
+            free($4);
+            YYABORT;
+        }
+
+        $$ = enact_make_class_def($2, superclass);
+        if (!$$) {
+            free($2);
+            enact_ast_free(superclass);
+            YYABORT;
+        }
     }
     ;
 

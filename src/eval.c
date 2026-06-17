@@ -285,6 +285,39 @@ static int enact_eval_new(const EnactAst *ast, EnactEnv *env, EnactValue *out, E
     return 1;
 }
 
+static int enact_eval_class_def(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue superclass_value;
+    EnactClass *superclass = NULL;
+    EnactClass *class_value;
+    EnactValue result;
+
+    if (!enact_eval_value(ast->as.class_def.superclass, env, &superclass_value, diag)) {
+        return 0;
+    }
+    if (!enact_require_class(&superclass_value, &superclass, diag)) {
+        enact_value_free(&superclass_value);
+        return 0;
+    }
+
+    class_value = enact_class_new_with_superclass(ast->as.class_def.name, superclass);
+    enact_value_free(&superclass_value);
+    if (!class_value) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    result = enact_value_make_class(class_value);
+    if (!enact_env_define(env, ast->as.class_def.name, result)) {
+        enact_value_free(&result);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
 static int enact_eval_and(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue left;
@@ -943,6 +976,8 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
         return enact_eval_where(ast, env, out, diag);
     case AST_FIX:
         return enact_eval_fix(ast, env, out, diag);
+    case AST_CLASS_DEF:
+        return enact_eval_class_def(ast, env, out, diag);
     case AST_ASSIGN:
         return enact_eval_assignment(ast, env, out, diag);
     case AST_FUNCTION_LITERAL:

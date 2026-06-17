@@ -379,6 +379,18 @@ EnactAst *enact_ast_new_fix(EnactNameList *names, EnactAst *body)
     return ast;
 }
 
+EnactAst *enact_ast_new_class_def(char *name, EnactAst *superclass)
+{
+    EnactAst *ast = enact_ast_alloc(AST_CLASS_DEF);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.class_def.name = name;
+    ast->as.class_def.superclass = superclass;
+    return ast;
+}
+
 static EnactAst *enact_ast_new_assignment_with_flag(char *name, EnactAst *value, int recursive_function)
 {
     EnactAst *ast = enact_ast_alloc(AST_ASSIGN);
@@ -618,6 +630,32 @@ static EnactAst *enact_ast_clone_function_literal(const EnactAst *ast)
     return copy;
 }
 
+static EnactAst *enact_ast_clone_class_def(const EnactAst *ast)
+{
+    char *name = enact_ast_copy_text(ast->as.class_def.name);
+    EnactAst *superclass;
+    EnactAst *copy;
+
+    if (!name) {
+        return NULL;
+    }
+
+    superclass = enact_ast_clone(ast->as.class_def.superclass);
+    if (!superclass) {
+        free(name);
+        return NULL;
+    }
+
+    copy = enact_ast_new_class_def(name, superclass);
+    if (!copy) {
+        free(name);
+        enact_ast_free(superclass);
+        return NULL;
+    }
+
+    return copy;
+}
+
 static EnactAst *enact_ast_clone_call(const EnactAst *ast)
 {
     EnactAst *callee = enact_ast_clone(ast->as.call.callee);
@@ -728,6 +766,9 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
     case AST_FIX:
         copy = enact_ast_clone_fix(ast);
         break;
+    case AST_CLASS_DEF:
+        copy = enact_ast_clone_class_def(ast);
+        break;
     case AST_ASSIGN:
         copy = enact_ast_clone_assignment(ast);
         break;
@@ -804,6 +845,10 @@ void enact_ast_free(EnactAst *ast)
     case AST_FIX:
         enact_name_list_free(ast->as.fix_expr.names);
         enact_ast_free(ast->as.fix_expr.body);
+        break;
+    case AST_CLASS_DEF:
+        free(ast->as.class_def.name);
+        enact_ast_free(ast->as.class_def.superclass);
         break;
     case AST_ASSIGN:
         free(ast->as.assignment.name);

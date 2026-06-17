@@ -191,6 +191,7 @@ static void test_value_helpers(void)
     EnactList *list;
     EnactClass *empty_class;
     EnactClass *object_class;
+    EnactClass *node_class;
     EnactObject *object;
     EnactObject *other_object;
     bool values_equal = false;
@@ -270,6 +271,7 @@ static void test_value_helpers(void)
     require_true(enact_class_retain(NULL) == NULL, "class retain null");
     enact_class_release(NULL);
     require_true(strcmp(enact_class_name(NULL), "") == 0, "class name null");
+    require_true(enact_class_superclass(NULL) == NULL, "class superclass null");
     require_true(enact_object_new(NULL) == NULL, "object new null class fails");
     require_true(enact_object_retain(NULL) == NULL, "object retain null");
     enact_object_release(NULL);
@@ -281,11 +283,20 @@ static void test_value_helpers(void)
         class_value = enact_value_make_class(object_class);
         require_true(class_value.kind == ENACT_VALUE_CLASS, "class value kind");
         require_true(strcmp(enact_class_name(class_value.as.as_class), "Object") == 0, "class value name");
+        require_true(enact_class_superclass(class_value.as.as_class) == NULL, "root class has no superclass");
         require_true(enact_value_copy(&class_copy, &class_value), "class value copy succeeds");
         require_true(class_copy.kind == ENACT_VALUE_CLASS, "class copy kind");
         require_true(class_copy.as.as_class == class_value.as.as_class, "class copy retains same class");
         require_true(enact_value_equal(&class_value, &class_copy, &values_equal), "class value equality succeeds");
         require_true(values_equal, "class value equality true");
+
+        node_class = enact_class_new_with_superclass("Node", object_class);
+        require_true(node_class != NULL, "subclass created");
+        if (node_class) {
+            require_true(strcmp(enact_class_name(node_class), "Node") == 0, "subclass name");
+            require_true(enact_class_superclass(node_class) == object_class, "subclass superclass");
+            enact_class_release(node_class);
+        }
 
         object = enact_object_new(object_class);
         other_object = enact_object_new(object_class);
@@ -542,6 +553,8 @@ static void test_builtin_helpers(void)
     EnactDiag diag;
     EnactEnv env;
     EnactAst *call;
+    EnactAst *class_def;
+    EnactAst *new_node;
     bool values_equal = false;
 
     require_true(hd != NULL, "hd builtin lookup succeeds");
@@ -1006,6 +1019,35 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(!enact_install_builtins(NULL), "install builtins null env fails");
 
+    class_def = enact_ast_new_class_def(
+        copy_test_name("Node"),
+        enact_ast_new_identifier(copy_test_name("Object")));
+    require_true(class_def != NULL, "class def ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(class_def, &env, &result, &diag), "class def ast evaluates");
+    require_true(result.kind == ENACT_VALUE_CLASS, "class def result kind");
+    require_true(strcmp(enact_class_name(result.as.as_class), "Node") == 0, "class def result name");
+    require_true(
+        strcmp(enact_class_name(enact_class_superclass(result.as.as_class)), "Object") == 0,
+        "class def superclass name");
+    require_true(enact_env_lookup(&env, "Node", &lookup_value), "class def installs env binding");
+    require_true(lookup_value.kind == ENACT_VALUE_CLASS, "class def env binding kind");
+    require_true(lookup_value.as.as_class == result.as.as_class, "class def env binding identity");
+    enact_value_free(&lookup_value);
+    enact_value_free(&result);
+    enact_ast_free(class_def);
+
+    new_node = enact_ast_new_unary(AST_NEW, enact_ast_new_identifier(copy_test_name("Node")));
+    require_true(new_node != NULL, "new subclass ast created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast_with_env(new_node, &env, &result, &diag), "new subclass ast evaluates");
+    require_true(result.kind == ENACT_VALUE_OBJECT, "new subclass result kind");
+    require_true(
+        strcmp(enact_class_name(enact_object_class(result.as.as_object)), "Node") == 0,
+        "new subclass object class name");
+    enact_value_free(&result);
+    enact_ast_free(new_node);
+
     call = enact_ast_new_call(
         enact_ast_new_identifier(copy_test_name("hd")),
         make_test_ast_list1(enact_ast_new_binary(AST_CONS, enact_ast_new_int(12), enact_ast_new_nil())));
@@ -1329,6 +1371,23 @@ static void test_ast_clone_helpers(void)
     require_true(
         strcmp(enact_class_name(enact_object_class(value.as.as_object)), "Object") == 0,
         "new Object clone result class");
+    enact_value_free(&value);
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
+    original = enact_ast_new_class_def(
+        copy_test_name("Node"),
+        enact_ast_new_identifier(copy_test_name("Object")));
+    require_true(original != NULL, "class def clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "class def clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "class def clone evaluates");
+    require_true(value.kind == ENACT_VALUE_CLASS, "class def clone result kind");
+    require_true(strcmp(enact_class_name(value.as.as_class), "Node") == 0, "class def clone result name");
+    require_true(
+        strcmp(enact_class_name(enact_class_superclass(value.as.as_class)), "Object") == 0,
+        "class def clone superclass");
     enact_value_free(&value);
     enact_ast_free(clone);
     enact_ast_free(original);
