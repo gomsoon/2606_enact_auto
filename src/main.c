@@ -256,16 +256,14 @@ static int enact_run_script(const char *source)
 
 static int enact_run_session_source(EnactSession *session, const char *source)
 {
-    EnactResult result = enact_session_eval_text(session, source);
+    EnactDiag diag;
 
-    if (!result.ok) {
-        enact_print_diag(stderr, &result.error);
-        enact_result_free(&result);
+    enact_diag_reset(&diag);
+    if (!enact_session_eval_script(session, source, enact_print_script_result, stdout, &diag)) {
+        enact_print_diag(stderr, &diag);
         return 1;
     }
 
-    enact_print_value(stdout, &result.value);
-    enact_result_free(&result);
     return 0;
 }
 

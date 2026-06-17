@@ -144,6 +144,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LIST_EMPTY), "ENACT_ERR_LIST_EMPTY") == 0, "error code list empty");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ARITY_MISMATCH), "ENACT_ERR_ARITY_MISMATCH") == 0, "error code arity mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_NAME_UNBOUND), "ENACT_ERR_NAME_UNBOUND") == 0, "error code unbound name");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_LOAD_FILE), "ENACT_ERR_LOAD_FILE") == 0, "error code load file");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_OUT_OF_MEMORY), "ENACT_ERR_OUT_OF_MEMORY") == 0, "error code oom");
     require_true(strcmp(enact_error_code_name((EnactErrorCode)999), "ENACT_ERR_UNKNOWN") == 0, "error code unknown");
     require_true(strcmp(enact_error_message(ENACT_OK), "ok") == 0, "error message ok");
@@ -158,6 +159,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_LIST_EMPTY), "non-empty list required") == 0, "error message list empty");
     require_true(strcmp(enact_error_message(ENACT_ERR_ARITY_MISMATCH), "function arity mismatch") == 0, "error message arity mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_NAME_UNBOUND), "unbound identifier") == 0, "error message unbound name");
+    require_true(strcmp(enact_error_message(ENACT_ERR_LOAD_FILE), "could not load file") == 0, "error message load file");
     require_true(strcmp(enact_error_message(ENACT_ERR_OUT_OF_MEMORY), "out of memory") == 0, "error message oom");
     require_true(strcmp(enact_error_message((EnactErrorCode)999), "unknown error") == 0, "error message unknown");
     enact_diag_set(NULL, ENACT_ERR_INT_OVERFLOW, 1);
@@ -470,6 +472,7 @@ static void test_builtin_helpers(void)
     require_true(difference != NULL, "difference builtin lookup succeeds");
     require_true(intersection != NULL, "intersection builtin lookup succeeds");
     require_true(enact_builtin_lookup("missing") == NULL, "missing builtin lookup fails");
+    require_true(enact_builtin_lookup("load") == NULL, "load is not a builtin");
     require_true(enact_builtin_lookup(NULL) == NULL, "null builtin lookup fails");
     require_true(strcmp(enact_builtin_name(hd), "hd") == 0, "hd builtin name");
     require_true(strcmp(enact_builtin_name(NULL), "") == 0, "null builtin name");
@@ -1470,6 +1473,9 @@ static void test_api_and_scan_helpers(void)
     EnactValue applied;
     EnactValue non_callable;
     FILE *tmp;
+    FILE *load_file;
+    const char *load_path = "/tmp/enact_unit_load_script.en";
+    char load_command[256];
     char output[256];
     size_t nread;
 
@@ -1585,6 +1591,39 @@ static void test_api_and_scan_helpers(void)
     require_true(result.value.kind == ENACT_VALUE_INT, "session script survives failure kind");
     require_true(result.value.as.as_int == 1, "session script survives failure value");
     enact_result_free(&result);
+
+    load_file = fopen(load_path, "w");
+    require_true(load_file != NULL, "session load file created");
+    if (load_file) {
+        fprintf(load_file, "load_unit:=40.\nload_unit+2.");
+        fclose(load_file);
+
+        snprintf(load_command, sizeof(load_command), "load \"%s\".", load_path);
+        memset(&capture, 0, sizeof(capture));
+        enact_diag_reset(&diag);
+        require_true(
+            enact_session_eval_script(&session, load_command, script_capture_result, &capture, &diag),
+            "session script load command succeeds");
+        require_true(capture.count == 2, "session script load result count");
+        require_true(capture.values[0].kind == ENACT_VALUE_INT, "session script load first kind");
+        require_true(capture.values[0].as.as_int == 40, "session script load first value");
+        require_true(capture.values[1].kind == ENACT_VALUE_INT, "session script load second kind");
+        require_true(capture.values[1].as.as_int == 42, "session script load second value");
+        script_capture_free(&capture);
+
+        result = enact_session_eval_text(&session, "load_unit+1.");
+        require_true(result.ok, "session script load leaves bindings");
+        require_true(result.value.kind == ENACT_VALUE_INT, "session script loaded binding kind");
+        require_true(result.value.as.as_int == 41, "session script loaded binding value");
+        enact_result_free(&result);
+
+        result = enact_session_eval_text(&session, load_command);
+        require_true(!result.ok, "session eval text does not execute load command");
+        require_true(result.error.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "session eval text load command code");
+        enact_result_free(&result);
+
+        remove(load_path);
+    }
 
     stateless_result = enact_eval_text("solo:=9.");
     require_true(stateless_result.ok, "stateless assignment succeeds");

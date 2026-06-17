@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -123,6 +124,19 @@ static char *enact_copy_source_range(const char *source, size_t start, size_t en
     return copy;
 }
 
+static int enact_is_script_space(char ch)
+{
+    return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
+}
+
+static int enact_is_identifier_char(char ch)
+{
+    return (ch >= 'A' && ch <= 'Z') ||
+        (ch >= 'a' && ch <= 'z') ||
+        (ch >= '0' && ch <= '9') ||
+        ch == '_';
+}
+
 static void enact_skip_script_trivia(const char *source, size_t length, size_t *offset)
 {
     size_t index;
@@ -135,7 +149,7 @@ static void enact_skip_script_trivia(const char *source, size_t length, size_t *
     while (index < length) {
         char ch = source[index];
 
-        if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+        if (enact_is_script_space(ch)) {
             index += 1;
             continue;
         }
@@ -152,6 +166,19 @@ static void enact_skip_script_trivia(const char *source, size_t length, size_t *
     }
 
     *offset = index;
+}
+
+static int enact_skip_required_command_trivia(const char *source, size_t length, size_t *offset)
+{
+    size_t before;
+
+    if (!source || !offset) {
+        return 0;
+    }
+
+    before = *offset;
+    enact_skip_script_trivia(source, length, offset);
+    return *offset > before;
 }
 
 static int enact_next_script_chunk(
@@ -223,6 +250,215 @@ static int enact_next_script_chunk(
     *end = length;
     *offset = length;
     return 1;
+}
+
+static char *enact_read_file_text(const char *path, EnactDiag *diag)
+{
+    FILE *stream;
+    size_t capacity = 1024;
+    size_t length = 0;
+    char *buffer;
+
+    if (!path) {
+        enact_diag_set(diag, ENACT_ERR_LOAD_FILE, -1);
+        return NULL;
+    }
+
+    stream = fopen(path, "rb");
+    if (!stream) {
+        enact_diag_set(diag, ENACT_ERR_LOAD_FILE, -1);
+        return NULL;
+    }
+
+    buffer = malloc(capacity);
+    if (!buffer) {
+        fclose(stream);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return NULL;
+    }
+
+    for (;;) {
+        size_t remaining = capacity - length;
+        size_t read_count;
+
+        if (remaining < 512) {
+            char *grown;
+
+            capacity *= 2;
+            grown = realloc(buffer, capacity);
+            if (!grown) {
+                free(buffer);
+                fclose(stream);
+                enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+                return NULL;
+            }
+            buffer = grown;
+            remaining = capacity - length;
+        }
+
+        read_count = fread(buffer + length, 1, remaining - 1, stream);
+        length += read_count;
+        if (ferror(stream)) {
+            free(buffer);
+            fclose(stream);
+            enact_diag_set(diag, ENACT_ERR_LOAD_FILE, -1);
+            return NULL;
+        }
+        if (feof(stream)) {
+            break;
+        }
+    }
+
+    fclose(stream);
+    buffer[length] = '\0';
+    return buffer;
+}
+
+static char *enact_parse_load_string_literal(
+    const char *source,
+    size_t length,
+    size_t *offset,
+    EnactDiag *diag)
+{
+    size_t read_index;
+    size_t write_index = 0;
+    char *copy;
+
+    if (!source || !offset || *offset >= length || source[*offset] != '"') {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, offset ? (int)*offset : -1);
+        return NULL;
+    }
+
+    copy = malloc(length - *offset);
+    if (!copy) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return NULL;
+    }
+
+    for (read_index = *offset + 1; read_index < length; read_index += 1) {
+        char ch = source[read_index];
+
+        if (ch == '"') {
+            copy[write_index] = '\0';
+            *offset = read_index + 1;
+            return copy;
+        }
+        if (ch == '\r' || ch == '\n') {
+            free(copy);
+            enact_diag_set(diag, ENACT_ERR_LEX_BAD_STRING, (int)read_index);
+            return NULL;
+        }
+        if (ch != '\\') {
+            copy[write_index++] = ch;
+            continue;
+        }
+
+        read_index += 1;
+        if (read_index >= length) {
+            free(copy);
+            enact_diag_set(diag, ENACT_ERR_LEX_BAD_STRING, (int)(read_index - 1));
+            return NULL;
+        }
+
+        switch (source[read_index]) {
+        case '\\':
+            copy[write_index++] = '\\';
+            break;
+        case '"':
+            copy[write_index++] = '"';
+            break;
+        case 'n':
+            copy[write_index++] = '\n';
+            break;
+        case 'r':
+            copy[write_index++] = '\r';
+            break;
+        case 't':
+            copy[write_index++] = '\t';
+            break;
+        default:
+            free(copy);
+            enact_diag_set(diag, ENACT_ERR_LEX_BAD_STRING, (int)(read_index - 1));
+            return NULL;
+        }
+    }
+
+    free(copy);
+    enact_diag_set(diag, ENACT_ERR_LEX_BAD_STRING, (int)*offset);
+    return NULL;
+}
+
+static int enact_script_chunk_is_load_command(const char *chunk, size_t length)
+{
+    size_t offset = 0;
+
+    enact_skip_script_trivia(chunk, length, &offset);
+    return offset + 4 <= length &&
+        memcmp(chunk + offset, "load", 4) == 0 &&
+        (offset + 4 == length || !enact_is_identifier_char(chunk[offset + 4]));
+}
+
+static int enact_session_eval_load_command(
+    EnactSession *session,
+    const char *chunk,
+    EnactScriptResultCallback callback,
+    void *user_data,
+    EnactDiag *diag)
+{
+    size_t length;
+    size_t offset = 0;
+    char *path;
+    char *loaded_source;
+    int status;
+
+    if (!chunk) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    length = strlen(chunk);
+    enact_skip_script_trivia(chunk, length, &offset);
+    offset += 4;
+
+    if (!enact_skip_required_command_trivia(chunk, length, &offset)) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, (int)offset);
+        return 0;
+    }
+
+    path = enact_parse_load_string_literal(chunk, length, &offset, diag);
+    if (!path) {
+        return 0;
+    }
+
+    enact_skip_script_trivia(chunk, length, &offset);
+    if (offset >= length) {
+        free(path);
+        enact_diag_set(diag, ENACT_ERR_PARSE_MISSING_DOT, (int)offset);
+        return 0;
+    }
+    if (chunk[offset] != '.') {
+        free(path);
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, (int)offset);
+        return 0;
+    }
+
+    offset += 1;
+    enact_skip_script_trivia(chunk, length, &offset);
+    if (offset != length) {
+        free(path);
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, (int)offset);
+        return 0;
+    }
+
+    loaded_source = enact_read_file_text(path, diag);
+    free(path);
+    if (!loaded_source) {
+        return 0;
+    }
+
+    status = enact_session_eval_script(session, loaded_source, callback, user_data, diag);
+    free(loaded_source);
+    return status;
 }
 
 static EnactResult enact_eval_parsed_ast(EnactAst *root, EnactEnv *env)
@@ -354,6 +590,16 @@ int enact_session_eval_script(
         if (!chunk) {
             enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
             return 0;
+        }
+
+        if (enact_script_chunk_is_load_command(chunk, strlen(chunk))) {
+            int status = enact_session_eval_load_command(session, chunk, callback, user_data, diag);
+
+            free(chunk);
+            if (!status) {
+                return 0;
+            }
+            continue;
         }
 
         result = enact_session_eval_text(session, chunk);

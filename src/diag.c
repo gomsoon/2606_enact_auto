@@ -39,6 +39,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_ARITY_MISMATCH";
     case ENACT_ERR_NAME_UNBOUND:
         return "ENACT_ERR_NAME_UNBOUND";
+    case ENACT_ERR_LOAD_FILE:
+        return "ENACT_ERR_LOAD_FILE";
     case ENACT_ERR_OUT_OF_MEMORY:
         return "ENACT_ERR_OUT_OF_MEMORY";
     default:
@@ -85,6 +87,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "function arity mismatch";
     case ENACT_ERR_NAME_UNBOUND:
         return "unbound identifier";
+    case ENACT_ERR_LOAD_FILE:
+        return "could not load file";
     case ENACT_ERR_OUT_OF_MEMORY:
         return "out of memory";
     default:
