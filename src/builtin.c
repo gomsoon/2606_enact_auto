@@ -279,6 +279,31 @@ static int enact_builtin_is_object(
     return 1;
 }
 
+static int enact_builtin_classof(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactClass *class_value;
+
+    (void)argument_count;
+
+    if (arguments[0].kind != ENACT_VALUE_OBJECT) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_OBJECT, -1);
+        return 0;
+    }
+
+    class_value = enact_class_retain(enact_object_class(arguments[0].as.as_object));
+    if (!class_value) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_class(class_value);
+    return 1;
+}
+
 static int enact_builtin_version(
     const EnactValue *arguments,
     size_t argument_count,
@@ -943,6 +968,7 @@ static const EnactBuiltin builtin_table[] = {
     {"tl", 1, enact_builtin_tl},
     {"atom", 1, enact_builtin_atom},
     {"isObject", 1, enact_builtin_is_object},
+    {"classof", 1, enact_builtin_classof},
     {"version", 0, enact_builtin_version},
     {"list", 1, enact_builtin_list},
     {"append", 2, enact_builtin_append},
