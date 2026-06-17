@@ -213,6 +213,22 @@ static EnactAst *enact_make_recursive_assignment(char *name, EnactAst *value)
     return ast;
 }
 
+static EnactAst *enact_make_method_def(
+    EnactAst *class_expr,
+    char *name,
+    EnactNameList *param_names,
+    EnactAst *body)
+{
+    EnactAst *ast = enact_ast_new_method_def(class_expr, name, param_names, body);
+    EnactParseContext *context = enact_get_parse_context();
+
+    if (!ast && context) {
+        enact_diag_set(&context->diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+    }
+
+    return ast;
+}
+
 static EnactAst *enact_make_function_literal(EnactNameList *param_names, EnactAst *body)
 {
     EnactAst *ast = enact_ast_new_function_literal(param_names, body);
@@ -654,6 +670,41 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
         EnactNameList *param_names;
         char *name;
         EnactAst *function;
+
+        if (lhs->as.call.callee && lhs->as.call.callee->kind == AST_ATTRIBUTE) {
+            EnactAst *attribute = lhs->as.call.callee;
+            EnactAst *class_expr;
+
+            param_names = enact_take_call_parameter_names(lhs);
+            if (!param_names) {
+                enact_ast_free(lhs);
+                enact_ast_free(value);
+                return NULL;
+            }
+            if (enact_name_list_contains(param_names, "self")) {
+                enact_name_list_free(param_names);
+                enact_ast_free(lhs);
+                enact_ast_free(value);
+                enact_set_unexpected_token_diag();
+                return NULL;
+            }
+
+            class_expr = attribute->as.attribute.object;
+            name = attribute->as.attribute.name;
+            attribute->as.attribute.object = NULL;
+            attribute->as.attribute.name = NULL;
+            enact_ast_free(lhs);
+
+            result = enact_make_method_def(class_expr, name, param_names, value);
+            if (!result) {
+                enact_ast_free(class_expr);
+                free(name);
+                enact_name_list_free(param_names);
+                enact_ast_free(value);
+                return NULL;
+            }
+            return result;
+        }
 
         if (!root || root->kind != AST_IDENTIFIER) {
             enact_ast_free(lhs);

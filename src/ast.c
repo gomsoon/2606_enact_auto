@@ -429,6 +429,24 @@ EnactAst *enact_ast_new_class_def(char *name, EnactAst *superclass)
     return ast;
 }
 
+EnactAst *enact_ast_new_method_def(
+    EnactAst *class_expr,
+    char *name,
+    EnactNameList *param_names,
+    EnactAst *body)
+{
+    EnactAst *ast = enact_ast_alloc(AST_METHOD_DEF);
+    if (!ast) {
+        return NULL;
+    }
+
+    ast->as.method_def.class_expr = class_expr;
+    ast->as.method_def.name = name;
+    ast->as.method_def.param_names = param_names;
+    ast->as.method_def.body = body;
+    return ast;
+}
+
 static EnactAst *enact_ast_new_assignment_with_flag(char *name, EnactAst *value, int recursive_function)
 {
     EnactAst *ast = enact_ast_alloc(AST_ASSIGN);
@@ -738,6 +756,51 @@ static EnactAst *enact_ast_clone_assignment(const EnactAst *ast)
     return copy;
 }
 
+static EnactAst *enact_ast_clone_method_def(const EnactAst *ast)
+{
+    EnactAst *class_expr = enact_ast_clone(ast->as.method_def.class_expr);
+    char *name;
+    EnactNameList *param_names;
+    EnactAst *body;
+    EnactAst *copy;
+
+    if (!class_expr) {
+        return NULL;
+    }
+
+    name = enact_ast_copy_text(ast->as.method_def.name);
+    if (!name) {
+        enact_ast_free(class_expr);
+        return NULL;
+    }
+
+    param_names = enact_name_list_clone(ast->as.method_def.param_names);
+    if (!param_names) {
+        enact_ast_free(class_expr);
+        free(name);
+        return NULL;
+    }
+
+    body = enact_ast_clone(ast->as.method_def.body);
+    if (!body) {
+        enact_ast_free(class_expr);
+        free(name);
+        enact_name_list_free(param_names);
+        return NULL;
+    }
+
+    copy = enact_ast_new_method_def(class_expr, name, param_names, body);
+    if (!copy) {
+        enact_ast_free(class_expr);
+        free(name);
+        enact_name_list_free(param_names);
+        enact_ast_free(body);
+        return NULL;
+    }
+
+    return copy;
+}
+
 static EnactAst *enact_ast_clone_function_literal(const EnactAst *ast)
 {
     EnactNameList *param_names = enact_name_list_clone(ast->as.function_literal.param_names);
@@ -912,6 +975,9 @@ EnactAst *enact_ast_clone(const EnactAst *ast)
     case AST_CLASS_DEF:
         copy = enact_ast_clone_class_def(ast);
         break;
+    case AST_METHOD_DEF:
+        copy = enact_ast_clone_method_def(ast);
+        break;
     case AST_ASSIGN:
         copy = enact_ast_clone_assignment(ast);
         break;
@@ -1006,6 +1072,12 @@ void enact_ast_free(EnactAst *ast)
     case AST_CLASS_DEF:
         free(ast->as.class_def.name);
         enact_ast_free(ast->as.class_def.superclass);
+        break;
+    case AST_METHOD_DEF:
+        enact_ast_free(ast->as.method_def.class_expr);
+        free(ast->as.method_def.name);
+        enact_name_list_free(ast->as.method_def.param_names);
+        enact_ast_free(ast->as.method_def.body);
         break;
     case AST_ASSIGN:
         free(ast->as.assignment.name);

@@ -777,6 +777,40 @@ static int enact_eval_function_literal(const EnactAst *ast, EnactEnv *env, Enact
     return 1;
 }
 
+static int enact_eval_method_def(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue class_value;
+    EnactClass *class_type = NULL;
+    EnactFunction *function;
+    EnactValue result;
+
+    if (!enact_eval_value(ast->as.method_def.class_expr, env, &class_value, diag)) {
+        return 0;
+    }
+    if (!enact_require_class(&class_value, &class_type, diag)) {
+        enact_value_free(&class_value);
+        return 0;
+    }
+
+    function = enact_function_new(ast->as.method_def.param_names, ast->as.method_def.body, env);
+    if (!function) {
+        enact_value_free(&class_value);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!enact_class_define_method(class_type, ast->as.method_def.name, function)) {
+        enact_function_release(function);
+        enact_value_free(&class_value);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    enact_value_free(&class_value);
+    result = enact_value_make_function(function);
+    *out = result;
+    return 1;
+}
+
 static int enact_eval_check_callable_arity(
     const EnactValue *callee,
     size_t argument_count,
@@ -921,9 +955,13 @@ int enact_eval_apply_callable(
     return status;
 }
 
-static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_call_value(
+    const EnactValue *callee,
+    const EnactAstList *argument_asts,
+    EnactEnv *env,
+    EnactValue *out,
+    EnactDiag *diag)
 {
-    EnactValue callee;
     EnactValue *arguments = NULL;
     int status;
     size_t argument_count;
@@ -931,37 +969,171 @@ static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
     size_t captured_count = 0;
     size_t index;
 
-    if (!enact_eval_value(ast->as.call.callee, env, &callee, diag)) {
-        return 0;
-    }
-
-    argument_count = enact_ast_list_count(ast->as.call.arguments);
-    if (!enact_eval_check_callable_arity(&callee, argument_count, &arity, &captured_count, diag)) {
-        enact_value_free(&callee);
+    argument_count = enact_ast_list_count(argument_asts);
+    if (!enact_eval_check_callable_arity(callee, argument_count, &arity, &captured_count, diag)) {
         return 0;
     }
 
     if (argument_count > 0) {
         arguments = calloc(argument_count, sizeof(*arguments));
         if (!arguments) {
-            enact_value_free(&callee);
             enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
             return 0;
         }
     }
 
     for (index = 0; index < argument_count; index += 1) {
-        if (!enact_eval_value(enact_ast_list_get(ast->as.call.arguments, index), env, &arguments[index], diag)) {
+        if (!enact_eval_value(enact_ast_list_get(argument_asts, index), env, &arguments[index], diag)) {
             enact_free_value_array(arguments, index);
-            enact_value_free(&callee);
             return 0;
         }
     }
 
     (void)arity;
     (void)captured_count;
-    status = enact_eval_apply_callable(&callee, arguments, argument_count, out, diag);
+    status = enact_eval_apply_callable(callee, arguments, argument_count, out, diag);
     enact_free_value_array(arguments, argument_count);
+    return status;
+}
+
+static int enact_eval_apply_method(
+    EnactFunction *method,
+    const EnactValue *receiver,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactEnv local;
+    int status;
+    size_t index;
+
+    if (!method || !receiver || !out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+    if (argument_count != enact_function_arity(method)) {
+        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+        return 0;
+    }
+    if (!enact_env_clone(&local, enact_function_env(method))) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!enact_env_define(&local, "self", *receiver)) {
+        enact_env_free(&local);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    for (index = 0; index < argument_count; index += 1) {
+        if (!enact_env_define(&local, enact_function_param_name(method, index), arguments[index])) {
+            enact_env_free(&local);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    }
+
+    status = enact_eval_value(enact_function_body(method), &local, out, diag);
+    enact_env_free(&local);
+    return status;
+}
+
+static int enact_eval_method_call(
+    EnactFunction *method,
+    const EnactValue *receiver,
+    const EnactAstList *argument_asts,
+    EnactEnv *env,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactValue *arguments = NULL;
+    int status;
+    size_t argument_count = enact_ast_list_count(argument_asts);
+    size_t index;
+
+    if (argument_count != enact_function_arity(method)) {
+        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+        return 0;
+    }
+    if (argument_count > 0) {
+        arguments = calloc(argument_count, sizeof(*arguments));
+        if (!arguments) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    }
+
+    for (index = 0; index < argument_count; index += 1) {
+        if (!enact_eval_value(enact_ast_list_get(argument_asts, index), env, &arguments[index], diag)) {
+            enact_free_value_array(arguments, index);
+            return 0;
+        }
+    }
+
+    status = enact_eval_apply_method(method, receiver, arguments, argument_count, out, diag);
+    enact_free_value_array(arguments, argument_count);
+    return status;
+}
+
+static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    const EnactAst *attribute = ast->as.call.callee;
+    EnactValue receiver_value;
+    EnactValue attribute_value;
+    EnactObject *receiver = NULL;
+    EnactFunction *method;
+    int lookup_result;
+    int status;
+
+    if (!enact_eval_value(attribute->as.attribute.object, env, &receiver_value, diag)) {
+        return 0;
+    }
+    if (!enact_require_object(&receiver_value, &receiver, diag)) {
+        enact_value_free(&receiver_value);
+        return 0;
+    }
+
+    lookup_result = enact_object_lookup_attribute(receiver, attribute->as.attribute.name, &attribute_value);
+    if (lookup_result < 0) {
+        enact_value_free(&receiver_value);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (lookup_result > 0) {
+        status = enact_eval_call_value(&attribute_value, ast->as.call.arguments, env, out, diag);
+        enact_value_free(&attribute_value);
+        enact_value_free(&receiver_value);
+        return status;
+    }
+
+    method = enact_class_lookup_method(enact_object_class(receiver), attribute->as.attribute.name);
+    if (!method) {
+        enact_value_free(&receiver_value);
+        enact_diag_set(diag, ENACT_ERR_ATTRIBUTE_UNBOUND, -1);
+        return 0;
+    }
+
+    status = enact_eval_method_call(method, &receiver_value, ast->as.call.arguments, env, out, diag);
+    enact_function_release(method);
+    enact_value_free(&receiver_value);
+    return status;
+}
+
+static int enact_eval_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactValue callee;
+    int status;
+
+    if (ast->as.call.callee && ast->as.call.callee->kind == AST_ATTRIBUTE) {
+        return enact_eval_dot_call(ast, env, out, diag);
+    }
+
+    if (!enact_eval_value(ast->as.call.callee, env, &callee, diag)) {
+        return 0;
+    }
+
+    status = enact_eval_call_value(&callee, ast->as.call.arguments, env, out, diag);
     enact_value_free(&callee);
     return status;
 }
@@ -1082,6 +1254,8 @@ static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out,
         return enact_eval_fix(ast, env, out, diag);
     case AST_CLASS_DEF:
         return enact_eval_class_def(ast, env, out, diag);
+    case AST_METHOD_DEF:
+        return enact_eval_method_def(ast, env, out, diag);
     case AST_ASSIGN:
         return enact_eval_assignment(ast, env, out, diag);
     case AST_FUNCTION_LITERAL:

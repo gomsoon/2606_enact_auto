@@ -198,6 +198,7 @@ static void test_value_helpers(void)
     EnactClass *empty_class;
     EnactClass *object_class;
     EnactClass *node_class;
+    EnactClass *method_class;
     EnactObject *object;
     EnactObject *other_object;
     bool values_equal = false;
@@ -207,6 +208,7 @@ static void test_value_helpers(void)
     EnactFunction *zero_function;
     EnactFunction *partial_function;
     EnactFunction *recursive_function;
+    EnactFunction *method_lookup;
     EnactValue function_value;
     EnactValue function_copy;
     EnactValue partial_args[2];
@@ -439,6 +441,23 @@ static void test_value_helpers(void)
         require_true(function_copy.kind == ENACT_VALUE_FUNCTION, "function copy kind");
         require_true(function_copy.as.as_function == function_value.as.as_function, "function copy retains same object");
         enact_value_free(&function_copy);
+        method_class = enact_class_new("MethodNode");
+        require_true(!enact_class_define_method(NULL, "id", function), "method define null class fails");
+        require_true(!enact_class_define_method(method_class, NULL, function), "method define null name fails");
+        require_true(!enact_class_define_method(method_class, "id", NULL), "method define null function fails");
+        require_true(enact_class_lookup_method(NULL, "id") == NULL, "method lookup null class fails");
+        require_true(enact_class_lookup_method(method_class, NULL) == NULL, "method lookup null name fails");
+        if (method_class) {
+            require_true(enact_class_define_method(method_class, "id", function), "method define succeeds");
+            method_lookup = enact_class_lookup_method(method_class, "id");
+            require_true(method_lookup == function, "method lookup retains same function");
+            if (method_lookup) {
+                require_true(enact_function_arity(method_lookup) == 1, "method lookup function arity");
+                enact_function_release(method_lookup);
+            }
+            require_true(enact_class_lookup_method(method_class, "missing") == NULL, "method lookup missing fails");
+            enact_class_release(method_class);
+        }
         enact_value_free(&function_value);
     }
     two_params = make_test_name_list(two_param_names, 2);
@@ -1440,6 +1459,22 @@ static void test_ast_clone_helpers(void)
     enact_ast_free(clone);
     enact_ast_free(original);
 
+    params = make_test_name_list(NULL, 0);
+    original = enact_ast_new_method_def(
+        enact_ast_new_identifier(copy_test_name("Object")),
+        copy_test_name("one"),
+        params,
+        enact_ast_new_int(1));
+    require_true(params != NULL && original != NULL, "method def clone source created");
+    clone = enact_ast_clone(original);
+    require_true(clone != NULL, "method def clone created");
+    enact_diag_reset(&diag);
+    require_true(enact_eval_ast(clone, &value, &diag), "method def clone evaluates");
+    require_true(value.kind == ENACT_VALUE_FUNCTION, "method def clone result kind");
+    enact_value_free(&value);
+    enact_ast_free(clone);
+    enact_ast_free(original);
+
     original = enact_ast_new_attribute(
         enact_ast_new_with(
             enact_ast_new_unary(AST_NEW, enact_ast_new_identifier(copy_test_name("Object"))),
@@ -1911,6 +1946,26 @@ static void test_api_and_scan_helpers(void)
     require_true(capture.values[2].as.as_int == 2, "session script attribute assignment write value");
     require_true(capture.values[3].kind == ENACT_VALUE_INT, "session script attribute assignment read kind");
     require_true(capture.values[3].as.as_int == 2, "session script attribute assignment read value");
+    script_capture_free(&capture);
+
+    memset(&capture, 0, sizeof(capture));
+    enact_diag_reset(&diag);
+    require_true(
+        enact_session_eval_script(
+            &session,
+            "class MethodNode < Object\nMethodNode.set(v):=self.x:=v\nmethod_n:=new MethodNode\nmethod_n.set(12)\nmethod_n.x\n",
+            script_capture_result,
+            &capture,
+            &diag),
+        "session script accepts method definition and dispatch");
+    require_true(capture.count == 5, "session script method result count");
+    require_true(capture.values[0].kind == ENACT_VALUE_CLASS, "session script method class kind");
+    require_true(capture.values[1].kind == ENACT_VALUE_FUNCTION, "session script method def kind");
+    require_true(capture.values[2].kind == ENACT_VALUE_OBJECT, "session script method object kind");
+    require_true(capture.values[3].kind == ENACT_VALUE_INT, "session script method write kind");
+    require_true(capture.values[3].as.as_int == 12, "session script method write value");
+    require_true(capture.values[4].kind == ENACT_VALUE_INT, "session script method read kind");
+    require_true(capture.values[4].as.as_int == 12, "session script method read value");
     script_capture_free(&capture);
 
     result = enact_session_eval_text(&session, "script_x+3.");
