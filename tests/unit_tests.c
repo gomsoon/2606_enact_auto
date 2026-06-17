@@ -195,6 +195,7 @@ static void test_value_helpers(void)
     EnactValue list_value;
     EnactValue list_copy;
     EnactList *list;
+    EnactList *superclasses;
     EnactList *attribute_names;
     EnactList *method_names;
     EnactClass *empty_class;
@@ -282,6 +283,8 @@ static void test_value_helpers(void)
     enact_class_release(NULL);
     require_true(strcmp(enact_class_name(NULL), "") == 0, "class name null");
     require_true(enact_class_superclass(NULL) == NULL, "class superclass null");
+    superclasses = NULL;
+    require_true(!enact_class_superclasses(NULL, &superclasses), "class superclasses null class fails");
     require_true(enact_object_new(NULL) == NULL, "object new null class fails");
     require_true(enact_object_retain(NULL) == NULL, "object retain null");
     enact_object_release(NULL);
@@ -300,6 +303,10 @@ static void test_value_helpers(void)
         require_true(class_value.kind == ENACT_VALUE_CLASS, "class value kind");
         require_true(strcmp(enact_class_name(class_value.as.as_class), "Object") == 0, "class value name");
         require_true(enact_class_superclass(class_value.as.as_class) == NULL, "root class has no superclass");
+        require_true(!enact_class_superclasses(class_value.as.as_class, NULL), "class superclasses null out fails");
+        superclasses = NULL;
+        require_true(enact_class_superclasses(class_value.as.as_class, &superclasses), "root class superclasses succeeds");
+        require_true(superclasses == NULL, "root class superclasses nil");
         require_true(enact_value_copy(&class_copy, &class_value), "class value copy succeeds");
         require_true(class_copy.kind == ENACT_VALUE_CLASS, "class copy kind");
         require_true(class_copy.as.as_class == class_value.as.as_class, "class copy retains same class");
@@ -311,6 +318,15 @@ static void test_value_helpers(void)
         if (node_class) {
             require_true(strcmp(enact_class_name(node_class), "Node") == 0, "subclass name");
             require_true(enact_class_superclass(node_class) == object_class, "subclass superclass");
+            superclasses = NULL;
+            require_true(enact_class_superclasses(node_class, &superclasses), "subclass superclasses succeeds");
+            require_true(superclasses != NULL, "subclass superclasses non-empty");
+            require_true(enact_list_head(superclasses)->kind == ENACT_VALUE_CLASS, "subclass superclass head kind");
+            require_true(
+                enact_list_head(superclasses)->as.as_class == object_class,
+                "subclass superclass head identity");
+            require_true(enact_list_tail(superclasses) == NULL, "subclass superclasses tail nil");
+            enact_list_release(superclasses);
             enact_class_release(node_class);
         }
 

@@ -358,9 +358,7 @@ static int enact_builtin_supers(
     EnactValue *out,
     EnactDiag *diag)
 {
-    EnactClass *superclass;
-    EnactList *superclasses;
-    EnactValue superclass_value;
+    EnactList *superclasses = NULL;
 
     (void)argument_count;
 
@@ -369,15 +367,7 @@ static int enact_builtin_supers(
         return 0;
     }
 
-    superclass = enact_class_superclass(arguments[0].as.as_class);
-    if (!superclass) {
-        *out = enact_value_make_list(NULL);
-        return 1;
-    }
-
-    superclass_value = enact_value_make_class(superclass);
-    superclasses = enact_list_cons(&superclass_value, NULL);
-    if (!superclasses) {
+    if (!enact_class_superclasses(arguments[0].as.as_class, &superclasses)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }

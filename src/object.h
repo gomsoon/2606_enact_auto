@@ -13,6 +13,7 @@ EnactClass *enact_class_retain(EnactClass *class_value);
 void enact_class_release(EnactClass *class_value);
 const char *enact_class_name(const EnactClass *class_value);
 EnactClass *enact_class_superclass(const EnactClass *class_value);
+int enact_class_superclasses(const EnactClass *class_value, EnactList **out);
 int enact_class_define_method(EnactClass *class_value, const char *name, EnactFunction *function);
 EnactFunction *enact_class_lookup_method(const EnactClass *class_value, const char *name);
 int enact_class_method_names(const EnactClass *class_value, EnactList **out);

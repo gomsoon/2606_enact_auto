@@ -17,10 +17,15 @@ typedef struct EnactMethod {
     struct EnactMethod *next;
 } EnactMethod;
 
+typedef struct EnactClassLink {
+    EnactClass *class_value;
+    struct EnactClassLink *next;
+} EnactClassLink;
+
 struct EnactClass {
     size_t ref_count;
     char *name;
-    EnactClass *superclass;
+    EnactClassLink *superclasses;
     EnactMethod *methods;
 };
 
@@ -49,6 +54,39 @@ static char *enact_object_copy_text(const char *text)
     return copy;
 }
 
+static EnactClassLink *enact_class_link_new(EnactClass *class_value)
+{
+    EnactClassLink *link;
+
+    if (!class_value) {
+        return NULL;
+    }
+
+    link = calloc(1, sizeof(*link));
+    if (!link) {
+        return NULL;
+    }
+
+    link->class_value = enact_class_retain(class_value);
+    if (!link->class_value) {
+        free(link);
+        return NULL;
+    }
+
+    return link;
+}
+
+static void enact_class_link_release_all(EnactClassLink *link)
+{
+    while (link) {
+        EnactClassLink *next = link->next;
+
+        enact_class_release(link->class_value);
+        free(link);
+        link = next;
+    }
+}
+
 EnactClass *enact_class_new(const char *name)
 {
     return enact_class_new_with_superclass(name, NULL);
@@ -69,7 +107,14 @@ EnactClass *enact_class_new_with_superclass(const char *name, EnactClass *superc
     }
 
     class_value->ref_count = 1;
-    class_value->superclass = enact_class_retain(superclass);
+    if (superclass) {
+        class_value->superclasses = enact_class_link_new(superclass);
+        if (!class_value->superclasses) {
+            free(class_value->name);
+            free(class_value);
+            return NULL;
+        }
+    }
     return class_value;
 }
 
@@ -108,7 +153,7 @@ void enact_class_release(EnactClass *class_value)
 
     free(class_value->name);
     enact_method_release_all(class_value->methods);
-    enact_class_release(class_value->superclass);
+    enact_class_link_release_all(class_value->superclasses);
     free(class_value);
 }
 
@@ -119,7 +164,49 @@ const char *enact_class_name(const EnactClass *class_value)
 
 EnactClass *enact_class_superclass(const EnactClass *class_value)
 {
-    return class_value ? class_value->superclass : NULL;
+    if (!class_value || !class_value->superclasses) {
+        return NULL;
+    }
+
+    return class_value->superclasses->class_value;
+}
+
+static int enact_class_superclasses_from_link(const EnactClassLink *link, EnactList **out)
+{
+    EnactList *tail = NULL;
+    EnactList *result;
+    EnactValue class_value;
+
+    if (!out) {
+        return 0;
+    }
+    if (!link) {
+        *out = NULL;
+        return 1;
+    }
+
+    if (!enact_class_superclasses_from_link(link->next, &tail)) {
+        return 0;
+    }
+
+    class_value = enact_value_make_class(link->class_value);
+    result = enact_list_cons(&class_value, tail);
+    enact_list_release(tail);
+    if (!result) {
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+int enact_class_superclasses(const EnactClass *class_value, EnactList **out)
+{
+    if (!class_value || !out) {
+        return 0;
+    }
+
+    return enact_class_superclasses_from_link(class_value->superclasses, out);
 }
 
 int enact_class_define_method(EnactClass *class_value, const char *name, EnactFunction *function)
@@ -165,24 +252,47 @@ int enact_class_define_method(EnactClass *class_value, const char *name, EnactFu
     return 1;
 }
 
+static EnactFunction *enact_class_lookup_direct_method(const EnactClass *class_value, const char *name)
+{
+    const EnactMethod *method;
+
+    for (method = class_value->methods; method; method = method->next) {
+        if (strcmp(method->name, name) == 0) {
+            return enact_function_retain(method->function);
+        }
+    }
+
+    return NULL;
+}
+
+static EnactFunction *enact_class_lookup_method_in_links(const EnactClassLink *link, const char *name)
+{
+    EnactFunction *function;
+
+    for (; link; link = link->next) {
+        function = enact_class_lookup_method(link->class_value, name);
+        if (function) {
+            return function;
+        }
+    }
+
+    return NULL;
+}
+
 EnactFunction *enact_class_lookup_method(const EnactClass *class_value, const char *name)
 {
-    const EnactClass *current;
-    const EnactMethod *method;
+    EnactFunction *function;
 
     if (!class_value || !name) {
         return NULL;
     }
 
-    for (current = class_value; current; current = current->superclass) {
-        for (method = current->methods; method; method = method->next) {
-            if (strcmp(method->name, name) == 0) {
-                return enact_function_retain(method->function);
-            }
-        }
+    function = enact_class_lookup_direct_method(class_value, name);
+    if (function) {
+        return function;
     }
 
-    return NULL;
+    return enact_class_lookup_method_in_links(class_value->superclasses, name);
 }
 
 int enact_class_method_names(const EnactClass *class_value, EnactList **out)
