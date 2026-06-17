@@ -104,26 +104,6 @@ static int enact_parse_text(const char *source, EnactAst **out, EnactDiag *diag)
     return 0;
 }
 
-static char *enact_copy_source_range(const char *source, size_t start, size_t end)
-{
-    char *copy;
-    size_t length;
-
-    if (!source || end < start) {
-        return NULL;
-    }
-
-    length = end - start;
-    copy = malloc(length + 1);
-    if (!copy) {
-        return NULL;
-    }
-
-    memcpy(copy, source + start, length);
-    copy[length] = '\0';
-    return copy;
-}
-
 static int enact_is_script_space(char ch)
 {
     return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
@@ -186,7 +166,8 @@ static int enact_next_script_chunk(
     size_t length,
     size_t *offset,
     size_t *start,
-    size_t *end)
+    size_t *end,
+    int *needs_dot)
 {
     size_t index;
     int paren_depth = 0;
@@ -203,12 +184,23 @@ static int enact_next_script_chunk(
     }
 
     *start = *offset;
+    if (needs_dot) {
+        *needs_dot = 0;
+    }
     for (index = *offset; index < length; index += 1) {
         char ch = source[index];
 
         if (in_comment) {
             if (ch == '\n') {
                 in_comment = 0;
+                if (paren_depth == 0) {
+                    *end = index + 1;
+                    *offset = *end;
+                    if (needs_dot) {
+                        *needs_dot = 1;
+                    }
+                    return 1;
+                }
             }
             continue;
         }
@@ -239,6 +231,14 @@ static int enact_next_script_chunk(
         if (ch == ')') {
             paren_depth -= 1;
             continue;
+        }
+        if (ch == '\n' && paren_depth == 0) {
+            *end = index + 1;
+            *offset = *end;
+            if (needs_dot) {
+                *needs_dot = 1;
+            }
+            return 1;
         }
         if (ch == '.' && paren_depth == 0) {
             *end = index + 1;
@@ -312,6 +312,56 @@ static char *enact_read_file_text(const char *path, EnactDiag *diag)
     fclose(stream);
     buffer[length] = '\0';
     return buffer;
+}
+
+static char *enact_copy_script_chunk(
+    const char *source,
+    size_t start,
+    size_t end,
+    int append_dot)
+{
+    char *copy;
+    size_t length;
+
+    if (!source || end < start) {
+        return NULL;
+    }
+
+    length = end - start;
+    copy = malloc(length + (append_dot ? 2 : 1));
+    if (!copy) {
+        return NULL;
+    }
+
+    memcpy(copy, source + start, length);
+    if (append_dot) {
+        copy[length] = '.';
+        length += 1;
+    }
+    copy[length] = '\0';
+    return copy;
+}
+
+static int enact_source_range_is_dot_only(const char *source, size_t start, size_t end)
+{
+    const char *chunk;
+    size_t length;
+    size_t offset = 0;
+
+    if (!source || end < start) {
+        return 0;
+    }
+
+    chunk = source + start;
+    length = end - start;
+    enact_skip_script_trivia(chunk, length, &offset);
+    if (offset >= length || chunk[offset] != '.') {
+        return 0;
+    }
+
+    offset += 1;
+    enact_skip_script_trivia(chunk, length, &offset);
+    return offset == length;
 }
 
 static char *enact_parse_load_string_literal(
@@ -565,6 +615,7 @@ int enact_session_eval_script(
 {
     size_t offset = 0;
     size_t length;
+    int allow_redundant_dot = 0;
 
     if (!session || !session->initialized) {
         enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
@@ -579,14 +630,20 @@ int enact_session_eval_script(
     while (offset < length) {
         size_t start = 0;
         size_t end = 0;
+        int needs_dot = 0;
         char *chunk;
         EnactResult result;
 
-        if (!enact_next_script_chunk(source, length, &offset, &start, &end)) {
+        if (!enact_next_script_chunk(source, length, &offset, &start, &end, &needs_dot)) {
             break;
         }
 
-        chunk = enact_copy_source_range(source, start, end);
+        if (!needs_dot && allow_redundant_dot && enact_source_range_is_dot_only(source, start, end)) {
+            allow_redundant_dot = 0;
+            continue;
+        }
+
+        chunk = enact_copy_script_chunk(source, start, end, needs_dot);
         if (!chunk) {
             enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
             return 0;
@@ -599,6 +656,7 @@ int enact_session_eval_script(
             if (!status) {
                 return 0;
             }
+            allow_redundant_dot = needs_dot;
             continue;
         }
 
@@ -619,6 +677,7 @@ int enact_session_eval_script(
         }
 
         enact_result_free(&result);
+        allow_redundant_dot = needs_dot;
     }
 
     return 1;

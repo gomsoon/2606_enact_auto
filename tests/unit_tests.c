@@ -1589,6 +1589,18 @@ static void test_api_and_scan_helpers(void)
     require_true(capture.values[1].as.as_int == 3, "session script second value");
     script_capture_free(&capture);
 
+    memset(&capture, 0, sizeof(capture));
+    enact_diag_reset(&diag);
+    require_true(
+        enact_session_eval_script(&session, "nl_unit:=6\nnl_unit+1\n", script_capture_result, &capture, &diag),
+        "session script accepts newline terminators");
+    require_true(capture.count == 2, "session script newline result count");
+    require_true(capture.values[0].kind == ENACT_VALUE_INT, "session script newline first kind");
+    require_true(capture.values[0].as.as_int == 6, "session script newline first value");
+    require_true(capture.values[1].kind == ENACT_VALUE_INT, "session script newline second kind");
+    require_true(capture.values[1].as.as_int == 7, "session script newline second value");
+    script_capture_free(&capture);
+
     result = enact_session_eval_text(&session, "script_x+3.");
     require_true(result.ok, "session script leaves bindings");
     require_true(result.value.kind == ENACT_VALUE_INT, "session script binding result kind");
