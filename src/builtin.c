@@ -328,6 +328,40 @@ static int enact_builtin_attrs(
     return 1;
 }
 
+static int enact_builtin_supers(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactClass *superclass;
+    EnactList *superclasses;
+    EnactValue superclass_value;
+
+    (void)argument_count;
+
+    if (arguments[0].kind != ENACT_VALUE_CLASS) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+        return 0;
+    }
+
+    superclass = enact_class_superclass(arguments[0].as.as_class);
+    if (!superclass) {
+        *out = enact_value_make_list(NULL);
+        return 1;
+    }
+
+    superclass_value = enact_value_make_class(superclass);
+    superclasses = enact_list_cons(&superclass_value, NULL);
+    if (!superclasses) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(superclasses);
+    return 1;
+}
+
 static int enact_builtin_version(
     const EnactValue *arguments,
     size_t argument_count,
@@ -994,6 +1028,7 @@ static const EnactBuiltin builtin_table[] = {
     {"isObject", 1, enact_builtin_is_object},
     {"classof", 1, enact_builtin_classof},
     {"attrs", 1, enact_builtin_attrs},
+    {"supers", 1, enact_builtin_supers},
     {"version", 0, enact_builtin_version},
     {"list", 1, enact_builtin_list},
     {"append", 2, enact_builtin_append},
