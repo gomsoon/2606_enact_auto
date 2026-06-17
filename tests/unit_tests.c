@@ -455,6 +455,16 @@ static void test_value_helpers(void)
                 require_true(enact_function_arity(method_lookup) == 1, "method lookup function arity");
                 enact_function_release(method_lookup);
             }
+            node_class = enact_class_new_with_superclass("MethodLeaf", method_class);
+            require_true(node_class != NULL, "method subclass created");
+            if (node_class) {
+                method_lookup = enact_class_lookup_method(node_class, "id");
+                require_true(method_lookup == function, "method lookup searches superclass");
+                if (method_lookup) {
+                    enact_function_release(method_lookup);
+                }
+                enact_class_release(node_class);
+            }
             require_true(enact_class_lookup_method(method_class, "missing") == NULL, "method lookup missing fails");
             enact_class_release(method_class);
         }

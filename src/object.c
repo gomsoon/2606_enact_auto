@@ -167,15 +167,18 @@ int enact_class_define_method(EnactClass *class_value, const char *name, EnactFu
 
 EnactFunction *enact_class_lookup_method(const EnactClass *class_value, const char *name)
 {
+    const EnactClass *current;
     const EnactMethod *method;
 
     if (!class_value || !name) {
         return NULL;
     }
 
-    for (method = class_value->methods; method; method = method->next) {
-        if (strcmp(method->name, name) == 0) {
-            return enact_function_retain(method->function);
+    for (current = class_value; current; current = current->superclass) {
+        for (method = current->methods; method; method = method->next) {
+            if (strcmp(method->name, name) == 0) {
+                return enact_function_retain(method->function);
+            }
         }
     }
 
