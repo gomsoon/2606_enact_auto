@@ -362,6 +362,62 @@ static int enact_builtin_supers(
     return 1;
 }
 
+static int enact_builtin_superior_chain(EnactClass *class_value, EnactList **out)
+{
+    EnactClass *superclass;
+    EnactList *tail = NULL;
+    EnactList *result;
+    EnactValue superclass_value;
+
+    if (!class_value || !out) {
+        return 0;
+    }
+
+    superclass = enact_class_superclass(class_value);
+    if (!superclass) {
+        *out = NULL;
+        return 1;
+    }
+
+    if (!enact_builtin_superior_chain(superclass, &tail)) {
+        return 0;
+    }
+
+    superclass_value = enact_value_make_class(superclass);
+    result = enact_list_cons(&superclass_value, tail);
+    enact_list_release(tail);
+    if (!result) {
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_superiors(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *superiors = NULL;
+
+    (void)argument_count;
+
+    if (arguments[0].kind != ENACT_VALUE_CLASS) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+        return 0;
+    }
+
+    if (!enact_builtin_superior_chain(arguments[0].as.as_class, &superiors)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(superiors);
+    return 1;
+}
+
 static int enact_builtin_version(
     const EnactValue *arguments,
     size_t argument_count,
@@ -1029,6 +1085,7 @@ static const EnactBuiltin builtin_table[] = {
     {"classof", 1, enact_builtin_classof},
     {"attrs", 1, enact_builtin_attrs},
     {"supers", 1, enact_builtin_supers},
+    {"superiors", 1, enact_builtin_superiors},
     {"version", 0, enact_builtin_version},
     {"list", 1, enact_builtin_list},
     {"append", 2, enact_builtin_append},
