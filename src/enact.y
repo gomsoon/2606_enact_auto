@@ -177,9 +177,9 @@ static EnactAst *enact_make_fix(EnactNameList *names, EnactAst *body)
     return ast;
 }
 
-static EnactAst *enact_make_class_def(char *name, EnactAst *superclass)
+static EnactAst *enact_make_class_def(char *name, EnactAstList *superclasses)
 {
-    EnactAst *ast = enact_ast_new_class_def(name, superclass);
+    EnactAst *ast = enact_ast_new_class_def(name, superclasses);
     EnactParseContext *context = enact_get_parse_context();
 
     if (!ast && context) {
@@ -298,6 +298,31 @@ static EnactAstList *enact_append_argument(EnactAstList *list, EnactAst *argumen
     }
 
     return list;
+}
+
+static EnactAstList *enact_make_identifier_list(char *name)
+{
+    EnactAst *identifier = enact_make_identifier(name);
+
+    if (!identifier) {
+        free(name);
+        return NULL;
+    }
+
+    return enact_make_argument_list(identifier);
+}
+
+static EnactAstList *enact_append_identifier(EnactAstList *list, char *name)
+{
+    EnactAst *identifier = enact_make_identifier(name);
+
+    if (!identifier) {
+        enact_ast_list_free(list);
+        free(name);
+        return NULL;
+    }
+
+    return enact_append_argument(list, identifier);
 }
 
 static EnactAst *enact_make_tuple_list(EnactAstList *elements)
@@ -769,7 +794,7 @@ static EnactAst *enact_make_assignment_from_lhs(EnactAst *lhs, EnactAst *value)
 %right TOK_WITH
 
 %type <ast> expr sequence fix_expr assignment class_definition with_expr lambda conditional logical_or logical_and where_expr logical_not comparison cons additive multiplicative unary call application_argument primary
-%type <ast_list> argument_list tuple_list
+%type <ast_list> argument_list tuple_list superclass_list superclass_tuple_list
 %type <name_list> lambda_head
 
 %destructor { enact_ast_free($$); } <ast>
@@ -841,20 +866,50 @@ assignment:
     ;
 
 class_definition:
-    TOK_CLASS TOK_IDENTIFIER TOK_LT TOK_IDENTIFIER
+    TOK_CLASS TOK_IDENTIFIER TOK_LT superclass_list
     {
-        EnactAst *superclass = enact_make_identifier($4);
-
-        if (!superclass) {
+        $$ = enact_make_class_def($2, $4);
+        if (!$$) {
             free($2);
-            free($4);
+            enact_ast_list_free($4);
+            YYABORT;
+        }
+    }
+    ;
+
+superclass_list:
+    TOK_IDENTIFIER
+    {
+        $$ = enact_make_identifier_list($1);
+        if (!$$) {
+            YYABORT;
+        }
+    }
+    | TOK_LPAREN superclass_tuple_list TOK_RPAREN
+    {
+        $$ = $2;
+    }
+    ;
+
+superclass_tuple_list:
+    TOK_IDENTIFIER TOK_COMMA TOK_IDENTIFIER
+    {
+        EnactAstList *list = enact_make_identifier_list($1);
+
+        if (!list) {
+            free($3);
             YYABORT;
         }
 
-        $$ = enact_make_class_def($2, superclass);
+        $$ = enact_append_identifier(list, $3);
         if (!$$) {
-            free($2);
-            enact_ast_free(superclass);
+            YYABORT;
+        }
+    }
+    | superclass_tuple_list TOK_COMMA TOK_IDENTIFIER
+    {
+        $$ = enact_append_identifier($1, $3);
+        if (!$$) {
             YYABORT;
         }
     }

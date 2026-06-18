@@ -194,13 +194,20 @@ static void test_value_helpers(void)
     EnactValue list_head;
     EnactValue list_value;
     EnactValue list_copy;
+    EnactValue left_class_value;
+    EnactValue right_class_value;
     EnactList *list;
     EnactList *superclasses;
+    EnactList *multi_superclass_tail;
+    EnactList *multi_superclasses;
     EnactList *attribute_names;
     EnactList *method_names;
     EnactClass *empty_class;
     EnactClass *object_class;
     EnactClass *node_class;
+    EnactClass *left_class;
+    EnactClass *right_class;
+    EnactClass *pair_class;
     EnactClass *method_class;
     EnactObject *object;
     EnactObject *other_object;
@@ -329,6 +336,39 @@ static void test_value_helpers(void)
             enact_list_release(superclasses);
             enact_class_release(node_class);
         }
+
+        left_class = enact_class_new_with_superclass("Left", object_class);
+        right_class = enact_class_new_with_superclass("Right", object_class);
+        require_true(left_class != NULL && right_class != NULL, "multiple superclass inputs created");
+        if (left_class && right_class) {
+            left_class_value = enact_value_make_class(left_class);
+            right_class_value = enact_value_make_class(right_class);
+            multi_superclass_tail = enact_list_cons(&right_class_value, NULL);
+            require_true(multi_superclass_tail != NULL, "multiple superclass tail list created");
+            multi_superclasses = multi_superclass_tail ? enact_list_cons(&left_class_value, multi_superclass_tail) : NULL;
+            enact_list_release(multi_superclass_tail);
+            require_true(multi_superclasses != NULL, "multiple superclass input list created");
+            pair_class = enact_class_new_with_superclasses("Pair", multi_superclasses);
+            enact_list_release(multi_superclasses);
+            require_true(pair_class != NULL, "multiple superclass class created");
+            if (pair_class) {
+                superclasses = NULL;
+                require_true(enact_class_superclasses(pair_class, &superclasses), "multiple superclasses succeeds");
+                require_true(superclasses != NULL, "multiple superclasses non-empty");
+                require_true(enact_list_head(superclasses)->as.as_class == left_class, "multiple superclass first identity");
+                require_true(enact_list_tail(superclasses) != NULL, "multiple superclass second node");
+                if (enact_list_tail(superclasses)) {
+                    require_true(
+                        enact_list_head(enact_list_tail(superclasses))->as.as_class == right_class,
+                        "multiple superclass second identity");
+                    require_true(enact_list_tail(enact_list_tail(superclasses)) == NULL, "multiple superclass tail nil");
+                }
+                enact_list_release(superclasses);
+                enact_class_release(pair_class);
+            }
+        }
+        enact_class_release(left_class);
+        enact_class_release(right_class);
 
         object = enact_object_new(object_class);
         other_object = enact_object_new(object_class);
@@ -1297,7 +1337,7 @@ static void test_builtin_helpers(void)
 
     class_def = enact_ast_new_class_def(
         copy_test_name("Node"),
-        enact_ast_new_identifier(copy_test_name("Object")));
+        make_test_ast_list1(enact_ast_new_identifier(copy_test_name("Object"))));
     require_true(class_def != NULL, "class def ast created");
     enact_diag_reset(&diag);
     require_true(enact_eval_ast_with_env(class_def, &env, &result, &diag), "class def ast evaluates");
@@ -1653,7 +1693,7 @@ static void test_ast_clone_helpers(void)
 
     original = enact_ast_new_class_def(
         copy_test_name("Node"),
-        enact_ast_new_identifier(copy_test_name("Object")));
+        make_test_ast_list1(enact_ast_new_identifier(copy_test_name("Object"))));
     require_true(original != NULL, "class def clone source created");
     clone = enact_ast_clone(original);
     require_true(clone != NULL, "class def clone created");

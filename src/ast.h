@@ -108,7 +108,7 @@ struct EnactAst {
         } fix_expr;
         struct {
             char *name;
-            EnactAst *superclass;
+            EnactAstList *superclasses;
         } class_def;
         struct {
             EnactAst *class_expr;
@@ -161,7 +161,7 @@ EnactAst *enact_ast_new_binary(EnactAstKind kind, EnactAst *left, EnactAst *righ
 EnactAst *enact_ast_new_conditional(EnactAst *condition, EnactAst *if_true, EnactAst *if_false);
 EnactAst *enact_ast_new_where(EnactAst *body, char *name, EnactAst *value);
 EnactAst *enact_ast_new_fix(EnactNameList *names, EnactAst *body);
-EnactAst *enact_ast_new_class_def(char *name, EnactAst *superclass);
+EnactAst *enact_ast_new_class_def(char *name, EnactAstList *superclasses);
 EnactAst *enact_ast_new_method_def(
     EnactAst *class_expr,
     char *name,

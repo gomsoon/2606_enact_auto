@@ -417,7 +417,7 @@ EnactAst *enact_ast_new_fix(EnactNameList *names, EnactAst *body)
     return ast;
 }
 
-EnactAst *enact_ast_new_class_def(char *name, EnactAst *superclass)
+EnactAst *enact_ast_new_class_def(char *name, EnactAstList *superclasses)
 {
     EnactAst *ast = enact_ast_alloc(AST_CLASS_DEF);
     if (!ast) {
@@ -425,7 +425,7 @@ EnactAst *enact_ast_new_class_def(char *name, EnactAst *superclass)
     }
 
     ast->as.class_def.name = name;
-    ast->as.class_def.superclass = superclass;
+    ast->as.class_def.superclasses = superclasses;
     return ast;
 }
 
@@ -830,23 +830,23 @@ static EnactAst *enact_ast_clone_function_literal(const EnactAst *ast)
 static EnactAst *enact_ast_clone_class_def(const EnactAst *ast)
 {
     char *name = enact_ast_copy_text(ast->as.class_def.name);
-    EnactAst *superclass;
+    EnactAstList *superclasses;
     EnactAst *copy;
 
     if (!name) {
         return NULL;
     }
 
-    superclass = enact_ast_clone(ast->as.class_def.superclass);
-    if (!superclass) {
+    superclasses = enact_ast_list_clone(ast->as.class_def.superclasses);
+    if (!superclasses) {
         free(name);
         return NULL;
     }
 
-    copy = enact_ast_new_class_def(name, superclass);
+    copy = enact_ast_new_class_def(name, superclasses);
     if (!copy) {
         free(name);
-        enact_ast_free(superclass);
+        enact_ast_list_free(superclasses);
         return NULL;
     }
 
@@ -1071,7 +1071,7 @@ void enact_ast_free(EnactAst *ast)
         break;
     case AST_CLASS_DEF:
         free(ast->as.class_def.name);
-        enact_ast_free(ast->as.class_def.superclass);
+        enact_ast_list_free(ast->as.class_def.superclasses);
         break;
     case AST_METHOD_DEF:
         enact_ast_free(ast->as.method_def.class_expr);

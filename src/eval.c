@@ -296,23 +296,74 @@ static int enact_eval_new(const EnactAst *ast, EnactEnv *env, EnactValue *out, E
     return 1;
 }
 
-static int enact_eval_class_def(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+static int enact_eval_superclass_list_from(
+    const EnactAstList *superclass_asts,
+    size_t index,
+    EnactEnv *env,
+    EnactList **out,
+    EnactDiag *diag)
 {
     EnactValue superclass_value;
-    EnactClass *superclass = NULL;
-    EnactClass *class_value;
-    EnactValue result;
+    EnactClass *class_type = NULL;
+    EnactList *tail = NULL;
+    EnactList *classes;
 
-    if (!enact_eval_value(ast->as.class_def.superclass, env, &superclass_value, diag)) {
+    if (!out) {
         return 0;
     }
-    if (!enact_require_class(&superclass_value, &superclass, diag)) {
+
+    if (index >= enact_ast_list_count(superclass_asts)) {
+        *out = NULL;
+        return 1;
+    }
+
+    if (!enact_eval_value(enact_ast_list_get(superclass_asts, index), env, &superclass_value, diag)) {
+        return 0;
+    }
+    if (!enact_require_class(&superclass_value, &class_type, diag)) {
         enact_value_free(&superclass_value);
         return 0;
     }
 
-    class_value = enact_class_new_with_superclass(ast->as.class_def.name, superclass);
+    (void)class_type;
+    if (!enact_eval_superclass_list_from(superclass_asts, index + 1, env, &tail, diag)) {
+        enact_value_free(&superclass_value);
+        return 0;
+    }
+
+    classes = enact_list_cons(&superclass_value, tail);
     enact_value_free(&superclass_value);
+    enact_list_release(tail);
+    if (!classes) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = classes;
+    return 1;
+}
+
+static int enact_eval_superclass_list(
+    const EnactAstList *superclass_asts,
+    EnactEnv *env,
+    EnactList **out,
+    EnactDiag *diag)
+{
+    return enact_eval_superclass_list_from(superclass_asts, 0, env, out, diag);
+}
+
+static int enact_eval_class_def(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    EnactList *superclasses = NULL;
+    EnactClass *class_value;
+    EnactValue result;
+
+    if (!enact_eval_superclass_list(ast->as.class_def.superclasses, env, &superclasses, diag)) {
+        return 0;
+    }
+
+    class_value = enact_class_new_with_superclasses(ast->as.class_def.name, superclasses);
+    enact_list_release(superclasses);
     if (!class_value) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;

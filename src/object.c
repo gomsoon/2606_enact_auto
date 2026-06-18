@@ -76,6 +76,33 @@ static EnactClassLink *enact_class_link_new(EnactClass *class_value)
     return link;
 }
 
+static int enact_class_link_append(EnactClassLink **head, EnactClass *class_value)
+{
+    EnactClassLink *link;
+    EnactClassLink *tail;
+
+    if (!head) {
+        return 0;
+    }
+
+    link = enact_class_link_new(class_value);
+    if (!link) {
+        return 0;
+    }
+
+    if (!*head) {
+        *head = link;
+        return 1;
+    }
+
+    tail = *head;
+    while (tail->next) {
+        tail = tail->next;
+    }
+    tail->next = link;
+    return 1;
+}
+
 static void enact_class_link_release_all(EnactClassLink *link)
 {
     while (link) {
@@ -87,12 +114,7 @@ static void enact_class_link_release_all(EnactClassLink *link)
     }
 }
 
-EnactClass *enact_class_new(const char *name)
-{
-    return enact_class_new_with_superclass(name, NULL);
-}
-
-EnactClass *enact_class_new_with_superclass(const char *name, EnactClass *superclass)
+static EnactClass *enact_class_alloc_named(const char *name)
 {
     EnactClass *class_value = calloc(1, sizeof(*class_value));
 
@@ -107,14 +129,51 @@ EnactClass *enact_class_new_with_superclass(const char *name, EnactClass *superc
     }
 
     class_value->ref_count = 1;
+    return class_value;
+}
+
+EnactClass *enact_class_new(const char *name)
+{
+    return enact_class_alloc_named(name);
+}
+
+EnactClass *enact_class_new_with_superclass(const char *name, EnactClass *superclass)
+{
+    EnactClass *class_value = enact_class_alloc_named(name);
+
+    if (!class_value) {
+        return NULL;
+    }
+
     if (superclass) {
-        class_value->superclasses = enact_class_link_new(superclass);
-        if (!class_value->superclasses) {
-            free(class_value->name);
-            free(class_value);
+        if (!enact_class_link_append(&class_value->superclasses, superclass)) {
+            enact_class_release(class_value);
             return NULL;
         }
     }
+    return class_value;
+}
+
+EnactClass *enact_class_new_with_superclasses(const char *name, EnactList *superclasses)
+{
+    EnactClass *class_value = enact_class_alloc_named(name);
+
+    if (!class_value) {
+        return NULL;
+    }
+
+    while (superclasses) {
+        const EnactValue *value = enact_list_head(superclasses);
+
+        if (!value || value->kind != ENACT_VALUE_CLASS ||
+            !enact_class_link_append(&class_value->superclasses, value->as.as_class)) {
+            enact_class_release(class_value);
+            return NULL;
+        }
+
+        superclasses = enact_list_tail(superclasses);
+    }
+
     return class_value;
 }
 
