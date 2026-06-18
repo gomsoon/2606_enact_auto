@@ -228,6 +228,7 @@ static void test_value_helpers(void)
     EnactNameList *empty_params;
     EnactNameList *params_clone;
     char *bad_append_name;
+    int linearization_ok = 0;
     const char *one_param[] = {"x"};
     const char *two_param_names[] = {"x", "y"};
 
@@ -292,6 +293,7 @@ static void test_value_helpers(void)
     require_true(enact_class_superclass(NULL) == NULL, "class superclass null");
     superclasses = NULL;
     require_true(!enact_class_superclasses(NULL, &superclasses), "class superclasses null class fails");
+    require_true(!enact_class_linearization_is_consistent(NULL, &linearization_ok), "class OK null class fails");
     require_true(enact_object_new(NULL) == NULL, "object new null class fails");
     require_true(enact_object_retain(NULL) == NULL, "object retain null");
     enact_object_release(NULL);
@@ -311,6 +313,13 @@ static void test_value_helpers(void)
         require_true(strcmp(enact_class_name(class_value.as.as_class), "Object") == 0, "class value name");
         require_true(enact_class_superclass(class_value.as.as_class) == NULL, "root class has no superclass");
         require_true(!enact_class_superclasses(class_value.as.as_class, NULL), "class superclasses null out fails");
+        require_true(
+            !enact_class_linearization_is_consistent(class_value.as.as_class, NULL),
+            "class OK null out fails");
+        require_true(
+            enact_class_linearization_is_consistent(class_value.as.as_class, &linearization_ok),
+            "root class OK succeeds");
+        require_true(linearization_ok, "root class OK true");
         superclasses = NULL;
         require_true(enact_class_superclasses(class_value.as.as_class, &superclasses), "root class superclasses succeeds");
         require_true(superclasses == NULL, "root class superclasses nil");
@@ -656,6 +665,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *classes = enact_builtin_lookup("classes");
     const EnactBuiltin *supers = enact_builtin_lookup("supers");
     const EnactBuiltin *superiors = enact_builtin_lookup("superiors");
+    const EnactBuiltin *ok_builtin = enact_builtin_lookup("OK");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *append = enact_builtin_lookup("append");
@@ -727,6 +737,7 @@ static void test_builtin_helpers(void)
     require_true(classes != NULL, "classes builtin lookup succeeds");
     require_true(supers != NULL, "supers builtin lookup succeeds");
     require_true(superiors != NULL, "superiors builtin lookup succeeds");
+    require_true(ok_builtin != NULL, "OK builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(append != NULL, "append builtin lookup succeeds");
@@ -756,6 +767,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(classes) == 1, "classes builtin arity");
     require_true(enact_builtin_arity(supers) == 1, "supers builtin arity");
     require_true(enact_builtin_arity(superiors) == 1, "superiors builtin arity");
+    require_true(enact_builtin_arity(ok_builtin) == 1, "OK builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_arity(append) == 2, "append builtin arity");
@@ -862,6 +874,11 @@ static void test_builtin_helpers(void)
             "classes root class head identity");
         require_true(enact_list_tail(result.as.as_list) == NULL, "classes root class result tail nil");
         enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(ok_builtin, args, 1, &result, &diag), "OK root class apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "OK root class result kind");
+        require_true(result.as.as_bool, "OK root class result true");
+        enact_value_free(&result);
         node_class = enact_class_new_with_superclass("Node", object_class);
         require_true(node_class != NULL, "supers test subclass created");
         if (node_class) {
@@ -945,6 +962,9 @@ static void test_builtin_helpers(void)
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(classes, args, 1, &result, &diag), "classes int fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "classes int error code");
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(ok_builtin, args, 1, &result, &diag), "OK int fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "OK int error code");
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(version_builtin, NULL, 0, &result, &diag), "version apply succeeds");
     require_true(result.kind == ENACT_VALUE_STRING, "version result kind");

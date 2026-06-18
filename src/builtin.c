@@ -428,6 +428,30 @@ static int enact_builtin_superiors(
     return 1;
 }
 
+static int enact_builtin_ok(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    int is_consistent = 0;
+
+    (void)argument_count;
+
+    if (arguments[0].kind != ENACT_VALUE_CLASS) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+        return 0;
+    }
+
+    if (!enact_class_linearization_is_consistent(arguments[0].as.as_class, &is_consistent)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_bool(is_consistent != 0);
+    return 1;
+}
+
 static int enact_builtin_version(
     const EnactValue *arguments,
     size_t argument_count,
@@ -1098,6 +1122,7 @@ static const EnactBuiltin builtin_table[] = {
     {"classes", 1, enact_builtin_classes},
     {"supers", 1, enact_builtin_supers},
     {"superiors", 1, enact_builtin_superiors},
+    {"OK", 1, enact_builtin_ok},
     {"version", 0, enact_builtin_version},
     {"list", 1, enact_builtin_list},
     {"append", 2, enact_builtin_append},

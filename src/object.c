@@ -364,7 +364,7 @@ static int enact_class_direct_superclasses(EnactClass *class_value, EnactClassVe
     }
 
     for (link = class_value->superclasses; link; link = link->next) {
-        if (!enact_class_vector_append(out, link->class_value)) {
+        if (!enact_class_vector_append_unique(out, link->class_value)) {
             return 0;
         }
     }
@@ -442,7 +442,7 @@ static EnactClass *enact_class_sequence_next_candidate(EnactClassSequence *seque
         }
     }
 
-    return enact_class_sequence_first_candidate(sequences, count);
+    return NULL;
 }
 
 static void enact_class_sequence_drop_candidate(EnactClassSequence *sequences, size_t count, EnactClass *candidate)
@@ -459,19 +459,25 @@ static void enact_class_sequence_drop_candidate(EnactClassSequence *sequences, s
     }
 }
 
-static int enact_class_linearization_vector(EnactClass *class_value, EnactClassVector *out);
+static int enact_class_linearization_vector(
+    EnactClass *class_value,
+    EnactClassVector *out,
+    int allow_inconsistent,
+    int *consistent);
 
 static int enact_class_merge_linearizations(
     EnactClassVector *linearizations,
     const EnactClassVector *direct_superclasses,
-    EnactClassVector *out)
+    EnactClassVector *out,
+    int allow_inconsistent,
+    int *consistent)
 {
     EnactClassSequence *sequences;
     size_t count;
     size_t index;
     int ok = 0;
 
-    if (!direct_superclasses) {
+    if (!direct_superclasses || !out || !consistent) {
         return 0;
     }
 
@@ -493,6 +499,14 @@ static int enact_class_merge_linearizations(
     while (enact_class_sequence_has_remaining(sequences, count + 1)) {
         EnactClass *candidate = enact_class_sequence_next_candidate(sequences, count + 1);
 
+        if (!candidate) {
+            *consistent = 0;
+            if (!allow_inconsistent) {
+                ok = 1;
+                goto done;
+            }
+            candidate = enact_class_sequence_first_candidate(sequences, count + 1);
+        }
         if (!candidate || !enact_class_vector_append_unique(out, candidate)) {
             goto done;
         }
@@ -507,14 +521,18 @@ done:
     return ok;
 }
 
-static int enact_class_linearization_vector(EnactClass *class_value, EnactClassVector *out)
+static int enact_class_linearization_vector(
+    EnactClass *class_value,
+    EnactClassVector *out,
+    int allow_inconsistent,
+    int *consistent)
 {
     EnactClassVector direct_superclasses = {0};
     EnactClassVector *linearizations = NULL;
     size_t index;
     int ok = 0;
 
-    if (!class_value || !out) {
+    if (!class_value || !out || !consistent) {
         return 0;
     }
     if (!enact_class_vector_append_unique(out, class_value)) {
@@ -535,12 +553,25 @@ static int enact_class_linearization_vector(EnactClass *class_value, EnactClassV
     }
 
     for (index = 0; index < direct_superclasses.count; index += 1) {
-        if (!enact_class_linearization_vector(direct_superclasses.items[index], &linearizations[index])) {
+        if (!enact_class_linearization_vector(
+                direct_superclasses.items[index],
+                &linearizations[index],
+                allow_inconsistent,
+                consistent)) {
+            goto done;
+        }
+        if (!*consistent && !allow_inconsistent) {
+            ok = 1;
             goto done;
         }
     }
 
-    ok = enact_class_merge_linearizations(linearizations, &direct_superclasses, out);
+    ok = enact_class_merge_linearizations(
+        linearizations,
+        &direct_superclasses,
+        out,
+        allow_inconsistent,
+        consistent);
 
 done:
     for (index = 0; index < direct_superclasses.count; index += 1) {
@@ -583,16 +614,37 @@ static int enact_class_vector_to_list(const EnactClassVector *vector, size_t sta
 int enact_class_linearization(EnactClass *class_value, EnactList **out)
 {
     EnactClassVector linearization = {0};
+    int consistent = 1;
     int ok;
 
     if (!class_value || !out) {
         return 0;
     }
 
-    ok = enact_class_linearization_vector(class_value, &linearization) &&
+    ok = enact_class_linearization_vector(class_value, &linearization, 1, &consistent) &&
          enact_class_vector_to_list(&linearization, 0, out);
     enact_class_vector_free(&linearization);
     return ok;
+}
+
+int enact_class_linearization_is_consistent(EnactClass *class_value, int *out)
+{
+    EnactClassVector linearization = {0};
+    int consistent = 1;
+    int ok;
+
+    if (!class_value || !out) {
+        return 0;
+    }
+
+    ok = enact_class_linearization_vector(class_value, &linearization, 0, &consistent);
+    enact_class_vector_free(&linearization);
+    if (!ok) {
+        return 0;
+    }
+
+    *out = consistent;
+    return 1;
 }
 
 int enact_class_define_method(EnactClass *class_value, const char *name, EnactFunction *function)
@@ -655,13 +707,14 @@ EnactFunction *enact_class_lookup_method(EnactClass *class_value, const char *na
 {
     EnactClassVector linearization = {0};
     EnactFunction *function;
+    int consistent = 1;
     size_t index;
 
     if (!class_value || !name) {
         return NULL;
     }
 
-    if (!enact_class_linearization_vector(class_value, &linearization)) {
+    if (!enact_class_linearization_vector(class_value, &linearization, 1, &consistent)) {
         return NULL;
     }
 
