@@ -1400,6 +1400,29 @@ static void test_builtin_helpers(void)
         "set builtin env apply succeeds");
     require_true(result.kind == ENACT_VALUE_OBJECT, "set builtin result kind");
     require_true(strcmp(enact_class_name(enact_object_class(result.as.as_object)), "Set") == 0, "set object class name");
+    require_true(
+        enact_object_collection_kind(result.as.as_object) == ENACT_COLLECTION_SET,
+        "set object collection kind");
+    require_true(enact_object_collection_items(result.as.as_object) == NULL, "set object collection items nil");
+    {
+        EnactValue query_args[2];
+        EnactValue query_result;
+
+        query_args[0] = result;
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(size, query_args, 1, &query_result, &diag), "size set object succeeds");
+        require_true(query_result.kind == ENACT_VALUE_INT, "size set object result kind");
+        require_true(query_result.as.as_int == 0, "size set object result value");
+        enact_value_free(&query_result);
+
+        query_args[0] = enact_value_make_int(1);
+        query_args[1] = result;
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(member, query_args, 2, &query_result, &diag), "member set object succeeds");
+        require_true(query_result.kind == ENACT_VALUE_BOOL, "member set object result kind");
+        require_true(!query_result.as.as_bool, "member set object result false");
+        enact_value_free(&query_result);
+    }
     enact_value_free(&result);
     enact_diag_reset(&diag);
     require_true(
@@ -1407,6 +1430,29 @@ static void test_builtin_helpers(void)
         "bag builtin env apply succeeds");
     require_true(result.kind == ENACT_VALUE_OBJECT, "bag builtin result kind");
     require_true(strcmp(enact_class_name(enact_object_class(result.as.as_object)), "Bag") == 0, "bag object class name");
+    require_true(
+        enact_object_collection_kind(result.as.as_object) == ENACT_COLLECTION_BAG,
+        "bag object collection kind");
+    require_true(enact_object_collection_items(result.as.as_object) == NULL, "bag object collection items nil");
+    {
+        EnactValue query_args[2];
+        EnactValue query_result;
+
+        query_args[0] = result;
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(size, query_args, 1, &query_result, &diag), "size bag object succeeds");
+        require_true(query_result.kind == ENACT_VALUE_INT, "size bag object result kind");
+        require_true(query_result.as.as_int == 0, "size bag object result value");
+        enact_value_free(&query_result);
+
+        query_args[0] = enact_value_make_int(1);
+        query_args[1] = result;
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(member, query_args, 2, &query_result, &diag), "member bag object succeeds");
+        require_true(query_result.kind == ENACT_VALUE_BOOL, "member bag object result kind");
+        require_true(!query_result.as.as_bool, "member bag object result false");
+        enact_value_free(&query_result);
+    }
     enact_value_free(&result);
     enact_diag_reset(&diag);
     require_true(

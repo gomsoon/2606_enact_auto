@@ -33,6 +33,8 @@ struct EnactObject {
     size_t ref_count;
     EnactClass *class_value;
     EnactAttribute *attributes;
+    EnactCollectionKind collection_kind;
+    EnactList *collection_items;
 };
 
 typedef struct EnactClassVector {
@@ -239,6 +241,38 @@ EnactClass *enact_class_superclass(const EnactClass *class_value)
     }
 
     return class_value->superclasses->class_value;
+}
+
+static int enact_class_inherits_name(const EnactClass *class_value, const char *name)
+{
+    const EnactClassLink *link;
+
+    if (!class_value || !name) {
+        return 0;
+    }
+    if (strcmp(enact_class_name(class_value), name) == 0) {
+        return 1;
+    }
+
+    for (link = class_value->superclasses; link; link = link->next) {
+        if (enact_class_inherits_name(link->class_value, name)) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static EnactCollectionKind enact_class_collection_kind(const EnactClass *class_value)
+{
+    if (enact_class_inherits_name(class_value, "Set")) {
+        return ENACT_COLLECTION_SET;
+    }
+    if (enact_class_inherits_name(class_value, "Bag")) {
+        return ENACT_COLLECTION_BAG;
+    }
+
+    return ENACT_COLLECTION_NONE;
 }
 
 static int enact_class_superclasses_from_link(const EnactClassLink *link, EnactList **out)
@@ -806,6 +840,7 @@ EnactObject *enact_object_new(EnactClass *class_value)
         free(object);
         return NULL;
     }
+    object->collection_kind = enact_class_collection_kind(class_value);
 
     return object;
 }
@@ -845,12 +880,23 @@ void enact_object_release(EnactObject *object)
 
     enact_class_release(object->class_value);
     enact_attribute_release_all(object->attributes);
+    enact_list_release(object->collection_items);
     free(object);
 }
 
 EnactClass *enact_object_class(const EnactObject *object)
 {
     return object ? object->class_value : NULL;
+}
+
+EnactCollectionKind enact_object_collection_kind(const EnactObject *object)
+{
+    return object ? object->collection_kind : ENACT_COLLECTION_NONE;
+}
+
+EnactList *enact_object_collection_items(const EnactObject *object)
+{
+    return object ? object->collection_items : NULL;
 }
 
 int enact_object_define_attribute(EnactObject *object, const char *name, EnactValue value)

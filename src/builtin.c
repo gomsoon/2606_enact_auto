@@ -144,6 +144,26 @@ static int enact_builtin_require_non_empty_list(const EnactValue *value, EnactLi
     return 1;
 }
 
+static int enact_builtin_require_list_or_collection(const EnactValue *value, EnactList **out, EnactDiag *diag)
+{
+    if (!value || !out) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_LIST, -1);
+        return 0;
+    }
+    if (value->kind == ENACT_VALUE_LIST) {
+        *out = value->as.as_list;
+        return 1;
+    }
+    if (value->kind == ENACT_VALUE_OBJECT &&
+        enact_object_collection_kind(value->as.as_object) != ENACT_COLLECTION_NONE) {
+        *out = enact_object_collection_items(value->as.as_object);
+        return 1;
+    }
+
+    enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_LIST, -1);
+    return 0;
+}
+
 static int enact_builtin_require_callable(const EnactValue *value, EnactDiag *diag)
 {
     if (!value ||
@@ -165,6 +185,28 @@ static int enact_builtin_require_bool_value(const EnactValue *value, bool *out, 
     }
 
     *out = value->as.as_bool;
+    return 1;
+}
+
+static int enact_builtin_list_size(EnactList *list, int32_t *out, EnactDiag *diag)
+{
+    int32_t count = 0;
+
+    if (!out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    while (list) {
+        if (count == INT_MAX) {
+            enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
+            return 0;
+        }
+        count += 1;
+        list = enact_list_tail(list);
+    }
+
+    *out = count;
     return 1;
 }
 
@@ -586,17 +628,11 @@ static int enact_builtin_size(
 
     (void)argument_count;
 
-    if (!enact_builtin_require_list(&arguments[0], &list, diag)) {
+    if (!enact_builtin_require_list_or_collection(&arguments[0], &list, diag)) {
         return 0;
     }
-
-    while (list) {
-        if (count == INT_MAX) {
-            enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
-            return 0;
-        }
-        count += 1;
-        list = enact_list_tail(list);
+    if (!enact_builtin_list_size(list, &count, diag)) {
+        return 0;
     }
 
     *out = enact_value_make_int(count);
@@ -872,7 +908,7 @@ static int enact_builtin_member(
 
     (void)argument_count;
 
-    if (!enact_builtin_require_list(&arguments[1], &list, diag)) {
+    if (!enact_builtin_require_list_or_collection(&arguments[1], &list, diag)) {
         return 0;
     }
     if (!enact_builtin_list_contains_value(list, &arguments[0], &found)) {
