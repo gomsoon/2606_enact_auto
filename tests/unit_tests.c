@@ -1462,6 +1462,22 @@ static void test_builtin_helpers(void)
             require_true(size_result.as.as_int == 1, "size duplicate set result value");
             enact_value_free(&size_result);
 
+            query_args[0] = enact_value_make_builtin(atom);
+            query_args[1] = duplicate_set;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(all, query_args, 2, &size_result, &diag), "all set object succeeds");
+            require_true(size_result.kind == ENACT_VALUE_BOOL, "all set result kind");
+            require_true(size_result.as.as_bool, "all set result true");
+            enact_value_free(&size_result);
+
+            query_args[0] = enact_value_make_builtin(is_object);
+            query_args[1] = duplicate_set;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(exists, query_args, 2, &size_result, &diag), "exists set object succeeds");
+            require_true(size_result.kind == ENACT_VALUE_BOOL, "exists set result kind");
+            require_true(!size_result.as.as_bool, "exists set result false");
+            enact_value_free(&size_result);
+
             query_args[0] = enact_value_make_int(1);
             query_args[1] = duplicate_set;
             enact_diag_reset(&diag);
@@ -1535,6 +1551,22 @@ static void test_builtin_helpers(void)
             require_true(enact_builtin_apply(size, query_args, 1, &size_result, &diag), "size duplicate bag succeeds");
             require_true(size_result.kind == ENACT_VALUE_INT, "size duplicate bag result kind");
             require_true(size_result.as.as_int == 2, "size duplicate bag result value");
+            enact_value_free(&size_result);
+
+            query_args[0] = enact_value_make_builtin(atom);
+            query_args[1] = duplicate_bag;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(all, query_args, 2, &size_result, &diag), "all bag object succeeds");
+            require_true(size_result.kind == ENACT_VALUE_BOOL, "all bag result kind");
+            require_true(size_result.as.as_bool, "all bag result true");
+            enact_value_free(&size_result);
+
+            query_args[0] = enact_value_make_builtin(is_object);
+            query_args[1] = duplicate_bag;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(exists, query_args, 2, &size_result, &diag), "exists bag object succeeds");
+            require_true(size_result.kind == ENACT_VALUE_BOOL, "exists bag result kind");
+            require_true(!size_result.as.as_bool, "exists bag result false");
             enact_value_free(&size_result);
 
             query_args[0] = enact_value_make_int(1);

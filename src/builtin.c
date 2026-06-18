@@ -803,7 +803,7 @@ static int enact_builtin_all(
     if (!enact_builtin_require_callable(&arguments[0], diag)) {
         return 0;
     }
-    if (!enact_builtin_require_list(&arguments[1], &list, diag)) {
+    if (!enact_builtin_require_list_or_collection(&arguments[1], &list, diag)) {
         return 0;
     }
 
@@ -839,7 +839,7 @@ static int enact_builtin_exists(
     if (!enact_builtin_require_callable(&arguments[0], diag)) {
         return 0;
     }
-    if (!enact_builtin_require_list(&arguments[1], &list, diag)) {
+    if (!enact_builtin_require_list_or_collection(&arguments[1], &list, diag)) {
         return 0;
     }
 
