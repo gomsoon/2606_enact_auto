@@ -689,6 +689,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *size = enact_builtin_lookup("size");
     const EnactBuiltin *map = enact_builtin_lookup("map");
     const EnactBuiltin *filter = enact_builtin_lookup("filter");
+    const EnactBuiltin *select = enact_builtin_lookup("select");
     const EnactBuiltin *all = enact_builtin_lookup("all");
     const EnactBuiltin *exists = enact_builtin_lookup("exists");
     const EnactBuiltin *reduce = enact_builtin_lookup("reduce");
@@ -764,6 +765,7 @@ static void test_builtin_helpers(void)
     require_true(size != NULL, "size builtin lookup succeeds");
     require_true(map != NULL, "map builtin lookup succeeds");
     require_true(filter != NULL, "filter builtin lookup succeeds");
+    require_true(select != NULL, "select builtin lookup succeeds");
     require_true(all != NULL, "all builtin lookup succeeds");
     require_true(exists != NULL, "exists builtin lookup succeeds");
     require_true(reduce != NULL, "reduce builtin lookup succeeds");
@@ -797,6 +799,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(size) == 1, "size builtin arity");
     require_true(enact_builtin_arity(map) == 2, "map builtin arity");
     require_true(enact_builtin_arity(filter) == 2, "filter builtin arity");
+    require_true(enact_builtin_arity(select) == 2, "select builtin arity");
     require_true(enact_builtin_arity(all) == 2, "all builtin arity");
     require_true(enact_builtin_arity(exists) == 2, "exists builtin arity");
     require_true(enact_builtin_arity(reduce) == 3, "reduce builtin arity");
@@ -1352,6 +1355,9 @@ static void test_builtin_helpers(void)
     require_true(enact_env_lookup(&env, "filter", &lookup_value), "lookup installed filter");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed filter value kind");
     enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "select", &lookup_value), "lookup installed select");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed select value kind");
+    enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "all", &lookup_value), "lookup installed all");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed all value kind");
     enact_value_free(&lookup_value);
@@ -1478,6 +1484,29 @@ static void test_builtin_helpers(void)
             require_true(!size_result.as.as_bool, "exists set result false");
             enact_value_free(&size_result);
 
+            query_args[0] = enact_value_make_builtin(atom);
+            query_args[1] = duplicate_set;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(filter, query_args, 2, &size_result, &diag), "filter set object succeeds");
+            require_true(size_result.kind == ENACT_VALUE_OBJECT, "filter set result kind");
+            require_true(
+                enact_object_collection_kind(size_result.as.as_object) == ENACT_COLLECTION_SET,
+                "filter set result collection kind");
+            enact_value_free(&size_result);
+
+            query_args[0] = enact_value_make_builtin(is_object);
+            query_args[1] = duplicate_set;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(select, query_args, 2, &size_result, &diag), "select set object succeeds");
+            require_true(size_result.kind == ENACT_VALUE_OBJECT, "select set result kind");
+            query_args[0] = size_result;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(size, query_args, 1, &removed_set, &diag), "size selected set succeeds");
+            require_true(removed_set.kind == ENACT_VALUE_INT, "size selected set result kind");
+            require_true(removed_set.as.as_int == 0, "size selected set result value");
+            enact_value_free(&removed_set);
+            enact_value_free(&size_result);
+
             query_args[0] = enact_value_make_int(1);
             query_args[1] = duplicate_set;
             enact_diag_reset(&diag);
@@ -1567,6 +1596,35 @@ static void test_builtin_helpers(void)
             require_true(enact_builtin_apply(exists, query_args, 2, &size_result, &diag), "exists bag object succeeds");
             require_true(size_result.kind == ENACT_VALUE_BOOL, "exists bag result kind");
             require_true(!size_result.as.as_bool, "exists bag result false");
+            enact_value_free(&size_result);
+
+            query_args[0] = enact_value_make_builtin(atom);
+            query_args[1] = duplicate_bag;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(filter, query_args, 2, &size_result, &diag), "filter bag object succeeds");
+            require_true(size_result.kind == ENACT_VALUE_OBJECT, "filter bag result kind");
+            require_true(
+                enact_object_collection_kind(size_result.as.as_object) == ENACT_COLLECTION_BAG,
+                "filter bag result collection kind");
+            query_args[0] = size_result;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(size, query_args, 1, &removed_bag, &diag), "size filtered bag succeeds");
+            require_true(removed_bag.kind == ENACT_VALUE_INT, "size filtered bag result kind");
+            require_true(removed_bag.as.as_int == 2, "size filtered bag result value");
+            enact_value_free(&removed_bag);
+            enact_value_free(&size_result);
+
+            query_args[0] = enact_value_make_builtin(is_object);
+            query_args[1] = duplicate_bag;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(select, query_args, 2, &size_result, &diag), "select bag object succeeds");
+            require_true(size_result.kind == ENACT_VALUE_OBJECT, "select bag result kind");
+            query_args[0] = size_result;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(size, query_args, 1, &removed_bag, &diag), "size selected bag succeeds");
+            require_true(removed_bag.kind == ENACT_VALUE_INT, "size selected bag result kind");
+            require_true(removed_bag.as.as_int == 0, "size selected bag result value");
+            enact_value_free(&removed_bag);
             enact_value_free(&size_result);
 
             query_args[0] = enact_value_make_int(1);

@@ -4,6 +4,8 @@ Related requirements: [docs/slices/059-collection-predicate-traversal-requiremen
 
 ## Shared Traversal Input
 
+Update note: Slice 060 builds on this read-only traversal step by adding collection-aware `filter` and `select`.
+
 `all` and `exists` now use the existing list-or-collection helper for their traversal input:
 
 ```c

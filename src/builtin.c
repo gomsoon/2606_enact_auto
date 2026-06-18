@@ -770,6 +770,8 @@ static int enact_builtin_filter(
     EnactValue *out,
     EnactDiag *diag)
 {
+    EnactObject *collection = NULL;
+    EnactObject *next_collection;
     EnactList *list = NULL;
     EnactList *result = NULL;
 
@@ -778,6 +780,25 @@ static int enact_builtin_filter(
     if (!enact_builtin_require_callable(&arguments[0], diag)) {
         return 0;
     }
+    if (arguments[1].kind == ENACT_VALUE_OBJECT &&
+        enact_object_collection_kind(arguments[1].as.as_object) != ENACT_COLLECTION_NONE) {
+        collection = arguments[1].as.as_object;
+        list = enact_object_collection_items(collection);
+        if (!enact_builtin_filter_list(&arguments[0], list, &result, diag)) {
+            return 0;
+        }
+
+        next_collection = enact_object_copy_with_collection_items(collection, result);
+        enact_list_release(result);
+        if (!next_collection) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        *out = enact_value_make_object(next_collection);
+        return 1;
+    }
+
     if (!enact_builtin_require_list(&arguments[1], &list, diag)) {
         return 0;
     }
@@ -1330,6 +1351,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("size", 1, enact_builtin_size),
     ENACT_BUILTIN("map", 2, enact_builtin_map),
     ENACT_BUILTIN("filter", 2, enact_builtin_filter),
+    ENACT_BUILTIN("select", 2, enact_builtin_filter),
     ENACT_BUILTIN("all", 2, enact_builtin_all),
     ENACT_BUILTIN("exists", 2, enact_builtin_exists),
     ENACT_BUILTIN("reduce", 3, enact_builtin_reduce),
