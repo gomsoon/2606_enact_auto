@@ -164,6 +164,19 @@ static int enact_builtin_require_list_or_collection(const EnactValue *value, Ena
     return 0;
 }
 
+static int enact_builtin_require_collection_object(const EnactValue *value, EnactObject **out, EnactDiag *diag)
+{
+    if (!value || !out ||
+        value->kind != ENACT_VALUE_OBJECT ||
+        enact_object_collection_kind(value->as.as_object) == ENACT_COLLECTION_NONE) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_LIST, -1);
+        return 0;
+    }
+
+    *out = value->as.as_object;
+    return 1;
+}
+
 static int enact_builtin_require_callable(const EnactValue *value, EnactDiag *diag)
 {
     if (!value ||
@@ -920,6 +933,57 @@ static int enact_builtin_member(
     return 1;
 }
 
+static int enact_builtin_insert(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactObject *collection = NULL;
+    EnactList *items;
+    EnactList *next_items = NULL;
+    EnactObject *next_collection;
+    bool found = false;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_collection_object(&arguments[1], &collection, diag)) {
+        return 0;
+    }
+
+    items = enact_object_collection_items(collection);
+    if (enact_object_collection_kind(collection) == ENACT_COLLECTION_SET) {
+        if (!enact_builtin_list_contains_value(items, &arguments[0], &found)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    }
+
+    if (found) {
+        next_items = enact_list_retain(items);
+        if (items && !next_items) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    } else {
+        next_items = enact_list_cons(&arguments[0], items);
+        if (!next_items) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    }
+
+    next_collection = enact_object_copy_with_collection_items(collection, next_items);
+    enact_list_release(next_items);
+    if (!next_collection) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_object(next_collection);
+    return 1;
+}
+
 static int enact_builtin_remove_one(
     const EnactValue *needle,
     EnactList *list,
@@ -1248,6 +1312,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("exists", 2, enact_builtin_exists),
     ENACT_BUILTIN("reduce", 3, enact_builtin_reduce),
     ENACT_BUILTIN("member", 2, enact_builtin_member),
+    ENACT_BUILTIN("insert", 2, enact_builtin_insert),
     ENACT_BUILTIN("remove", 2, enact_builtin_remove),
     ENACT_BUILTIN("unitset", 1, enact_builtin_unitset),
     ENACT_BUILTIN("union", 2, enact_builtin_union),

@@ -857,6 +857,50 @@ static void enact_attribute_release_all(EnactAttribute *attribute)
     }
 }
 
+static int enact_attribute_clone_all(const EnactAttribute *attribute, EnactAttribute **out)
+{
+    EnactAttribute *head = NULL;
+    EnactAttribute **tail = &head;
+
+    if (!out) {
+        return 0;
+    }
+
+    while (attribute) {
+        EnactAttribute *clone;
+        char *name_copy;
+        EnactValue value_copy;
+
+        name_copy = enact_object_copy_text(attribute->name);
+        if (!name_copy) {
+            enact_attribute_release_all(head);
+            return 0;
+        }
+        if (!enact_value_copy(&value_copy, &attribute->value)) {
+            free(name_copy);
+            enact_attribute_release_all(head);
+            return 0;
+        }
+
+        clone = calloc(1, sizeof(*clone));
+        if (!clone) {
+            free(name_copy);
+            enact_value_free(&value_copy);
+            enact_attribute_release_all(head);
+            return 0;
+        }
+
+        clone->name = name_copy;
+        clone->value = value_copy;
+        *tail = clone;
+        tail = &clone->next;
+        attribute = attribute->next;
+    }
+
+    *out = head;
+    return 1;
+}
+
 EnactObject *enact_object_retain(EnactObject *object)
 {
     if (!object) {
@@ -897,6 +941,31 @@ EnactCollectionKind enact_object_collection_kind(const EnactObject *object)
 EnactList *enact_object_collection_items(const EnactObject *object)
 {
     return object ? object->collection_items : NULL;
+}
+
+EnactObject *enact_object_copy_with_collection_items(const EnactObject *object, EnactList *items)
+{
+    EnactObject *copy;
+
+    if (!object || object->collection_kind == ENACT_COLLECTION_NONE) {
+        return NULL;
+    }
+
+    copy = enact_object_new(object->class_value);
+    if (!copy) {
+        return NULL;
+    }
+    copy->collection_items = enact_list_retain(items);
+    if (items && !copy->collection_items) {
+        enact_object_release(copy);
+        return NULL;
+    }
+    if (!enact_attribute_clone_all(object->attributes, &copy->attributes)) {
+        enact_object_release(copy);
+        return NULL;
+    }
+
+    return copy;
 }
 
 int enact_object_define_attribute(EnactObject *object, const char *name, EnactValue value)

@@ -34,6 +34,7 @@ void enact_object_release(EnactObject *object);
 EnactClass *enact_object_class(const EnactObject *object);
 EnactCollectionKind enact_object_collection_kind(const EnactObject *object);
 EnactList *enact_object_collection_items(const EnactObject *object);
+EnactObject *enact_object_copy_with_collection_items(const EnactObject *object, EnactList *items);
 int enact_object_define_attribute(EnactObject *object, const char *name, EnactValue value);
 int enact_object_lookup_attribute(const EnactObject *object, const char *name, EnactValue *out);
 int enact_object_attribute_names(const EnactObject *object, EnactList **out);
