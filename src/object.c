@@ -35,6 +35,17 @@ struct EnactObject {
     EnactAttribute *attributes;
 };
 
+typedef struct EnactClassVector {
+    EnactClass **items;
+    size_t count;
+    size_t capacity;
+} EnactClassVector;
+
+typedef struct EnactClassSequence {
+    const EnactClassVector *classes;
+    size_t index;
+} EnactClassSequence;
+
 static char *enact_object_copy_text(const char *text)
 {
     size_t length;
@@ -268,6 +279,322 @@ int enact_class_superclasses(const EnactClass *class_value, EnactList **out)
     return enact_class_superclasses_from_link(class_value->superclasses, out);
 }
 
+static void enact_class_vector_free(EnactClassVector *vector)
+{
+    if (!vector) {
+        return;
+    }
+
+    free(vector->items);
+    vector->items = NULL;
+    vector->count = 0;
+    vector->capacity = 0;
+}
+
+static int enact_class_vector_contains(const EnactClassVector *vector, EnactClass *class_value)
+{
+    size_t index;
+
+    if (!vector || !class_value) {
+        return 0;
+    }
+
+    for (index = 0; index < vector->count; index += 1) {
+        if (vector->items[index] == class_value) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int enact_class_vector_reserve(EnactClassVector *vector, size_t capacity)
+{
+    EnactClass **items;
+    size_t next_capacity;
+
+    if (!vector) {
+        return 0;
+    }
+    if (capacity <= vector->capacity) {
+        return 1;
+    }
+
+    next_capacity = vector->capacity ? vector->capacity * 2 : 4;
+    while (next_capacity < capacity) {
+        next_capacity *= 2;
+    }
+
+    items = realloc(vector->items, next_capacity * sizeof(*items));
+    if (!items) {
+        return 0;
+    }
+
+    vector->items = items;
+    vector->capacity = next_capacity;
+    return 1;
+}
+
+static int enact_class_vector_append(EnactClassVector *vector, EnactClass *class_value)
+{
+    if (!class_value || !enact_class_vector_reserve(vector, vector->count + 1)) {
+        return 0;
+    }
+
+    vector->items[vector->count] = class_value;
+    vector->count += 1;
+    return 1;
+}
+
+static int enact_class_vector_append_unique(EnactClassVector *vector, EnactClass *class_value)
+{
+    if (enact_class_vector_contains(vector, class_value)) {
+        return 1;
+    }
+
+    return enact_class_vector_append(vector, class_value);
+}
+
+static int enact_class_direct_superclasses(EnactClass *class_value, EnactClassVector *out)
+{
+    EnactClassLink *link;
+
+    if (!class_value || !out) {
+        return 0;
+    }
+
+    for (link = class_value->superclasses; link; link = link->next) {
+        if (!enact_class_vector_append(out, link->class_value)) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static int enact_class_sequence_has_remaining(const EnactClassSequence *sequences, size_t count)
+{
+    size_t index;
+
+    for (index = 0; index < count; index += 1) {
+        if (sequences[index].classes && sequences[index].index < sequences[index].classes->count) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int enact_class_sequence_tail_contains(
+    const EnactClassSequence *sequences,
+    size_t count,
+    EnactClass *class_value)
+{
+    size_t sequence_index;
+
+    for (sequence_index = 0; sequence_index < count; sequence_index += 1) {
+        const EnactClassSequence *sequence = &sequences[sequence_index];
+        size_t item_index;
+
+        if (!sequence->classes) {
+            continue;
+        }
+        for (item_index = sequence->index + 1; item_index < sequence->classes->count; item_index += 1) {
+            if (sequence->classes->items[item_index] == class_value) {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+static EnactClass *enact_class_sequence_first_candidate(EnactClassSequence *sequences, size_t count)
+{
+    size_t index;
+
+    for (index = 0; index < count; index += 1) {
+        const EnactClassVector *classes = sequences[index].classes;
+
+        if (classes && sequences[index].index < classes->count) {
+            return classes->items[sequences[index].index];
+        }
+    }
+
+    return NULL;
+}
+
+static EnactClass *enact_class_sequence_next_candidate(EnactClassSequence *sequences, size_t count)
+{
+    size_t index;
+
+    for (index = 0; index < count; index += 1) {
+        const EnactClassVector *classes = sequences[index].classes;
+        EnactClass *candidate;
+
+        if (!classes || sequences[index].index >= classes->count) {
+            continue;
+        }
+
+        candidate = classes->items[sequences[index].index];
+        if (!enact_class_sequence_tail_contains(sequences, count, candidate)) {
+            return candidate;
+        }
+    }
+
+    return enact_class_sequence_first_candidate(sequences, count);
+}
+
+static void enact_class_sequence_drop_candidate(EnactClassSequence *sequences, size_t count, EnactClass *candidate)
+{
+    size_t index;
+
+    for (index = 0; index < count; index += 1) {
+        const EnactClassVector *classes = sequences[index].classes;
+
+        while (classes && sequences[index].index < classes->count &&
+               classes->items[sequences[index].index] == candidate) {
+            sequences[index].index += 1;
+        }
+    }
+}
+
+static int enact_class_linearization_vector(EnactClass *class_value, EnactClassVector *out);
+
+static int enact_class_merge_linearizations(
+    EnactClassVector *linearizations,
+    const EnactClassVector *direct_superclasses,
+    EnactClassVector *out)
+{
+    EnactClassSequence *sequences;
+    size_t count;
+    size_t index;
+    int ok = 0;
+
+    if (!direct_superclasses) {
+        return 0;
+    }
+
+    count = direct_superclasses->count;
+    if (count == 0) {
+        return 1;
+    }
+
+    sequences = calloc(count + 1, sizeof(*sequences));
+    if (!sequences) {
+        return 0;
+    }
+
+    for (index = 0; index < count; index += 1) {
+        sequences[index].classes = &linearizations[index];
+    }
+    sequences[count].classes = direct_superclasses;
+
+    while (enact_class_sequence_has_remaining(sequences, count + 1)) {
+        EnactClass *candidate = enact_class_sequence_next_candidate(sequences, count + 1);
+
+        if (!candidate || !enact_class_vector_append_unique(out, candidate)) {
+            goto done;
+        }
+
+        enact_class_sequence_drop_candidate(sequences, count + 1, candidate);
+    }
+
+    ok = 1;
+
+done:
+    free(sequences);
+    return ok;
+}
+
+static int enact_class_linearization_vector(EnactClass *class_value, EnactClassVector *out)
+{
+    EnactClassVector direct_superclasses = {0};
+    EnactClassVector *linearizations = NULL;
+    size_t index;
+    int ok = 0;
+
+    if (!class_value || !out) {
+        return 0;
+    }
+    if (!enact_class_vector_append_unique(out, class_value)) {
+        return 0;
+    }
+    if (!enact_class_direct_superclasses(class_value, &direct_superclasses)) {
+        return 0;
+    }
+    if (direct_superclasses.count == 0) {
+        enact_class_vector_free(&direct_superclasses);
+        return 1;
+    }
+
+    linearizations = calloc(direct_superclasses.count, sizeof(*linearizations));
+    if (!linearizations) {
+        enact_class_vector_free(&direct_superclasses);
+        return 0;
+    }
+
+    for (index = 0; index < direct_superclasses.count; index += 1) {
+        if (!enact_class_linearization_vector(direct_superclasses.items[index], &linearizations[index])) {
+            goto done;
+        }
+    }
+
+    ok = enact_class_merge_linearizations(linearizations, &direct_superclasses, out);
+
+done:
+    for (index = 0; index < direct_superclasses.count; index += 1) {
+        enact_class_vector_free(&linearizations[index]);
+    }
+    free(linearizations);
+    enact_class_vector_free(&direct_superclasses);
+    return ok;
+}
+
+static int enact_class_vector_to_list(const EnactClassVector *vector, size_t start_index, EnactList **out)
+{
+    EnactList *list = NULL;
+    size_t index;
+
+    if (!vector || !out || start_index > vector->count) {
+        return 0;
+    }
+
+    index = vector->count;
+    while (index > start_index) {
+        EnactValue class_value;
+        EnactList *next;
+
+        index -= 1;
+        class_value = enact_value_make_class(vector->items[index]);
+        next = enact_list_cons(&class_value, list);
+        enact_list_release(list);
+        if (!next) {
+            return 0;
+        }
+
+        list = next;
+    }
+
+    *out = list;
+    return 1;
+}
+
+int enact_class_linearization(EnactClass *class_value, EnactList **out)
+{
+    EnactClassVector linearization = {0};
+    int ok;
+
+    if (!class_value || !out) {
+        return 0;
+    }
+
+    ok = enact_class_linearization_vector(class_value, &linearization) &&
+         enact_class_vector_to_list(&linearization, 0, out);
+    enact_class_vector_free(&linearization);
+    return ok;
+}
+
 int enact_class_define_method(EnactClass *class_value, const char *name, EnactFunction *function)
 {
     EnactMethod *method;
@@ -324,34 +651,30 @@ static EnactFunction *enact_class_lookup_direct_method(const EnactClass *class_v
     return NULL;
 }
 
-static EnactFunction *enact_class_lookup_method_in_links(const EnactClassLink *link, const char *name)
+EnactFunction *enact_class_lookup_method(EnactClass *class_value, const char *name)
 {
+    EnactClassVector linearization = {0};
     EnactFunction *function;
-
-    for (; link; link = link->next) {
-        function = enact_class_lookup_method(link->class_value, name);
-        if (function) {
-            return function;
-        }
-    }
-
-    return NULL;
-}
-
-EnactFunction *enact_class_lookup_method(const EnactClass *class_value, const char *name)
-{
-    EnactFunction *function;
+    size_t index;
 
     if (!class_value || !name) {
         return NULL;
     }
 
-    function = enact_class_lookup_direct_method(class_value, name);
-    if (function) {
-        return function;
+    if (!enact_class_linearization_vector(class_value, &linearization)) {
+        return NULL;
     }
 
-    return enact_class_lookup_method_in_links(class_value->superclasses, name);
+    for (index = 0; index < linearization.count; index += 1) {
+        function = enact_class_lookup_direct_method(linearization.items[index], name);
+        if (function) {
+            enact_class_vector_free(&linearization);
+            return function;
+        }
+    }
+
+    enact_class_vector_free(&linearization);
+    return NULL;
 }
 
 int enact_class_method_names(const EnactClass *class_value, EnactList **out)

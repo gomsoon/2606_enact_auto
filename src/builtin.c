@@ -27,17 +27,6 @@ struct EnactBuiltinPartial {
     size_t argument_count;
 };
 
-typedef struct EnactClassVector {
-    EnactClass **items;
-    size_t count;
-    size_t capacity;
-} EnactClassVector;
-
-typedef struct EnactClassSequence {
-    const EnactClassVector *classes;
-    size_t index;
-} EnactClassSequence;
-
 static char *enact_builtin_copy_text(const char *text)
 {
     size_t length;
@@ -387,327 +376,12 @@ static int enact_builtin_supers(
     return 1;
 }
 
-static void enact_class_vector_free(EnactClassVector *vector)
-{
-    if (!vector) {
-        return;
-    }
-
-    free(vector->items);
-    vector->items = NULL;
-    vector->count = 0;
-    vector->capacity = 0;
-}
-
-static int enact_class_vector_contains(const EnactClassVector *vector, EnactClass *class_value)
-{
-    size_t index;
-
-    if (!vector || !class_value) {
-        return 0;
-    }
-
-    for (index = 0; index < vector->count; index += 1) {
-        if (vector->items[index] == class_value) {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-static int enact_class_vector_reserve(EnactClassVector *vector, size_t capacity)
-{
-    EnactClass **items;
-    size_t next_capacity;
-
-    if (!vector) {
-        return 0;
-    }
-    if (capacity <= vector->capacity) {
-        return 1;
-    }
-
-    next_capacity = vector->capacity ? vector->capacity * 2 : 4;
-    while (next_capacity < capacity) {
-        next_capacity *= 2;
-    }
-
-    items = realloc(vector->items, next_capacity * sizeof(*items));
-    if (!items) {
-        return 0;
-    }
-
-    vector->items = items;
-    vector->capacity = next_capacity;
-    return 1;
-}
-
-static int enact_class_vector_append(EnactClassVector *vector, EnactClass *class_value)
-{
-    if (!class_value || !enact_class_vector_reserve(vector, vector->count + 1)) {
-        return 0;
-    }
-
-    vector->items[vector->count] = class_value;
-    vector->count += 1;
-    return 1;
-}
-
-static int enact_class_vector_append_unique(EnactClassVector *vector, EnactClass *class_value)
-{
-    if (enact_class_vector_contains(vector, class_value)) {
-        return 1;
-    }
-
-    return enact_class_vector_append(vector, class_value);
-}
-
-static int enact_class_direct_superclasses(EnactClass *class_value, EnactClassVector *out)
-{
-    EnactList *superclasses = NULL;
-    EnactList *cursor;
-
-    if (!class_value || !out) {
-        return 0;
-    }
-    if (!enact_class_superclasses(class_value, &superclasses)) {
-        return 0;
-    }
-
-    cursor = superclasses;
-    while (cursor) {
-        const EnactValue *value = enact_list_head(cursor);
-
-        if (!value || value->kind != ENACT_VALUE_CLASS ||
-            !enact_class_vector_append(out, value->as.as_class)) {
-            enact_list_release(superclasses);
-            return 0;
-        }
-
-        cursor = enact_list_tail(cursor);
-    }
-
-    enact_list_release(superclasses);
-    return 1;
-}
-
-static int enact_class_sequence_has_remaining(const EnactClassSequence *sequences, size_t count)
-{
-    size_t index;
-
-    for (index = 0; index < count; index += 1) {
-        if (sequences[index].classes && sequences[index].index < sequences[index].classes->count) {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-static int enact_class_sequence_tail_contains(
-    const EnactClassSequence *sequences,
-    size_t count,
-    EnactClass *class_value)
-{
-    size_t sequence_index;
-
-    for (sequence_index = 0; sequence_index < count; sequence_index += 1) {
-        const EnactClassSequence *sequence = &sequences[sequence_index];
-        size_t item_index;
-
-        if (!sequence->classes) {
-            continue;
-        }
-        for (item_index = sequence->index + 1; item_index < sequence->classes->count; item_index += 1) {
-            if (sequence->classes->items[item_index] == class_value) {
-                return 1;
-            }
-        }
-    }
-
-    return 0;
-}
-
-static EnactClass *enact_class_sequence_first_candidate(EnactClassSequence *sequences, size_t count)
-{
-    size_t index;
-
-    for (index = 0; index < count; index += 1) {
-        const EnactClassVector *classes = sequences[index].classes;
-
-        if (classes && sequences[index].index < classes->count) {
-            return classes->items[sequences[index].index];
-        }
-    }
-
-    return NULL;
-}
-
-static EnactClass *enact_class_sequence_next_candidate(EnactClassSequence *sequences, size_t count)
-{
-    size_t index;
-
-    for (index = 0; index < count; index += 1) {
-        const EnactClassVector *classes = sequences[index].classes;
-        EnactClass *candidate;
-
-        if (!classes || sequences[index].index >= classes->count) {
-            continue;
-        }
-
-        candidate = classes->items[sequences[index].index];
-        if (!enact_class_sequence_tail_contains(sequences, count, candidate)) {
-            return candidate;
-        }
-    }
-
-    return enact_class_sequence_first_candidate(sequences, count);
-}
-
-static void enact_class_sequence_drop_candidate(EnactClassSequence *sequences, size_t count, EnactClass *candidate)
-{
-    size_t index;
-
-    for (index = 0; index < count; index += 1) {
-        const EnactClassVector *classes = sequences[index].classes;
-
-        while (classes && sequences[index].index < classes->count &&
-               classes->items[sequences[index].index] == candidate) {
-            sequences[index].index += 1;
-        }
-    }
-}
-
-static int enact_class_linearization(EnactClass *class_value, EnactClassVector *out);
-
-static int enact_class_merge_linearizations(
-    EnactClassVector *linearizations,
-    const EnactClassVector *direct_superclasses,
-    EnactClassVector *out)
-{
-    EnactClassSequence *sequences;
-    size_t count;
-    size_t index;
-    int ok = 0;
-
-    if (!direct_superclasses) {
-        return 0;
-    }
-
-    count = direct_superclasses->count;
-    if (count == 0) {
-        return 1;
-    }
-
-    sequences = calloc(count + 1, sizeof(*sequences));
-    if (!sequences) {
-        return 0;
-    }
-
-    for (index = 0; index < count; index += 1) {
-        sequences[index].classes = &linearizations[index];
-    }
-    sequences[count].classes = direct_superclasses;
-
-    while (enact_class_sequence_has_remaining(sequences, count + 1)) {
-        EnactClass *candidate = enact_class_sequence_next_candidate(sequences, count + 1);
-
-        if (!candidate || !enact_class_vector_append_unique(out, candidate)) {
-            goto done;
-        }
-
-        enact_class_sequence_drop_candidate(sequences, count + 1, candidate);
-    }
-
-    ok = 1;
-
-done:
-    free(sequences);
-    return ok;
-}
-
-static int enact_class_linearization(EnactClass *class_value, EnactClassVector *out)
-{
-    EnactClassVector direct_superclasses = {0};
-    EnactClassVector *linearizations = NULL;
-    size_t index;
-    int ok = 0;
-
-    if (!class_value || !out) {
-        return 0;
-    }
-    if (!enact_class_vector_append_unique(out, class_value)) {
-        return 0;
-    }
-    if (!enact_class_direct_superclasses(class_value, &direct_superclasses)) {
-        return 0;
-    }
-    if (direct_superclasses.count == 0) {
-        enact_class_vector_free(&direct_superclasses);
-        return 1;
-    }
-
-    linearizations = calloc(direct_superclasses.count, sizeof(*linearizations));
-    if (!linearizations) {
-        enact_class_vector_free(&direct_superclasses);
-        return 0;
-    }
-
-    for (index = 0; index < direct_superclasses.count; index += 1) {
-        if (!enact_class_linearization(direct_superclasses.items[index], &linearizations[index])) {
-            goto done;
-        }
-    }
-
-    ok = enact_class_merge_linearizations(linearizations, &direct_superclasses, out);
-
-done:
-    for (index = 0; index < direct_superclasses.count; index += 1) {
-        enact_class_vector_free(&linearizations[index]);
-    }
-    free(linearizations);
-    enact_class_vector_free(&direct_superclasses);
-    return ok;
-}
-
-static int enact_class_vector_to_list(const EnactClassVector *vector, size_t start_index, EnactList **out)
-{
-    EnactList *list = NULL;
-    size_t index;
-
-    if (!vector || !out || start_index > vector->count) {
-        return 0;
-    }
-
-    index = vector->count;
-    while (index > start_index) {
-        EnactValue class_value;
-        EnactList *next;
-
-        index -= 1;
-        class_value = enact_value_make_class(vector->items[index]);
-        next = enact_list_cons(&class_value, list);
-        enact_list_release(list);
-        if (!next) {
-            list = NULL;
-            return 0;
-        }
-
-        list = next;
-    }
-
-    *out = list;
-    return 1;
-}
-
 static int enact_builtin_classes(
     const EnactValue *arguments,
     size_t argument_count,
     EnactValue *out,
     EnactDiag *diag)
 {
-    EnactClassVector linearization = {0};
     EnactList *classes = NULL;
 
     (void)argument_count;
@@ -717,13 +391,10 @@ static int enact_builtin_classes(
         return 0;
     }
 
-    if (!enact_class_linearization(arguments[0].as.as_class, &linearization) ||
-        !enact_class_vector_to_list(&linearization, 0, &classes)) {
-        enact_class_vector_free(&linearization);
+    if (!enact_class_linearization(arguments[0].as.as_class, &classes)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }
-    enact_class_vector_free(&linearization);
 
     *out = enact_value_make_list(classes);
     return 1;
@@ -735,7 +406,7 @@ static int enact_builtin_superiors(
     EnactValue *out,
     EnactDiag *diag)
 {
-    EnactClassVector linearization = {0};
+    EnactList *classes = NULL;
     EnactList *superiors = NULL;
 
     (void)argument_count;
@@ -745,13 +416,13 @@ static int enact_builtin_superiors(
         return 0;
     }
 
-    if (!enact_class_linearization(arguments[0].as.as_class, &linearization) ||
-        !enact_class_vector_to_list(&linearization, 1, &superiors)) {
-        enact_class_vector_free(&linearization);
+    if (!enact_class_linearization(arguments[0].as.as_class, &classes)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }
-    enact_class_vector_free(&linearization);
+
+    superiors = enact_list_retain(enact_list_tail(classes));
+    enact_list_release(classes);
 
     *out = enact_value_make_list(superiors);
     return 1;

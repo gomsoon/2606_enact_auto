@@ -23,12 +23,12 @@ classes(C) -> C:A:B:Object:nil
 
 ## Runtime Shape
 
-`builtin.c` owns the linearization helper because the current use is introspection-specific. The object runtime still exposes only direct-superclass helpers:
+The linearization helper is used by introspection first. The object runtime still exposes direct-superclass helpers:
 
 - `enact_class_superclass` for first-superclass compatibility
 - `enact_class_superclasses` for the direct superclass list
 
-The linearization helper collects class pointers in a temporary vector, then materializes the result as an `EnactList` of class values.
+The linearization helper collects class pointers in a temporary vector, then materializes the result as an `EnactList` of class values. Later slices may share this helper with dispatch so that executable behavior follows the same class order.
 
 ## Builtins
 
