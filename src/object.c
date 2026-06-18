@@ -613,17 +613,32 @@ static int enact_class_vector_to_list(const EnactClassVector *vector, size_t sta
 
 int enact_class_linearization(EnactClass *class_value, EnactList **out)
 {
-    EnactClassVector linearization = {0};
     int consistent = 1;
+
+    return enact_class_linearization_checked(class_value, out, &consistent) && consistent;
+}
+
+int enact_class_linearization_checked(EnactClass *class_value, EnactList **out, int *consistent)
+{
+    EnactClassVector linearization = {0};
+    int is_consistent = 1;
     int ok;
 
-    if (!class_value || !out) {
+    if (!class_value || !out || !consistent) {
         return 0;
     }
 
-    ok = enact_class_linearization_vector(class_value, &linearization, 1, &consistent) &&
-         enact_class_vector_to_list(&linearization, 0, out);
+    *out = NULL;
+    ok = enact_class_linearization_vector(class_value, &linearization, 0, &is_consistent);
+    if (ok && is_consistent) {
+        ok = enact_class_vector_to_list(&linearization, 0, out);
+    }
     enact_class_vector_free(&linearization);
+    if (!ok) {
+        return 0;
+    }
+
+    *consistent = is_consistent;
     return ok;
 }
 
@@ -703,31 +718,40 @@ static EnactFunction *enact_class_lookup_direct_method(const EnactClass *class_v
     return NULL;
 }
 
-EnactFunction *enact_class_lookup_method(EnactClass *class_value, const char *name)
+int enact_class_lookup_method(EnactClass *class_value, const char *name, EnactFunction **out, int *consistent)
 {
     EnactClassVector linearization = {0};
     EnactFunction *function;
-    int consistent = 1;
+    int is_consistent = 1;
     size_t index;
 
-    if (!class_value || !name) {
-        return NULL;
+    if (!class_value || !name || !out || !consistent) {
+        return 0;
     }
 
-    if (!enact_class_linearization_vector(class_value, &linearization, 1, &consistent)) {
-        return NULL;
+    *out = NULL;
+    if (!enact_class_linearization_vector(class_value, &linearization, 0, &is_consistent)) {
+        return 0;
+    }
+    if (!is_consistent) {
+        enact_class_vector_free(&linearization);
+        *consistent = 0;
+        return 1;
     }
 
     for (index = 0; index < linearization.count; index += 1) {
         function = enact_class_lookup_direct_method(linearization.items[index], name);
         if (function) {
             enact_class_vector_free(&linearization);
-            return function;
+            *out = function;
+            *consistent = 1;
+            return 1;
         }
     }
 
     enact_class_vector_free(&linearization);
-    return NULL;
+    *consistent = 1;
+    return 1;
 }
 
 int enact_class_method_names(const EnactClass *class_value, EnactList **out)

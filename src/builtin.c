@@ -383,6 +383,7 @@ static int enact_builtin_classes(
     EnactDiag *diag)
 {
     EnactList *classes = NULL;
+    int is_consistent = 1;
 
     (void)argument_count;
 
@@ -391,8 +392,12 @@ static int enact_builtin_classes(
         return 0;
     }
 
-    if (!enact_class_linearization(arguments[0].as.as_class, &classes)) {
+    if (!enact_class_linearization_checked(arguments[0].as.as_class, &classes, &is_consistent)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!is_consistent) {
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
         return 0;
     }
 
@@ -408,6 +413,7 @@ static int enact_builtin_superiors(
 {
     EnactList *classes = NULL;
     EnactList *superiors = NULL;
+    int is_consistent = 1;
 
     (void)argument_count;
 
@@ -416,8 +422,12 @@ static int enact_builtin_superiors(
         return 0;
     }
 
-    if (!enact_class_linearization(arguments[0].as.as_class, &classes)) {
+    if (!enact_class_linearization_checked(arguments[0].as.as_class, &classes, &is_consistent)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!is_consistent) {
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
         return 0;
     }
 

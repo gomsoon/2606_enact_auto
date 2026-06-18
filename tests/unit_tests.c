@@ -148,6 +148,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ARITY_MISMATCH), "ENACT_ERR_ARITY_MISMATCH") == 0, "error code arity mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_NAME_UNBOUND), "ENACT_ERR_NAME_UNBOUND") == 0, "error code unbound name");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ATTRIBUTE_UNBOUND), "ENACT_ERR_ATTRIBUTE_UNBOUND") == 0, "error code unbound attribute");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_INCONSISTENT_LINEARIZATION), "ENACT_ERR_INCONSISTENT_LINEARIZATION") == 0, "error code inconsistent linearization");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LOAD_FILE), "ENACT_ERR_LOAD_FILE") == 0, "error code load file");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_OUT_OF_MEMORY), "ENACT_ERR_OUT_OF_MEMORY") == 0, "error code oom");
     require_true(strcmp(enact_error_code_name((EnactErrorCode)999), "ENACT_ERR_UNKNOWN") == 0, "error code unknown");
@@ -166,6 +167,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_ARITY_MISMATCH), "function arity mismatch") == 0, "error message arity mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_NAME_UNBOUND), "unbound identifier") == 0, "error message unbound name");
     require_true(strcmp(enact_error_message(ENACT_ERR_ATTRIBUTE_UNBOUND), "unbound attribute") == 0, "error message unbound attribute");
+    require_true(strcmp(enact_error_message(ENACT_ERR_INCONSISTENT_LINEARIZATION), "inconsistent class linearization") == 0, "error message inconsistent linearization");
     require_true(strcmp(enact_error_message(ENACT_ERR_LOAD_FILE), "could not load file") == 0, "error message load file");
     require_true(strcmp(enact_error_message(ENACT_ERR_OUT_OF_MEMORY), "out of memory") == 0, "error message oom");
     require_true(strcmp(enact_error_message((EnactErrorCode)999), "unknown error") == 0, "error message unknown");
@@ -219,6 +221,7 @@ static void test_value_helpers(void)
     EnactFunction *partial_function;
     EnactFunction *recursive_function;
     EnactFunction *method_lookup;
+    int method_lookup_consistent = 1;
     EnactValue function_value;
     EnactValue function_copy;
     EnactValue partial_args[2];
@@ -530,15 +533,20 @@ static void test_value_helpers(void)
         require_true(!enact_class_define_method(NULL, "id", function), "method define null class fails");
         require_true(!enact_class_define_method(method_class, NULL, function), "method define null name fails");
         require_true(!enact_class_define_method(method_class, "id", NULL), "method define null function fails");
-        require_true(enact_class_lookup_method(NULL, "id") == NULL, "method lookup null class fails");
-        require_true(enact_class_lookup_method(method_class, NULL) == NULL, "method lookup null name fails");
+        require_true(!enact_class_lookup_method(NULL, "id", &method_lookup, &method_lookup_consistent), "method lookup null class fails");
+        require_true(!enact_class_lookup_method(method_class, NULL, &method_lookup, &method_lookup_consistent), "method lookup null name fails");
+        require_true(!enact_class_lookup_method(method_class, "id", NULL, &method_lookup_consistent), "method lookup null out fails");
+        require_true(!enact_class_lookup_method(method_class, "id", &method_lookup, NULL), "method lookup null consistency out fails");
         require_true(!enact_class_method_names(method_class, NULL), "method names null out fails");
         if (method_class) {
             method_names = NULL;
             require_true(enact_class_method_names(method_class, &method_names), "empty method names succeeds");
             require_true(method_names == NULL, "empty method names nil");
             require_true(enact_class_define_method(method_class, "id", function), "method define succeeds");
-            method_lookup = enact_class_lookup_method(method_class, "id");
+            method_lookup = NULL;
+            method_lookup_consistent = 0;
+            require_true(enact_class_lookup_method(method_class, "id", &method_lookup, &method_lookup_consistent), "method lookup succeeds");
+            require_true(method_lookup_consistent, "method lookup consistent");
             require_true(method_lookup == function, "method lookup retains same function");
             if (method_lookup) {
                 require_true(enact_function_arity(method_lookup) == 1, "method lookup function arity");
@@ -554,7 +562,10 @@ static void test_value_helpers(void)
             node_class = enact_class_new_with_superclass("MethodLeaf", method_class);
             require_true(node_class != NULL, "method subclass created");
             if (node_class) {
-                method_lookup = enact_class_lookup_method(node_class, "id");
+                method_lookup = NULL;
+                method_lookup_consistent = 0;
+                require_true(enact_class_lookup_method(node_class, "id", &method_lookup, &method_lookup_consistent), "method lookup superclass succeeds");
+                require_true(method_lookup_consistent, "method lookup superclass consistent");
                 require_true(method_lookup == function, "method lookup searches superclass");
                 if (method_lookup) {
                     enact_function_release(method_lookup);
@@ -564,7 +575,11 @@ static void test_value_helpers(void)
                 require_true(method_names == NULL, "subclass direct method names exclude superclass");
                 enact_class_release(node_class);
             }
-            require_true(enact_class_lookup_method(method_class, "missing") == NULL, "method lookup missing fails");
+            method_lookup = NULL;
+            method_lookup_consistent = 0;
+            require_true(enact_class_lookup_method(method_class, "missing", &method_lookup, &method_lookup_consistent), "method lookup missing succeeds");
+            require_true(method_lookup_consistent, "method lookup missing consistent");
+            require_true(method_lookup == NULL, "method lookup missing returns null");
             enact_class_release(method_class);
         }
         enact_value_free(&function_value);

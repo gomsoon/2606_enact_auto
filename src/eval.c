@@ -1133,8 +1133,9 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
     EnactValue receiver_value;
     EnactValue attribute_value;
     EnactObject *receiver = NULL;
-    EnactFunction *method;
+    EnactFunction *method = NULL;
     int lookup_result;
+    int method_lookup_consistent = 1;
     int status;
 
     if (!enact_eval_value(attribute->as.attribute.object, env, &receiver_value, diag)) {
@@ -1158,7 +1159,20 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
         return status;
     }
 
-    method = enact_class_lookup_method(enact_object_class(receiver), attribute->as.attribute.name);
+    if (!enact_class_lookup_method(
+            enact_object_class(receiver),
+            attribute->as.attribute.name,
+            &method,
+            &method_lookup_consistent)) {
+        enact_value_free(&receiver_value);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!method_lookup_consistent) {
+        enact_value_free(&receiver_value);
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+        return 0;
+    }
     if (!method) {
         enact_value_free(&receiver_value);
         enact_diag_set(diag, ENACT_ERR_ATTRIBUTE_UNBOUND, -1);
