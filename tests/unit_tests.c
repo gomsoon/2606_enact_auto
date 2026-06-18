@@ -1440,6 +1440,7 @@ static void test_builtin_helpers(void)
         {
             EnactValue inserted_set = query_result;
             EnactValue duplicate_set;
+            EnactValue removed_set;
             EnactValue size_result;
 
             query_args[0] = inserted_set;
@@ -1460,6 +1461,22 @@ static void test_builtin_helpers(void)
             require_true(size_result.kind == ENACT_VALUE_INT, "size duplicate set result kind");
             require_true(size_result.as.as_int == 1, "size duplicate set result value");
             enact_value_free(&size_result);
+
+            query_args[0] = enact_value_make_int(1);
+            query_args[1] = duplicate_set;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(remove, query_args, 2, &removed_set, &diag), "remove set object succeeds");
+            require_true(removed_set.kind == ENACT_VALUE_OBJECT, "remove set result kind");
+            require_true(
+                enact_object_collection_kind(removed_set.as.as_object) == ENACT_COLLECTION_SET,
+                "remove set result collection kind");
+            query_args[0] = removed_set;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(size, query_args, 1, &size_result, &diag), "size removed set succeeds");
+            require_true(size_result.kind == ENACT_VALUE_INT, "size removed set result kind");
+            require_true(size_result.as.as_int == 0, "size removed set result value");
+            enact_value_free(&size_result);
+            enact_value_free(&removed_set);
             enact_value_free(&duplicate_set);
             enact_value_free(&inserted_set);
         }
@@ -1505,6 +1522,7 @@ static void test_builtin_helpers(void)
         {
             EnactValue inserted_bag = query_result;
             EnactValue duplicate_bag;
+            EnactValue removed_bag;
             EnactValue size_result;
 
             query_args[0] = enact_value_make_int(1);
@@ -1518,6 +1536,22 @@ static void test_builtin_helpers(void)
             require_true(size_result.kind == ENACT_VALUE_INT, "size duplicate bag result kind");
             require_true(size_result.as.as_int == 2, "size duplicate bag result value");
             enact_value_free(&size_result);
+
+            query_args[0] = enact_value_make_int(1);
+            query_args[1] = duplicate_bag;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(remove, query_args, 2, &removed_bag, &diag), "remove bag object succeeds");
+            require_true(removed_bag.kind == ENACT_VALUE_OBJECT, "remove bag result kind");
+            require_true(
+                enact_object_collection_kind(removed_bag.as.as_object) == ENACT_COLLECTION_BAG,
+                "remove bag result collection kind");
+            query_args[0] = removed_bag;
+            enact_diag_reset(&diag);
+            require_true(enact_builtin_apply(size, query_args, 1, &size_result, &diag), "size removed bag succeeds");
+            require_true(size_result.kind == ENACT_VALUE_INT, "size removed bag result kind");
+            require_true(size_result.as.as_int == 1, "size removed bag result value");
+            enact_value_free(&size_result);
+            enact_value_free(&removed_bag);
             enact_value_free(&duplicate_bag);
             enact_value_free(&inserted_bag);
         }
