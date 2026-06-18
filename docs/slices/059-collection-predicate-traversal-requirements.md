@@ -4,7 +4,7 @@
 
 Slice 059 extends the predicate traversal builtins `all` and `exists` so they can read object-backed `Set` and `Bag` payloads.
 
-Update note: Slice 060 supersedes this slice's deferred `filter` item by adding collection-aware `filter` and `select`. `map` and `reduce` remain deferred.
+Update note: Slice 060 supersedes this slice's deferred `filter` item by adding collection-aware `filter` and `select`. Slice 061 supersedes this slice's deferred `reduce` item by adding collection-aware `reduce`. `map` remains deferred.
 
 ## Requirements
 
@@ -24,8 +24,6 @@ Update note: Slice 060 supersedes this slice's deferred `filter` item by adding 
 - Existing list behavior and partial-application behavior shall remain unchanged.
 - Builtins not in this slice shall remain list-only for collection objects:
   - `map`
-  - `filter`
-  - `reduce`
   - `append`
   - `union`
   - `difference`
@@ -56,7 +54,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Collection-aware `map`, `filter`, and `reduce` remain deferred.
+- Collection-aware `map` remains deferred.
 - Collection-aware `union`, `difference`, and `intersection` remain deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.

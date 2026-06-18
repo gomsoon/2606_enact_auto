@@ -896,7 +896,7 @@ static int enact_builtin_reduce(
     if (!enact_builtin_require_callable(&arguments[0], diag)) {
         return 0;
     }
-    if (!enact_builtin_require_list(&arguments[2], &list, diag)) {
+    if (!enact_builtin_require_list_or_collection(&arguments[2], &list, diag)) {
         return 0;
     }
     if (!enact_value_copy(&accumulator, &arguments[1])) {

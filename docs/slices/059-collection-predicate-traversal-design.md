@@ -4,7 +4,7 @@ Related requirements: [docs/slices/059-collection-predicate-traversal-requiremen
 
 ## Shared Traversal Input
 
-Update note: Slice 060 builds on this read-only traversal step by adding collection-aware `filter` and `select`.
+Update note: Slice 060 builds on this read-only traversal step by adding collection-aware `filter` and `select`. Slice 061 adds collection-aware `reduce` over the same payload traversal surface.
 
 `all` and `exists` now use the existing list-or-collection helper for their traversal input:
 
@@ -49,4 +49,4 @@ Any predicate evaluation error is reported normally.
 
 ## Deliberately Narrow Scope
 
-Collection-aware `map`, `filter`, and `reduce` remain deferred. Those operations introduce result-shape questions that are better handled after this read-only predicate traversal step is stable.
+Collection-aware `map` remains deferred. That operation introduces a result-shape question that is better handled after the read-only predicate traversal and collection-reducing steps are stable.
