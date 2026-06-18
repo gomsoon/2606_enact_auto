@@ -16,5 +16,12 @@ int enact_eval_apply_callable(
     size_t argument_count,
     EnactValue *out,
     EnactDiag *diag);
+int enact_eval_apply_callable_in_env(
+    const EnactValue *callee,
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag);
 
 #endif

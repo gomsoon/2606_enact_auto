@@ -683,6 +683,8 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *ok_builtin = enact_builtin_lookup("OK");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
+    const EnactBuiltin *set_builtin = enact_builtin_lookup("set");
+    const EnactBuiltin *bag_builtin = enact_builtin_lookup("bag");
     const EnactBuiltin *append = enact_builtin_lookup("append");
     const EnactBuiltin *size = enact_builtin_lookup("size");
     const EnactBuiltin *map = enact_builtin_lookup("map");
@@ -755,6 +757,8 @@ static void test_builtin_helpers(void)
     require_true(ok_builtin != NULL, "OK builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
+    require_true(set_builtin != NULL, "set builtin lookup succeeds");
+    require_true(bag_builtin != NULL, "bag builtin lookup succeeds");
     require_true(append != NULL, "append builtin lookup succeeds");
     require_true(size != NULL, "size builtin lookup succeeds");
     require_true(map != NULL, "map builtin lookup succeeds");
@@ -785,6 +789,8 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(ok_builtin) == 1, "OK builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
+    require_true(enact_builtin_arity(set_builtin) == 0, "set builtin arity");
+    require_true(enact_builtin_arity(bag_builtin) == 0, "bag builtin arity");
     require_true(enact_builtin_arity(append) == 2, "append builtin arity");
     require_true(enact_builtin_arity(size) == 1, "size builtin arity");
     require_true(enact_builtin_arity(map) == 2, "map builtin arity");
@@ -1325,6 +1331,12 @@ static void test_builtin_helpers(void)
     require_true(enact_env_lookup(&env, "list", &lookup_value), "lookup installed list");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed list value kind");
     enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "set", &lookup_value), "lookup installed set");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed set value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "bag", &lookup_value), "lookup installed bag");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed bag value kind");
+    enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "append", &lookup_value), "lookup installed append");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed append value kind");
     enact_value_free(&lookup_value);
@@ -1368,6 +1380,39 @@ static void test_builtin_helpers(void)
     require_true(lookup_value.kind == ENACT_VALUE_CLASS, "installed Object value kind");
     require_true(strcmp(enact_class_name(lookup_value.as.as_class), "Object") == 0, "installed Object class name");
     enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "Set", &lookup_value), "lookup installed Set");
+    require_true(lookup_value.kind == ENACT_VALUE_CLASS, "installed Set value kind");
+    require_true(strcmp(enact_class_name(lookup_value.as.as_class), "Set") == 0, "installed Set class name");
+    require_true(
+        strcmp(enact_class_name(enact_class_superclass(lookup_value.as.as_class)), "Object") == 0,
+        "installed Set superclass name");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "Bag", &lookup_value), "lookup installed Bag");
+    require_true(lookup_value.kind == ENACT_VALUE_CLASS, "installed Bag value kind");
+    require_true(strcmp(enact_class_name(lookup_value.as.as_class), "Bag") == 0, "installed Bag class name");
+    require_true(
+        strcmp(enact_class_name(enact_class_superclass(lookup_value.as.as_class)), "Object") == 0,
+        "installed Bag superclass name");
+    enact_value_free(&lookup_value);
+    enact_diag_reset(&diag);
+    require_true(
+        enact_builtin_apply_in_env(set_builtin, &env, NULL, 0, &result, &diag),
+        "set builtin env apply succeeds");
+    require_true(result.kind == ENACT_VALUE_OBJECT, "set builtin result kind");
+    require_true(strcmp(enact_class_name(enact_object_class(result.as.as_object)), "Set") == 0, "set object class name");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(
+        enact_builtin_apply_in_env(bag_builtin, &env, NULL, 0, &result, &diag),
+        "bag builtin env apply succeeds");
+    require_true(result.kind == ENACT_VALUE_OBJECT, "bag builtin result kind");
+    require_true(strcmp(enact_class_name(enact_object_class(result.as.as_object)), "Bag") == 0, "bag object class name");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(
+        !enact_builtin_apply(set_builtin, NULL, 0, &result, &diag),
+        "set builtin direct apply without env fails");
+    require_true(diag.code == ENACT_ERR_NAME_UNBOUND, "set builtin direct apply error code");
     require_true(!enact_install_builtins(NULL), "install builtins null env fails");
 
     class_def = enact_ast_new_class_def(

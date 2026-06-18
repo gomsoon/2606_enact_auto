@@ -915,6 +915,17 @@ int enact_eval_apply_callable(
     EnactValue *out,
     EnactDiag *diag)
 {
+    return enact_eval_apply_callable_in_env(callee, NULL, arguments, argument_count, out, diag);
+}
+
+int enact_eval_apply_callable_in_env(
+    const EnactValue *callee,
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
     const EnactBuiltin *builtin = NULL;
     EnactBuiltinPartial *builtin_partial = NULL;
     EnactBuiltinPartial *next_builtin_partial = NULL;
@@ -947,7 +958,7 @@ int enact_eval_apply_callable(
             return 1;
         }
 
-        return enact_builtin_apply(builtin, arguments, argument_count, out, diag);
+        return enact_builtin_apply_in_env(builtin, env, arguments, argument_count, out, diag);
     }
 
     if (callee->kind == ENACT_VALUE_BUILTIN_PARTIAL) {
@@ -963,7 +974,7 @@ int enact_eval_apply_callable(
             return 1;
         }
 
-        return enact_builtin_partial_apply(builtin_partial, arguments, argument_count, out, diag);
+        return enact_builtin_partial_apply_in_env(builtin_partial, env, arguments, argument_count, out, diag);
     }
 
     function = callee->as.as_function;
@@ -1042,7 +1053,7 @@ static int enact_eval_call_value(
 
     (void)arity;
     (void)captured_count;
-    status = enact_eval_apply_callable(callee, arguments, argument_count, out, diag);
+    status = enact_eval_apply_callable_in_env(callee, env, arguments, argument_count, out, diag);
     enact_free_value_array(arguments, argument_count);
     return status;
 }

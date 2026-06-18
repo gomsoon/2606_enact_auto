@@ -31,8 +31,22 @@ int enact_builtin_apply(
     size_t argument_count,
     EnactValue *out,
     EnactDiag *diag);
+int enact_builtin_apply_in_env(
+    const EnactBuiltin *builtin,
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag);
 int enact_builtin_partial_apply(
     const EnactBuiltinPartial *partial,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag);
+int enact_builtin_partial_apply_in_env(
+    const EnactBuiltinPartial *partial,
+    EnactEnv *env,
     const EnactValue *arguments,
     size_t argument_count,
     EnactValue *out,

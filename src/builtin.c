@@ -14,10 +14,18 @@ typedef int (*EnactBuiltinCallback)(
     EnactValue *out,
     EnactDiag *diag);
 
+typedef int (*EnactBuiltinEnvCallback)(
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag);
+
 struct EnactBuiltin {
     const char *name;
     size_t arity;
     EnactBuiltinCallback callback;
+    EnactBuiltinEnvCallback env_callback;
 };
 
 struct EnactBuiltinPartial {
@@ -1121,33 +1129,94 @@ static int enact_builtin_intersection(
     return 1;
 }
 
+#define ENACT_BUILTIN(name, arity, callback) {name, arity, callback, NULL}
+#define ENACT_ENV_BUILTIN(name, arity, callback) {name, arity, NULL, callback}
+
+static int enact_builtin_construct_object(
+    EnactEnv *env,
+    const char *class_name,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactValue class_value;
+    EnactObject *object;
+
+    if (!env || !enact_env_lookup(env, class_name, &class_value)) {
+        enact_diag_set(diag, ENACT_ERR_NAME_UNBOUND, -1);
+        return 0;
+    }
+    if (class_value.kind != ENACT_VALUE_CLASS) {
+        enact_value_free(&class_value);
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+        return 0;
+    }
+
+    object = enact_object_new(class_value.as.as_class);
+    enact_value_free(&class_value);
+    if (!object) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_object(object);
+    return 1;
+}
+
+static int enact_builtin_set(
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)arguments;
+    (void)argument_count;
+
+    return enact_builtin_construct_object(env, "Set", out, diag);
+}
+
+static int enact_builtin_bag(
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)arguments;
+    (void)argument_count;
+
+    return enact_builtin_construct_object(env, "Bag", out, diag);
+}
+
 static const EnactBuiltin builtin_table[] = {
-    {"hd", 1, enact_builtin_hd},
-    {"tl", 1, enact_builtin_tl},
-    {"atom", 1, enact_builtin_atom},
-    {"isObject", 1, enact_builtin_is_object},
-    {"classof", 1, enact_builtin_classof},
-    {"attrs", 1, enact_builtin_attrs},
-    {"methods", 1, enact_builtin_methods},
-    {"classes", 1, enact_builtin_classes},
-    {"supers", 1, enact_builtin_supers},
-    {"superiors", 1, enact_builtin_superiors},
-    {"OK", 1, enact_builtin_ok},
-    {"version", 0, enact_builtin_version},
-    {"list", 1, enact_builtin_list},
-    {"append", 2, enact_builtin_append},
-    {"size", 1, enact_builtin_size},
-    {"map", 2, enact_builtin_map},
-    {"filter", 2, enact_builtin_filter},
-    {"all", 2, enact_builtin_all},
-    {"exists", 2, enact_builtin_exists},
-    {"reduce", 3, enact_builtin_reduce},
-    {"member", 2, enact_builtin_member},
-    {"remove", 2, enact_builtin_remove},
-    {"unitset", 1, enact_builtin_unitset},
-    {"union", 2, enact_builtin_union},
-    {"difference", 2, enact_builtin_difference},
-    {"intersection", 2, enact_builtin_intersection},
+    ENACT_BUILTIN("hd", 1, enact_builtin_hd),
+    ENACT_BUILTIN("tl", 1, enact_builtin_tl),
+    ENACT_BUILTIN("atom", 1, enact_builtin_atom),
+    ENACT_BUILTIN("isObject", 1, enact_builtin_is_object),
+    ENACT_BUILTIN("classof", 1, enact_builtin_classof),
+    ENACT_BUILTIN("attrs", 1, enact_builtin_attrs),
+    ENACT_BUILTIN("methods", 1, enact_builtin_methods),
+    ENACT_BUILTIN("classes", 1, enact_builtin_classes),
+    ENACT_BUILTIN("supers", 1, enact_builtin_supers),
+    ENACT_BUILTIN("superiors", 1, enact_builtin_superiors),
+    ENACT_BUILTIN("OK", 1, enact_builtin_ok),
+    ENACT_BUILTIN("version", 0, enact_builtin_version),
+    ENACT_BUILTIN("list", 1, enact_builtin_list),
+    ENACT_ENV_BUILTIN("set", 0, enact_builtin_set),
+    ENACT_ENV_BUILTIN("bag", 0, enact_builtin_bag),
+    ENACT_BUILTIN("append", 2, enact_builtin_append),
+    ENACT_BUILTIN("size", 1, enact_builtin_size),
+    ENACT_BUILTIN("map", 2, enact_builtin_map),
+    ENACT_BUILTIN("filter", 2, enact_builtin_filter),
+    ENACT_BUILTIN("all", 2, enact_builtin_all),
+    ENACT_BUILTIN("exists", 2, enact_builtin_exists),
+    ENACT_BUILTIN("reduce", 3, enact_builtin_reduce),
+    ENACT_BUILTIN("member", 2, enact_builtin_member),
+    ENACT_BUILTIN("remove", 2, enact_builtin_remove),
+    ENACT_BUILTIN("unitset", 1, enact_builtin_unitset),
+    ENACT_BUILTIN("union", 2, enact_builtin_union),
+    ENACT_BUILTIN("difference", 2, enact_builtin_difference),
+    ENACT_BUILTIN("intersection", 2, enact_builtin_intersection),
 };
 
 static size_t enact_builtin_count(void)
@@ -1281,6 +1350,17 @@ int enact_builtin_apply(
     EnactValue *out,
     EnactDiag *diag)
 {
+    return enact_builtin_apply_in_env(builtin, NULL, arguments, argument_count, out, diag);
+}
+
+int enact_builtin_apply_in_env(
+    const EnactBuiltin *builtin,
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
     if (!builtin || !out) {
         enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
         return 0;
@@ -1294,11 +1374,30 @@ int enact_builtin_apply(
         return 0;
     }
 
-    return builtin->callback(arguments, argument_count, out, diag);
+    if (builtin->callback) {
+        return builtin->callback(arguments, argument_count, out, diag);
+    }
+    if (builtin->env_callback) {
+        return builtin->env_callback(env, arguments, argument_count, out, diag);
+    }
+
+    enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+    return 0;
 }
 
 int enact_builtin_partial_apply(
     const EnactBuiltinPartial *partial,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    return enact_builtin_partial_apply_in_env(partial, NULL, arguments, argument_count, out, diag);
+}
+
+int enact_builtin_partial_apply_in_env(
+    const EnactBuiltinPartial *partial,
+    EnactEnv *env,
     const EnactValue *arguments,
     size_t argument_count,
     EnactValue *out,
@@ -1338,16 +1437,47 @@ int enact_builtin_partial_apply(
         memcpy(combined + prefix_count, arguments, argument_count * sizeof(*combined));
     }
 
-    status = enact_builtin_apply(partial->builtin, combined, total_count, out, diag);
+    status = enact_builtin_apply_in_env(partial->builtin, env, combined, total_count, out, diag);
     free(combined);
     return status;
+}
+
+static int enact_install_class(EnactEnv *env, const char *name, EnactClass *superclass, EnactClass **out)
+{
+    EnactClass *class_value;
+    EnactValue value;
+
+    if (!env || !name) {
+        return 0;
+    }
+
+    class_value = enact_class_new_with_superclass(name, superclass);
+    if (!class_value) {
+        return 0;
+    }
+
+    value = enact_value_make_class(class_value);
+    if (!enact_env_define(env, name, value)) {
+        enact_value_free(&value);
+        return 0;
+    }
+    if (out) {
+        *out = enact_class_retain(class_value);
+        if (!*out) {
+            enact_value_free(&value);
+            return 0;
+        }
+    }
+    enact_value_free(&value);
+    return 1;
 }
 
 int enact_install_builtins(EnactEnv *env)
 {
     size_t index;
     EnactClass *object_class;
-    EnactValue object_value;
+    EnactClass *set_class = NULL;
+    EnactClass *bag_class = NULL;
 
     if (!env) {
         return 0;
@@ -1361,17 +1491,22 @@ int enact_install_builtins(EnactEnv *env)
         }
     }
 
-    object_class = enact_class_new("Object");
-    if (!object_class) {
+    if (!enact_install_class(env, "Object", NULL, &object_class)) {
+        return 0;
+    }
+    if (!enact_install_class(env, "Set", object_class, &set_class)) {
+        enact_class_release(object_class);
+        return 0;
+    }
+    if (!enact_install_class(env, "Bag", object_class, &bag_class)) {
+        enact_class_release(set_class);
+        enact_class_release(object_class);
         return 0;
     }
 
-    object_value = enact_value_make_class(object_class);
-    if (!enact_env_define(env, "Object", object_value)) {
-        enact_value_free(&object_value);
-        return 0;
-    }
-    enact_value_free(&object_value);
+    enact_class_release(bag_class);
+    enact_class_release(set_class);
+    enact_class_release(object_class);
 
     return 1;
 }
