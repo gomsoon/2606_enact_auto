@@ -2,7 +2,7 @@
 
 Related requirements: [docs/slices/062-collection-transform-collect-requirements.md](/home/tprover/2606_enact_auto/docs/slices/062-collection-transform-collect-requirements.md)
 
-Update note: Slice 063 adds Set-aware `union`, `difference`, and `intersection`. Slice 064 adds Set-aware `subset` and `equal`. Slice 065 adds Set-aware `add`. Slice 066 adds Set-aware aggregate `UNION`. Bag-aware set operations remain deferred.
+Update note: Slice 063 adds Set-aware `union`, `difference`, and `intersection`. Slice 064 adds Set-aware `subset` and `equal`. Slice 065 adds Set-aware `add`. Slice 066 adds Set-aware aggregate `UNION`. Slice 067 adds list/collection-aware `locate`. Bag-aware set operations remain deferred.
 
 ## Collection-Only Transform
 
@@ -49,4 +49,4 @@ This keeps `collect` aligned with the existing collection payload model.
 
 ## Deliberately Narrow Scope
 
-`collect` does not accept ordinary lists; `map` remains the list transform builtin. Bag-aware set operations, dot-method syntax, `forEachDo`, `locate`, and custom collection printing remain deferred.
+`collect` does not accept ordinary lists; `map` remains the list transform builtin. Bag-aware set operations, dot-method syntax, `forEachDo`, and custom collection printing remain deferred. Slice 067 adds `locate` for ordinary lists and object-backed collections.

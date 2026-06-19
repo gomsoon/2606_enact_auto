@@ -693,6 +693,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *select = enact_builtin_lookup("select");
     const EnactBuiltin *all = enact_builtin_lookup("all");
     const EnactBuiltin *exists = enact_builtin_lookup("exists");
+    const EnactBuiltin *locate = enact_builtin_lookup("locate");
     const EnactBuiltin *reduce = enact_builtin_lookup("reduce");
     const EnactBuiltin *member = enact_builtin_lookup("member");
     const EnactBuiltin *insert = enact_builtin_lookup("insert");
@@ -774,6 +775,7 @@ static void test_builtin_helpers(void)
     require_true(select != NULL, "select builtin lookup succeeds");
     require_true(all != NULL, "all builtin lookup succeeds");
     require_true(exists != NULL, "exists builtin lookup succeeds");
+    require_true(locate != NULL, "locate builtin lookup succeeds");
     require_true(reduce != NULL, "reduce builtin lookup succeeds");
     require_true(member != NULL, "member builtin lookup succeeds");
     require_true(insert != NULL, "insert builtin lookup succeeds");
@@ -813,6 +815,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(select) == 2, "select builtin arity");
     require_true(enact_builtin_arity(all) == 2, "all builtin arity");
     require_true(enact_builtin_arity(exists) == 2, "exists builtin arity");
+    require_true(enact_builtin_arity(locate) == 2, "locate builtin arity");
     require_true(enact_builtin_arity(reduce) == 3, "reduce builtin arity");
     require_true(enact_builtin_arity(member) == 2, "member builtin arity");
     require_true(enact_builtin_arity(insert) == 2, "insert builtin arity");
@@ -1262,6 +1265,18 @@ static void test_builtin_helpers(void)
             require_true(result.as.as_bool, "exists builtin result true");
             enact_value_free(&result);
 
+            enact_diag_reset(&diag);
+            require_true(
+                enact_builtin_apply(locate, predicate_args, 2, &result, &diag),
+                "locate builtin apply succeeds");
+            require_true(result.kind == ENACT_VALUE_LIST, "locate builtin result kind");
+            require_true(result.as.as_list != NULL, "locate builtin found list item");
+            require_true(enact_list_head(result.as.as_list)->kind == ENACT_VALUE_BOOL, "locate found item kind");
+            require_true(
+                enact_list_head(result.as.as_list)->as.as_bool,
+                "locate found true-headed list");
+            enact_value_free(&result);
+
             enact_value_free(&predicate_args[1]);
         }
     }
@@ -1272,6 +1287,11 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_apply(exists, predicate_args, 2, &result, &diag), "exists nil apply succeeds");
     require_true(result.kind == ENACT_VALUE_BOOL, "exists nil result kind");
     require_true(!result.as.as_bool, "exists nil result false");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(locate, predicate_args, 2, &result, &diag), "locate nil apply succeeds");
+    require_true(result.kind == ENACT_VALUE_LIST, "locate nil result kind");
+    require_true(result.as.as_list == NULL, "locate nil result nil");
     enact_value_free(&result);
     enact_value_free(&predicate_args[1]);
 
@@ -1381,6 +1401,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "exists", &lookup_value), "lookup installed exists");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed exists value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "locate", &lookup_value), "lookup installed locate");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed locate value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "reduce", &lookup_value), "lookup installed reduce");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed reduce value kind");
