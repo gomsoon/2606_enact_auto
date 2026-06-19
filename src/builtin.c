@@ -1279,6 +1279,30 @@ static int enact_builtin_difference_lists(
     return 1;
 }
 
+static int enact_builtin_union_lists(
+    EnactList *left,
+    EnactList *right,
+    EnactList **out)
+{
+    EnactList *left_only = NULL;
+    EnactList *result = NULL;
+
+    if (!out) {
+        return 0;
+    }
+    if (!enact_builtin_difference_lists(left, right, &left_only)) {
+        return 0;
+    }
+    if (!enact_builtin_append_lists(left_only, right, &result)) {
+        enact_list_release(left_only);
+        return 0;
+    }
+
+    enact_list_release(left_only);
+    *out = result;
+    return 1;
+}
+
 static int enact_builtin_difference(
     const EnactValue *arguments,
     size_t argument_count,
@@ -1344,7 +1368,6 @@ static int enact_builtin_union(
     EnactObject *right_set = NULL;
     EnactList *left = NULL;
     EnactList *right = NULL;
-    EnactList *left_only = NULL;
     EnactList *result = NULL;
 
     (void)argument_count;
@@ -1359,17 +1382,11 @@ static int enact_builtin_union(
 
         left = enact_object_collection_items(left_set);
         right = enact_object_collection_items(right_set);
-        if (!enact_builtin_difference_lists(left, right, &left_only)) {
-            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-            return 0;
-        }
-        if (!enact_builtin_append_lists(left_only, right, &result)) {
-            enact_list_release(left_only);
+        if (!enact_builtin_union_lists(left, right, &result)) {
             enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
             return 0;
         }
 
-        enact_list_release(left_only);
         next_collection = enact_object_copy_with_collection_items(left_set, result);
         enact_list_release(result);
         if (!next_collection) {
@@ -1387,17 +1404,11 @@ static int enact_builtin_union(
     if (!enact_builtin_require_list(&arguments[1], &right, diag)) {
         return 0;
     }
-    if (!enact_builtin_difference_lists(left, right, &left_only)) {
-        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-        return 0;
-    }
-    if (!enact_builtin_append_lists(left_only, right, &result)) {
-        enact_list_release(left_only);
+    if (!enact_builtin_union_lists(left, right, &result)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }
 
-    enact_list_release(left_only);
     *out = enact_value_make_list(result);
     return 1;
 }
@@ -1656,6 +1667,84 @@ static int enact_builtin_bag(
     return enact_builtin_construct_object(env, "Bag", out, diag);
 }
 
+static int enact_builtin_union_aggregate_lists(
+    EnactList *sets,
+    EnactObject **prototype,
+    EnactList **out,
+    EnactDiag *diag)
+{
+    EnactList *result = NULL;
+
+    if (!prototype || !out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    *prototype = NULL;
+    while (sets) {
+        const EnactValue *head = enact_list_head(sets);
+        EnactObject *set = NULL;
+        EnactList *next_result = NULL;
+
+        if (!head || !enact_builtin_require_set_collection_object(head, &set, diag)) {
+            enact_list_release(result);
+            return 0;
+        }
+        if (!*prototype) {
+            *prototype = set;
+        }
+
+        if (!enact_builtin_union_lists(result, enact_object_collection_items(set), &next_result)) {
+            enact_list_release(result);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        enact_list_release(result);
+        result = next_result;
+        sets = enact_list_tail(sets);
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_union_aggregate(
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *sets = NULL;
+    EnactList *result = NULL;
+    EnactObject *prototype = NULL;
+    EnactObject *next_collection;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_list(&arguments[0], &sets, diag)) {
+        return 0;
+    }
+    if (!enact_builtin_union_aggregate_lists(sets, &prototype, &result, diag)) {
+        return 0;
+    }
+
+    if (!prototype) {
+        return enact_builtin_construct_object(env, "Set", out, diag);
+    }
+
+    next_collection = enact_object_copy_with_collection_items(prototype, result);
+    enact_list_release(result);
+    if (!next_collection) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_object(next_collection);
+    return 1;
+}
+
 static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("hd", 1, enact_builtin_hd),
     ENACT_BUILTIN("tl", 1, enact_builtin_tl),
@@ -1687,6 +1776,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("remove", 2, enact_builtin_remove),
     ENACT_BUILTIN("unitset", 1, enact_builtin_unitset),
     ENACT_BUILTIN("union", 2, enact_builtin_union),
+    ENACT_ENV_BUILTIN("UNION", 1, enact_builtin_union_aggregate),
     ENACT_BUILTIN("difference", 2, enact_builtin_difference),
     ENACT_BUILTIN("intersection", 2, enact_builtin_intersection),
     ENACT_BUILTIN("subset", 2, enact_builtin_subset),

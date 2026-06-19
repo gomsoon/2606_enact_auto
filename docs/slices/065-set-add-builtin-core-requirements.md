@@ -49,7 +49,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Set-specific `UNION` remains deferred.
+- Slice 066 adds ordinary list-of-Set aggregate `UNION`.
 - Bag-aware Set predicate and Set-operation semantics remain deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.

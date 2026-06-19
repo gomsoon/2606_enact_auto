@@ -700,6 +700,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *remove = enact_builtin_lookup("remove");
     const EnactBuiltin *unitset = enact_builtin_lookup("unitset");
     const EnactBuiltin *union_builtin = enact_builtin_lookup("union");
+    const EnactBuiltin *union_aggregate = enact_builtin_lookup("UNION");
     const EnactBuiltin *difference = enact_builtin_lookup("difference");
     const EnactBuiltin *intersection = enact_builtin_lookup("intersection");
     const EnactBuiltin *subset = enact_builtin_lookup("subset");
@@ -780,6 +781,7 @@ static void test_builtin_helpers(void)
     require_true(remove != NULL, "remove builtin lookup succeeds");
     require_true(unitset != NULL, "unitset builtin lookup succeeds");
     require_true(union_builtin != NULL, "union builtin lookup succeeds");
+    require_true(union_aggregate != NULL, "UNION builtin lookup succeeds");
     require_true(difference != NULL, "difference builtin lookup succeeds");
     require_true(intersection != NULL, "intersection builtin lookup succeeds");
     require_true(subset != NULL, "subset builtin lookup succeeds");
@@ -818,6 +820,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(remove) == 2, "remove builtin arity");
     require_true(enact_builtin_arity(unitset) == 1, "unitset builtin arity");
     require_true(enact_builtin_arity(union_builtin) == 2, "union builtin arity");
+    require_true(enact_builtin_arity(union_aggregate) == 1, "UNION builtin arity");
     require_true(enact_builtin_arity(difference) == 2, "difference builtin arity");
     require_true(enact_builtin_arity(intersection) == 2, "intersection builtin arity");
     require_true(enact_builtin_arity(subset) == 2, "subset builtin arity");
@@ -1399,6 +1402,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "union", &lookup_value), "lookup installed union");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed union value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "UNION", &lookup_value), "lookup installed UNION");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed UNION value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "difference", &lookup_value), "lookup installed difference");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed difference value kind");

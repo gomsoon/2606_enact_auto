@@ -4,7 +4,7 @@
 
 Slice 063 extends the existing `union`, `difference`, and `intersection` builtins so they operate on object-backed `Set` values while preserving all existing list behavior.
 
-Update note: Slice 064 adds Set-aware `subset` and `equal`. Slice 065 adds Set-aware `add`.
+Update note: Slice 064 adds Set-aware `subset` and `equal`. Slice 065 adds Set-aware `add`. Slice 066 adds Set-aware aggregate `UNION`.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Bag-aware `union`, `difference`, and `intersection` remain deferred.
-- `UNION` remains deferred.
+- Bag-aware aggregate `UNION` semantics remain deferred. Slice 066 adds ordinary list-of-Set aggregate `UNION`.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
 
