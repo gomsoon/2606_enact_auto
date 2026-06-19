@@ -1126,6 +1126,21 @@ static int enact_builtin_insert(
     return 1;
 }
 
+static int enact_builtin_add(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactObject *set = NULL;
+
+    if (!enact_builtin_require_set_collection_object(&arguments[1], &set, diag)) {
+        return 0;
+    }
+
+    return enact_builtin_insert(arguments, argument_count, out, diag);
+}
+
 static int enact_builtin_remove_one(
     const EnactValue *needle,
     EnactList *list,
@@ -1668,6 +1683,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("reduce", 3, enact_builtin_reduce),
     ENACT_BUILTIN("member", 2, enact_builtin_member),
     ENACT_BUILTIN("insert", 2, enact_builtin_insert),
+    ENACT_BUILTIN("add", 2, enact_builtin_add),
     ENACT_BUILTIN("remove", 2, enact_builtin_remove),
     ENACT_BUILTIN("unitset", 1, enact_builtin_unitset),
     ENACT_BUILTIN("union", 2, enact_builtin_union),

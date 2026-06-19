@@ -696,6 +696,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *reduce = enact_builtin_lookup("reduce");
     const EnactBuiltin *member = enact_builtin_lookup("member");
     const EnactBuiltin *insert = enact_builtin_lookup("insert");
+    const EnactBuiltin *add = enact_builtin_lookup("add");
     const EnactBuiltin *remove = enact_builtin_lookup("remove");
     const EnactBuiltin *unitset = enact_builtin_lookup("unitset");
     const EnactBuiltin *union_builtin = enact_builtin_lookup("union");
@@ -775,6 +776,7 @@ static void test_builtin_helpers(void)
     require_true(reduce != NULL, "reduce builtin lookup succeeds");
     require_true(member != NULL, "member builtin lookup succeeds");
     require_true(insert != NULL, "insert builtin lookup succeeds");
+    require_true(add != NULL, "add builtin lookup succeeds");
     require_true(remove != NULL, "remove builtin lookup succeeds");
     require_true(unitset != NULL, "unitset builtin lookup succeeds");
     require_true(union_builtin != NULL, "union builtin lookup succeeds");
@@ -812,6 +814,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(reduce) == 3, "reduce builtin arity");
     require_true(enact_builtin_arity(member) == 2, "member builtin arity");
     require_true(enact_builtin_arity(insert) == 2, "insert builtin arity");
+    require_true(enact_builtin_arity(add) == 2, "add builtin arity");
     require_true(enact_builtin_arity(remove) == 2, "remove builtin arity");
     require_true(enact_builtin_arity(unitset) == 1, "unitset builtin arity");
     require_true(enact_builtin_arity(union_builtin) == 2, "union builtin arity");
@@ -1384,6 +1387,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "insert", &lookup_value), "lookup installed insert");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed insert value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "add", &lookup_value), "lookup installed add");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed add value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "remove", &lookup_value), "lookup installed remove");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed remove value kind");
