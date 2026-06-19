@@ -4,6 +4,8 @@
 
 Slice 056 gives `Set` and `Bag` objects a hidden collection payload and lets the existing `size` and `member` builtins read that payload.
 
+Update note: Later collection slices populate this payload through operations such as `insert` and, in Slice 069, through `set(list)` and `bag(list)`.
+
 ## Requirements
 
 - Objects whose class is `Set` or `Bag` shall carry a hidden collection payload.
@@ -45,7 +47,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Populating collection payloads remains deferred.
+- Direct constructor payload population is deferred in this slice and later added by Slice 069.
 - Mutating or functional collection operations such as `insert`, `remove`, `union`, `difference`, and `intersection` on collection objects remain deferred.
 - Dot-method collection syntax such as `set().size()` remains deferred.
 - Custom collection printing remains deferred.

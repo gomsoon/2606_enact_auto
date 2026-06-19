@@ -2,6 +2,8 @@
 
 Related requirements: [docs/slices/055-set-bag-constructor-scaffolding-requirements.md](/home/tprover/2606_enact_auto/docs/slices/055-set-bag-constructor-scaffolding-requirements.md)
 
+Update note: Slice 069 extends these constructors with `set(list)` and `bag(list)` using builtin minimum/maximum arity metadata.
+
 ## Runtime Shape
 
 `Set` and `Bag` are installed as ordinary classes with `Object` as their direct superclass. This keeps the first collection slice aligned with the existing object runtime:
@@ -39,6 +41,8 @@ The existing `enact_builtin_apply`, `enact_builtin_partial_apply`, and `enact_ev
 - if the class binding is present and is a class, a fresh object is returned.
 - if the class binding was shadowed with a non-class value, `ENACT_ERR_TYPE_EXPECTED_CLASS` is reported.
 - if a constructor is called without an evaluation environment through the low-level C API, `ENACT_ERR_NAME_UNBOUND` is reported.
+
+Slice 069 keeps this environment-binding policy and adds the one-argument ordinary-list form.
 
 ## Deferred Payload
 

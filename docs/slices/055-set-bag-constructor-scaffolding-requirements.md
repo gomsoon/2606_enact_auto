@@ -4,11 +4,13 @@
 
 Slice 055 starts the predefined collection-class track by installing `Set` and `Bag` as runtime classes and adding empty constructors for them.
 
+Update note: Slice 069 later adds argument-bearing `set(list)` and `bag(list)` construction while retaining the zero-argument forms introduced here.
+
 ## Requirements
 
 - `Set` and `Bag` shall be installed in every fresh evaluation environment.
 - `Set` and `Bag` shall be direct subclasses of `Object`.
-- `set` and `bag` shall be predefined zero-argument functions.
+- `set` and `bag` shall be predefined constructors with zero-argument forms in this slice.
 - `set()` shall return a new object whose class is `Set`.
 - `bag()` shall return a new object whose class is `Bag`.
 - Constructor results shall participate in the existing object model:
@@ -34,8 +36,8 @@ Boundary coverage shall include:
 
 Robustness coverage shall include:
 
-- arity mismatch for `set` and `bag`.
-- arity mismatch with unevaluated failing arguments.
+- arity mismatch for over-applied `set` and `bag` calls.
+- arity mismatch with unevaluated failing extra arguments.
 - shadowed `Set` and `Bag` class bindings.
 - treating constructors or constructor results as classes, lists, integers, booleans, or functions.
 
@@ -43,7 +45,7 @@ Robustness coverage shall include:
 
 - Collection payload storage remains deferred.
 - Collection methods such as `insert`, `remove`, `member`, `union`, `difference`, and `intersection` on `Set`/`Bag` objects remain deferred.
-- Literal or argument-bearing `set(...)` and `bag(...)` construction remains deferred.
+- Literal collection syntax remains deferred; Slice 069 later adds argument-bearing ordinary-list construction.
 - Custom printing for populated collections remains deferred.
 
 ## Coverage

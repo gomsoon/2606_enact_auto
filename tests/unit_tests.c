@@ -807,8 +807,10 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(ok_builtin) == 1, "OK builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
-    require_true(enact_builtin_arity(set_builtin) == 0, "set builtin arity");
-    require_true(enact_builtin_arity(bag_builtin) == 0, "bag builtin arity");
+    require_true(enact_builtin_min_arity(set_builtin) == 0, "set builtin min arity");
+    require_true(enact_builtin_min_arity(bag_builtin) == 0, "bag builtin min arity");
+    require_true(enact_builtin_arity(set_builtin) == 1, "set builtin max arity");
+    require_true(enact_builtin_arity(bag_builtin) == 1, "bag builtin max arity");
     require_true(enact_builtin_arity(append) == 2, "append builtin arity");
     require_true(enact_builtin_arity(size) == 1, "size builtin arity");
     require_true(enact_builtin_arity(map) == 2, "map builtin arity");
@@ -831,7 +833,9 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(intersection) == 2, "intersection builtin arity");
     require_true(enact_builtin_arity(subset) == 2, "subset builtin arity");
     require_true(enact_builtin_arity(equal) == 2, "equal builtin arity");
+    require_true(enact_builtin_min_arity(append) == 2, "append builtin min arity");
     require_true(enact_builtin_arity(NULL) == 0, "null builtin arity");
+    require_true(enact_builtin_min_arity(NULL) == 0, "null builtin min arity");
     require_true(enact_builtin_partial_builtin(NULL) == NULL, "null partial builtin accessor");
     require_true(enact_builtin_partial_argument_count(NULL) == 0, "null partial argument count");
     require_true(enact_builtin_partial_retain(NULL) == NULL, "null partial retain");
@@ -1350,6 +1354,7 @@ static void test_builtin_helpers(void)
         "null partial apply fails");
     require_true(diag.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "null partial apply code");
     require_true(enact_builtin_partial_new(NULL, append_args, 1) == NULL, "partial new null builtin fails");
+    require_true(enact_builtin_partial_new(set_builtin, append_args, 1) == NULL, "partial new set argument fails");
     require_true(enact_builtin_partial_new(size, append_args, 1) == NULL, "partial new exact arity fails");
     require_true(enact_builtin_partial_new(append, NULL, 1) == NULL, "partial new null args fails");
 
@@ -1599,6 +1604,35 @@ static void test_builtin_helpers(void)
         }
     }
     enact_value_free(&result);
+    {
+        EnactValue constructor_args[1];
+        EnactValue query_args[1];
+        EnactValue size_result;
+        EnactValue one = enact_value_make_int(1);
+        EnactList *constructor_tail;
+        EnactList *constructor_list;
+
+        constructor_tail = enact_list_cons(&one, NULL);
+        require_true(constructor_tail != NULL, "set constructor tail list created");
+        constructor_list = enact_list_cons(&one, constructor_tail);
+        enact_list_release(constructor_tail);
+        require_true(constructor_list != NULL, "set constructor argument list created");
+        constructor_args[0] = enact_value_make_list(constructor_list);
+
+        enact_diag_reset(&diag);
+        require_true(
+            enact_builtin_apply_in_env(set_builtin, &env, constructor_args, 1, &result, &diag),
+            "set builtin list env apply succeeds");
+        require_true(result.kind == ENACT_VALUE_OBJECT, "set list constructor result kind");
+        query_args[0] = result;
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(size, query_args, 1, &size_result, &diag), "size set list constructor succeeds");
+        require_true(size_result.kind == ENACT_VALUE_INT, "size set list constructor result kind");
+        require_true(size_result.as.as_int == 1, "size set list constructor suppresses duplicate");
+        enact_value_free(&size_result);
+        enact_value_free(&result);
+        enact_value_free(&constructor_args[0]);
+    }
     enact_diag_reset(&diag);
     require_true(
         enact_builtin_apply_in_env(bag_builtin, &env, NULL, 0, &result, &diag),
@@ -1719,6 +1753,35 @@ static void test_builtin_helpers(void)
         }
     }
     enact_value_free(&result);
+    {
+        EnactValue constructor_args[1];
+        EnactValue query_args[1];
+        EnactValue size_result;
+        EnactValue one = enact_value_make_int(1);
+        EnactList *constructor_tail;
+        EnactList *constructor_list;
+
+        constructor_tail = enact_list_cons(&one, NULL);
+        require_true(constructor_tail != NULL, "bag constructor tail list created");
+        constructor_list = enact_list_cons(&one, constructor_tail);
+        enact_list_release(constructor_tail);
+        require_true(constructor_list != NULL, "bag constructor argument list created");
+        constructor_args[0] = enact_value_make_list(constructor_list);
+
+        enact_diag_reset(&diag);
+        require_true(
+            enact_builtin_apply_in_env(bag_builtin, &env, constructor_args, 1, &result, &diag),
+            "bag builtin list env apply succeeds");
+        require_true(result.kind == ENACT_VALUE_OBJECT, "bag list constructor result kind");
+        query_args[0] = result;
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(size, query_args, 1, &size_result, &diag), "size bag list constructor succeeds");
+        require_true(size_result.kind == ENACT_VALUE_INT, "size bag list constructor result kind");
+        require_true(size_result.as.as_int == 2, "size bag list constructor preserves duplicate");
+        enact_value_free(&size_result);
+        enact_value_free(&result);
+        enact_value_free(&constructor_args[0]);
+    }
     enact_diag_reset(&diag);
     require_true(
         !enact_builtin_apply(set_builtin, NULL, 0, &result, &diag),

@@ -23,6 +23,7 @@ typedef int (*EnactBuiltinEnvCallback)(
 
 struct EnactBuiltin {
     const char *name;
+    size_t min_arity;
     size_t arity;
     EnactBuiltinCallback callback;
     EnactBuiltinEnvCallback env_callback;
@@ -99,7 +100,7 @@ static EnactBuiltinPartial *enact_builtin_partial_alloc(const EnactBuiltin *buil
 {
     EnactBuiltinPartial *partial;
 
-    if (!builtin || argument_count == 0 || argument_count >= enact_builtin_arity(builtin)) {
+    if (!builtin || argument_count == 0 || argument_count >= enact_builtin_min_arity(builtin)) {
         return NULL;
     }
 
@@ -1684,8 +1685,9 @@ static int enact_builtin_equal(
     return 1;
 }
 
-#define ENACT_BUILTIN(name, arity, callback) {name, arity, callback, NULL}
-#define ENACT_ENV_BUILTIN(name, arity, callback) {name, arity, NULL, callback}
+#define ENACT_BUILTIN(name, arity, callback) {name, arity, arity, callback, NULL}
+#define ENACT_ENV_BUILTIN(name, arity, callback) {name, arity, arity, NULL, callback}
+#define ENACT_ENV_BUILTIN_RANGE(name, min_arity, arity, callback) {name, min_arity, arity, NULL, callback}
 
 static int enact_builtin_construct_object(
     EnactEnv *env,
@@ -1717,6 +1719,113 @@ static int enact_builtin_construct_object(
     return 1;
 }
 
+static int enact_builtin_collection_items_from_list(
+    EnactList *list,
+    EnactCollectionKind collection_kind,
+    EnactList **out,
+    EnactDiag *diag)
+{
+    const EnactValue *head;
+    EnactList *tail = NULL;
+    EnactList *result;
+    bool found = false;
+
+    if (!out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+    if (!list) {
+        *out = NULL;
+        return 1;
+    }
+
+    head = enact_list_head(list);
+    if (!head) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+    if (!enact_builtin_collection_items_from_list(
+            enact_list_tail(list),
+            collection_kind,
+            &tail,
+            diag)) {
+        return 0;
+    }
+
+    if (collection_kind == ENACT_COLLECTION_SET) {
+        if (!enact_builtin_list_contains_value(tail, head, &found)) {
+            enact_list_release(tail);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        if (found) {
+            *out = tail;
+            return 1;
+        }
+    }
+
+    result = enact_list_cons(head, tail);
+    enact_list_release(tail);
+    if (!result) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_construct_collection(
+    EnactEnv *env,
+    const char *class_name,
+    EnactCollectionKind collection_kind,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactValue object_value;
+    EnactList *source = NULL;
+    EnactList *items = NULL;
+    EnactObject *collection;
+    EnactObject *next_collection;
+
+    if (!enact_builtin_construct_object(env, class_name, &object_value, diag)) {
+        return 0;
+    }
+    if (argument_count == 0) {
+        *out = object_value;
+        return 1;
+    }
+    if (!enact_builtin_require_list(&arguments[0], &source, diag)) {
+        enact_value_free(&object_value);
+        return 0;
+    }
+    if (object_value.kind != ENACT_VALUE_OBJECT ||
+        enact_object_collection_kind(object_value.as.as_object) != collection_kind) {
+        enact_value_free(&object_value);
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+        return 0;
+    }
+
+    collection = object_value.as.as_object;
+    if (!enact_builtin_collection_items_from_list(source, collection_kind, &items, diag)) {
+        enact_value_free(&object_value);
+        return 0;
+    }
+
+    next_collection = enact_object_copy_with_collection_items(collection, items);
+    enact_list_release(items);
+    enact_value_free(&object_value);
+    if (!next_collection) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_object(next_collection);
+    return 1;
+}
+
 static int enact_builtin_set(
     EnactEnv *env,
     const EnactValue *arguments,
@@ -1724,10 +1833,14 @@ static int enact_builtin_set(
     EnactValue *out,
     EnactDiag *diag)
 {
-    (void)arguments;
-    (void)argument_count;
-
-    return enact_builtin_construct_object(env, "Set", out, diag);
+    return enact_builtin_construct_collection(
+        env,
+        "Set",
+        ENACT_COLLECTION_SET,
+        arguments,
+        argument_count,
+        out,
+        diag);
 }
 
 static int enact_builtin_bag(
@@ -1737,10 +1850,14 @@ static int enact_builtin_bag(
     EnactValue *out,
     EnactDiag *diag)
 {
-    (void)arguments;
-    (void)argument_count;
-
-    return enact_builtin_construct_object(env, "Bag", out, diag);
+    return enact_builtin_construct_collection(
+        env,
+        "Bag",
+        ENACT_COLLECTION_BAG,
+        arguments,
+        argument_count,
+        out,
+        diag);
 }
 
 static int enact_builtin_union_aggregate_lists(
@@ -1835,8 +1952,8 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("OK", 1, enact_builtin_ok),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("list", 1, enact_builtin_list),
-    ENACT_ENV_BUILTIN("set", 0, enact_builtin_set),
-    ENACT_ENV_BUILTIN("bag", 0, enact_builtin_bag),
+    ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set),
+    ENACT_ENV_BUILTIN_RANGE("bag", 0, 1, enact_builtin_bag),
     ENACT_BUILTIN("append", 2, enact_builtin_append),
     ENACT_BUILTIN("size", 1, enact_builtin_size),
     ENACT_BUILTIN("map", 2, enact_builtin_map),
@@ -1891,6 +2008,11 @@ const char *enact_builtin_name(const EnactBuiltin *builtin)
 size_t enact_builtin_arity(const EnactBuiltin *builtin)
 {
     return builtin ? builtin->arity : 0;
+}
+
+size_t enact_builtin_min_arity(const EnactBuiltin *builtin)
+{
+    return builtin ? builtin->min_arity : 0;
 }
 
 EnactBuiltinPartial *enact_builtin_partial_new(
@@ -2007,7 +2129,7 @@ int enact_builtin_apply_in_env(
         enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
         return 0;
     }
-    if (argument_count != builtin->arity) {
+    if (argument_count < builtin->min_arity || argument_count > builtin->arity) {
         enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
         return 0;
     }
@@ -2057,7 +2179,8 @@ int enact_builtin_partial_apply_in_env(
 
     prefix_count = partial->argument_count;
     total_count = prefix_count + argument_count;
-    if (total_count != enact_builtin_arity(partial->builtin)) {
+    if (total_count < enact_builtin_min_arity(partial->builtin) ||
+        total_count > enact_builtin_arity(partial->builtin)) {
         enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
         return 0;
     }

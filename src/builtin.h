@@ -12,6 +12,7 @@ typedef struct EnactBuiltinPartial EnactBuiltinPartial;
 
 const EnactBuiltin *enact_builtin_lookup(const char *name);
 const char *enact_builtin_name(const EnactBuiltin *builtin);
+size_t enact_builtin_min_arity(const EnactBuiltin *builtin);
 size_t enact_builtin_arity(const EnactBuiltin *builtin);
 EnactBuiltinPartial *enact_builtin_partial_new(
     const EnactBuiltin *builtin,

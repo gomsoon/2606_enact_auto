@@ -880,26 +880,44 @@ static int enact_eval_check_callable_arity(
 
     if (callee->kind == ENACT_VALUE_FUNCTION) {
         callable_arity = enact_function_arity(callee->as.as_function);
+        remaining_arity = callable_arity;
+        if (argument_count > remaining_arity || (argument_count == 0 && remaining_arity != 0)) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
     } else if (callee->kind == ENACT_VALUE_BUILTIN) {
+        size_t callable_min_arity = enact_builtin_min_arity(callee->as.as_builtin);
+
         callable_arity = enact_builtin_arity(callee->as.as_builtin);
+        remaining_arity = callable_arity;
+        if (argument_count > remaining_arity ||
+            (argument_count == 0 && callable_min_arity != 0)) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
     } else if (callee->kind == ENACT_VALUE_BUILTIN_PARTIAL) {
         const EnactBuiltin *builtin = enact_builtin_partial_builtin(callee->as.as_builtin_partial);
+        size_t callable_min_arity = enact_builtin_min_arity(builtin);
+        size_t remaining_min_arity;
 
         callable_captured_count = enact_builtin_partial_argument_count(callee->as.as_builtin_partial);
         callable_arity = enact_builtin_arity(builtin);
+        if (callable_captured_count > callable_arity) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+
+        remaining_arity = callable_arity - callable_captured_count;
+        remaining_min_arity = callable_min_arity > callable_captured_count ?
+            callable_min_arity - callable_captured_count :
+            0;
+        if (argument_count > remaining_arity ||
+            (argument_count == 0 && remaining_min_arity != 0)) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
     } else {
         enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
-        return 0;
-    }
-
-    if (callable_captured_count > callable_arity) {
-        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
-        return 0;
-    }
-
-    remaining_arity = callable_arity - callable_captured_count;
-    if (argument_count > remaining_arity || (argument_count == 0 && remaining_arity != 0)) {
-        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
         return 0;
     }
 
@@ -946,8 +964,11 @@ int enact_eval_apply_callable_in_env(
     }
 
     if (callee->kind == ENACT_VALUE_BUILTIN) {
+        size_t min_arity;
+
         builtin = callee->as.as_builtin;
-        if (argument_count < arity) {
+        min_arity = enact_builtin_min_arity(builtin);
+        if (argument_count < min_arity) {
             next_builtin_partial = enact_builtin_partial_new(builtin, arguments, argument_count);
             if (!next_builtin_partial) {
                 enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
@@ -962,8 +983,11 @@ int enact_eval_apply_callable_in_env(
     }
 
     if (callee->kind == ENACT_VALUE_BUILTIN_PARTIAL) {
+        size_t min_arity;
+
         builtin_partial = callee->as.as_builtin_partial;
-        if (captured_count + argument_count < arity) {
+        min_arity = enact_builtin_min_arity(enact_builtin_partial_builtin(builtin_partial));
+        if (captured_count + argument_count < min_arity) {
             next_builtin_partial = enact_builtin_partial_extend(builtin_partial, arguments, argument_count);
             if (!next_builtin_partial) {
                 enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
