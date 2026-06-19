@@ -2,6 +2,8 @@
 
 Related requirements: [docs/slices/064-set-predicate-helpers-phase-1-requirements.md](/home/tprover/2606_enact_auto/docs/slices/064-set-predicate-helpers-phase-1-requirements.md)
 
+Update note: Slice 070 extends these helpers to same-kind `Bag` operands with multiplicity-aware subset and equality.
+
 ## Set-Only Predicate Surface
 
 This slice introduces two builtins:
@@ -11,7 +13,7 @@ subset(left_set, right_set)
 equal(left_set, right_set)
 ```
 
-Both operands must be object-backed `Set` values. Objects whose classes inherit from `Set` are accepted through the existing collection-kind check. `Bag`, ordinary list, class, and non-collection object operands remain outside this slice.
+Both operands must be object-backed `Set` values in this slice. Objects whose classes inherit from `Set` are accepted through the existing collection-kind check. `Bag`, ordinary list, class, and non-collection object operands remain outside this slice.
 
 ## Payload Membership Helper
 
@@ -39,4 +41,4 @@ Both helpers return ordinary boolean values. They do not return collection objec
 
 ## Deliberately Narrow Scope
 
-The helpers compare payload membership only. Runtime class and user-visible attributes on collection objects are ignored for `equal`, which makes it a Set predicate rather than an object equality operation. Slice 065 adds Set-aware `add`; Slice 066 adds ordinary list-of-Set aggregate `UNION`. Bag multiplicity semantics, dot-method collection syntax, and custom collection printing remain deferred.
+The helpers compare payload membership only. Runtime class and user-visible attributes on collection objects are ignored for `equal`, which makes it a Set predicate rather than an object equality operation. Slice 065 adds Set-aware `add`; Slice 066 adds ordinary list-of-Set aggregate `UNION`. Bag multiplicity semantics are deferred in this slice and later added by Slice 070. Dot-method collection syntax and custom collection printing remain deferred.

@@ -52,7 +52,7 @@ Robustness coverage shall include:
 - Literal collection syntax beyond ordinary list conversion remains deferred.
 - Dot-method collection construction remains deferred.
 - Custom collection printing remains deferred.
-- Bag-aware set operations beyond the existing collection helpers remain deferred.
+- Bag-aware algebraic set operations beyond predicate helpers remain deferred.
 
 ## Coverage
 

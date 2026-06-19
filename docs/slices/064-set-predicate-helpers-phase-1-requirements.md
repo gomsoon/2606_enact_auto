@@ -4,6 +4,8 @@
 
 Slice 064 adds Set-specific predicate helpers `subset` and `equal` for object-backed `Set` values.
 
+Update note: Slice 070 later extends `subset` and `equal` to same-kind `Bag` operands using multiplicity-aware semantics. Mixed `Set`/`Bag` operands remain unsupported.
+
 ## Requirements
 
 - `subset(left_set, right_set)` shall accept `Set` collection objects and objects whose class inherits from `Set`.
@@ -17,7 +19,7 @@ Slice 064 adds Set-specific predicate helpers `subset` and `equal` for object-ba
 - Predicate results shall be ordinary boolean values.
 - Predicate helpers shall not mutate either operand.
 - Predicate helpers shall ignore collection object runtime class and user-visible attributes when comparing payload membership.
-- `Bag` operands shall remain unsupported in this slice.
+- `Bag` operands shall remain unsupported in this slice; Slice 070 later adds same-kind `Bag` support.
 - Ordinary list operands shall remain unsupported in this slice.
 - Mixed list/Set operands shall remain unsupported in this slice.
 - Unsupported operands shall continue to report `ENACT_ERR_TYPE_EXPECTED_LIST`.
@@ -41,8 +43,7 @@ Boundary coverage shall include:
 Robustness coverage shall include:
 
 - arity mismatch.
-- Set/Bag operand rejection.
-- Bag/Set operand rejection.
+- mixed Set/Bag operand rejection.
 - ordinary list operand rejection.
 - class and non-collection object operand rejection.
 - operand evaluation errors.
@@ -50,7 +51,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Bag-aware `subset` and `equal` remain deferred.
+- Bag-aware `subset` and `equal` are deferred in this slice and later added by Slice 070.
 - Slice 065 adds Set-aware `add`. Slice 066 adds ordinary list-of-Set aggregate `UNION`.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.

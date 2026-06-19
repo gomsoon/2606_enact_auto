@@ -198,6 +198,35 @@ static int enact_builtin_require_set_collection_object(const EnactValue *value, 
     return 1;
 }
 
+static int enact_builtin_require_same_collection_kind(
+    const EnactValue *left,
+    const EnactValue *right,
+    EnactObject **left_out,
+    EnactObject **right_out,
+    EnactCollectionKind *kind_out,
+    EnactDiag *diag)
+{
+    EnactCollectionKind left_kind;
+    EnactCollectionKind right_kind;
+
+    if (!enact_builtin_require_collection_object(left, left_out, diag) ||
+        !enact_builtin_require_collection_object(right, right_out, diag)) {
+        return 0;
+    }
+
+    left_kind = enact_object_collection_kind(*left_out);
+    right_kind = enact_object_collection_kind(*right_out);
+    if (left_kind != right_kind) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_LIST, -1);
+        return 0;
+    }
+
+    if (kind_out) {
+        *kind_out = left_kind;
+    }
+    return 1;
+}
+
 static int enact_builtin_require_callable(const EnactValue *value, EnactDiag *diag)
 {
     if (!value ||
@@ -1614,26 +1643,100 @@ static int enact_builtin_list_is_subset(
     return 1;
 }
 
+static int enact_builtin_list_count_value(
+    EnactList *list,
+    const EnactValue *needle,
+    size_t *out)
+{
+    size_t count = 0;
+
+    if (!needle || !out) {
+        return 0;
+    }
+
+    while (list) {
+        const EnactValue *head = enact_list_head(list);
+        bool equal = false;
+
+        if (!head || !enact_value_equal(head, needle, &equal)) {
+            return 0;
+        }
+        if (equal) {
+            count += 1;
+        }
+
+        list = enact_list_tail(list);
+    }
+
+    *out = count;
+    return 1;
+}
+
+static int enact_builtin_list_is_bag_subset(
+    EnactList *left,
+    EnactList *right,
+    bool *out)
+{
+    if (!out) {
+        return 0;
+    }
+
+    while (left) {
+        const EnactValue *head = enact_list_head(left);
+        size_t left_count = 0;
+        size_t right_count = 0;
+
+        if (!head ||
+            !enact_builtin_list_count_value(left, head, &left_count) ||
+            !enact_builtin_list_count_value(right, head, &right_count)) {
+            return 0;
+        }
+        if (left_count > right_count) {
+            *out = false;
+            return 1;
+        }
+
+        left = enact_list_tail(left);
+    }
+
+    *out = true;
+    return 1;
+}
+
 static int enact_builtin_subset(
     const EnactValue *arguments,
     size_t argument_count,
     EnactValue *out,
     EnactDiag *diag)
 {
-    EnactObject *left_set = NULL;
-    EnactObject *right_set = NULL;
+    EnactObject *left_collection = NULL;
+    EnactObject *right_collection = NULL;
+    EnactCollectionKind collection_kind = ENACT_COLLECTION_NONE;
     bool result = false;
 
     (void)argument_count;
 
-    if (!enact_builtin_require_set_collection_object(&arguments[0], &left_set, diag) ||
-        !enact_builtin_require_set_collection_object(&arguments[1], &right_set, diag)) {
+    if (!enact_builtin_require_same_collection_kind(
+            &arguments[0],
+            &arguments[1],
+            &left_collection,
+            &right_collection,
+            &collection_kind,
+            diag)) {
         return 0;
     }
 
-    if (!enact_builtin_list_is_subset(
-            enact_object_collection_items(left_set),
-            enact_object_collection_items(right_set),
+    if (collection_kind == ENACT_COLLECTION_SET) {
+        if (!enact_builtin_list_is_subset(
+                enact_object_collection_items(left_collection),
+                enact_object_collection_items(right_collection),
+                &result)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    } else if (!enact_builtin_list_is_bag_subset(
+            enact_object_collection_items(left_collection),
+            enact_object_collection_items(right_collection),
             &result)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
@@ -1649,21 +1752,35 @@ static int enact_builtin_equal(
     EnactValue *out,
     EnactDiag *diag)
 {
-    EnactObject *left_set = NULL;
-    EnactObject *right_set = NULL;
+    EnactObject *left_collection = NULL;
+    EnactObject *right_collection = NULL;
+    EnactCollectionKind collection_kind = ENACT_COLLECTION_NONE;
     bool left_is_subset = false;
     bool right_is_subset = false;
 
     (void)argument_count;
 
-    if (!enact_builtin_require_set_collection_object(&arguments[0], &left_set, diag) ||
-        !enact_builtin_require_set_collection_object(&arguments[1], &right_set, diag)) {
+    if (!enact_builtin_require_same_collection_kind(
+            &arguments[0],
+            &arguments[1],
+            &left_collection,
+            &right_collection,
+            &collection_kind,
+            diag)) {
         return 0;
     }
 
-    if (!enact_builtin_list_is_subset(
-            enact_object_collection_items(left_set),
-            enact_object_collection_items(right_set),
+    if (collection_kind == ENACT_COLLECTION_SET) {
+        if (!enact_builtin_list_is_subset(
+                enact_object_collection_items(left_collection),
+                enact_object_collection_items(right_collection),
+                &left_is_subset)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    } else if (!enact_builtin_list_is_bag_subset(
+            enact_object_collection_items(left_collection),
+            enact_object_collection_items(right_collection),
             &left_is_subset)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
@@ -1673,9 +1790,17 @@ static int enact_builtin_equal(
         return 1;
     }
 
-    if (!enact_builtin_list_is_subset(
-            enact_object_collection_items(right_set),
-            enact_object_collection_items(left_set),
+    if (collection_kind == ENACT_COLLECTION_SET) {
+        if (!enact_builtin_list_is_subset(
+                enact_object_collection_items(right_collection),
+                enact_object_collection_items(left_collection),
+                &right_is_subset)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    } else if (!enact_builtin_list_is_bag_subset(
+            enact_object_collection_items(right_collection),
+            enact_object_collection_items(left_collection),
             &right_is_subset)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
