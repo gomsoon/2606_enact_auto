@@ -1,0 +1,60 @@
+# Slice 063: Collection Set Operations Phase 1 Requirements
+
+## Goal
+
+Slice 063 extends the existing `union`, `difference`, and `intersection` builtins so they operate on object-backed `Set` values while preserving all existing list behavior.
+
+## Requirements
+
+- `union(list, list)`, `difference(list, list)`, and `intersection(list, list)` shall keep their existing list result behavior.
+- `union(set, set)` shall accept `Set` collection objects and objects whose class inherits from `Set`.
+- `difference(set, set)` shall accept `Set` collection objects and objects whose class inherits from `Set`.
+- `intersection(set, set)` shall accept `Set` collection objects and objects whose class inherits from `Set`.
+- Set operations shall return a new collection object instead of mutating either input object.
+- The returned collection object shall keep the same runtime class as the left operand.
+- The returned collection object shall preserve user-visible attributes from the left operand.
+- `union(left_set, right_set)` shall contain every value from either payload, with duplicates suppressed by the existing Set payload invariants.
+- `difference(left_set, right_set)` shall contain values from the left payload that are not members of the right payload.
+- `intersection(left_set, right_set)` shall contain values from the left payload that are members of the right payload.
+- Membership shall use existing runtime value equality, including object identity semantics.
+- Tests shall not depend on any user-visible iteration ordering for `Set` payloads.
+- `Bag` operands shall remain unsupported in this slice.
+- Mixed list/Set operands shall remain unsupported in this slice.
+- Unsupported operands shall continue to report `ENACT_ERR_TYPE_EXPECTED_LIST`.
+- Existing partial-application behavior shall remain unchanged.
+
+## Regression Requirements
+
+Boundary coverage shall include:
+
+- empty Set operations.
+- `union` with left-only, right-only, and duplicate values.
+- `difference` with kept, removed, and empty results.
+- `intersection` with matching and disjoint values.
+- partial application of `union` with Set objects.
+- higher-order use over lists containing Set-operation results.
+- left-operand subclass preservation.
+- left-operand attribute preservation.
+- object identity membership.
+- composition with `collect` and `reduce`.
+
+Robustness coverage shall include:
+
+- arity mismatch.
+- Set/Bag operand rejection.
+- Bag/Set operand rejection.
+- mixed list/Set operand rejection.
+- class and non-collection object operand rejection.
+- operand evaluation errors.
+- misuse of returned Set objects where primitive or list values are required.
+
+## Deferred
+
+- Bag-aware `union`, `difference`, and `intersection` remain deferred.
+- `subset`, `equal`, `add`, and `UNION` remain deferred.
+- Dot-method collection syntax remains deferred.
+- Custom collection printing remains deferred.
+
+## Coverage
+
+Coverage shall continue to report handwritten source coverage separately from generated lexer/parser coverage.

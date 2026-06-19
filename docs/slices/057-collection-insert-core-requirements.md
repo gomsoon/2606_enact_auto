@@ -51,7 +51,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Collection-aware `remove`, `union`, `difference`, and `intersection` remain deferred.
+- Collection-aware `remove` remains deferred for this slice. Slice 063 later adds Set-aware `union`, `difference`, and `intersection`; Bag-aware set operations remain deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
 - Ordering guarantees for collection printing remain deferred because collections still print as objects.

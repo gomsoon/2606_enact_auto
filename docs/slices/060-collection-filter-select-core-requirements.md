@@ -4,7 +4,7 @@
 
 Slice 060 extends predicate-based filtering to object-backed `Set` and `Bag` payloads and adds the PRD-named `select` builtin as the same operation.
 
-Update note: Slice 061 supersedes this slice's deferred `reduce` item by adding collection-aware `reduce`. Slice 062 adds collection-specific `collect`; `map` remains list-only.
+Update note: Slice 061 supersedes this slice's deferred `reduce` item by adding collection-aware `reduce`. Slice 062 adds collection-specific `collect`; `map` remains list-only. Slice 063 adds Set-aware `union`, `difference`, and `intersection`.
 
 ## Requirements
 
@@ -57,7 +57,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Collection-aware `map` remains deferred.
-- Collection-aware `union`, `difference`, and `intersection` remain deferred.
+- Bag-aware `union`, `difference`, and `intersection` remain deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
 

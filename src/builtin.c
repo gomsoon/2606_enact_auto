@@ -177,6 +177,26 @@ static int enact_builtin_require_collection_object(const EnactValue *value, Enac
     return 1;
 }
 
+static int enact_builtin_value_is_collection_object(const EnactValue *value)
+{
+    return value &&
+           value->kind == ENACT_VALUE_OBJECT &&
+           enact_object_collection_kind(value->as.as_object) != ENACT_COLLECTION_NONE;
+}
+
+static int enact_builtin_require_set_collection_object(const EnactValue *value, EnactObject **out, EnactDiag *diag)
+{
+    if (!value || !out ||
+        value->kind != ENACT_VALUE_OBJECT ||
+        enact_object_collection_kind(value->as.as_object) != ENACT_COLLECTION_SET) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_LIST, -1);
+        return 0;
+    }
+
+    *out = value->as.as_object;
+    return 1;
+}
+
 static int enact_builtin_require_callable(const EnactValue *value, EnactDiag *diag)
 {
     if (!value ||
@@ -1250,11 +1270,39 @@ static int enact_builtin_difference(
     EnactValue *out,
     EnactDiag *diag)
 {
+    EnactObject *left_set = NULL;
+    EnactObject *right_set = NULL;
     EnactList *left = NULL;
     EnactList *right = NULL;
     EnactList *result = NULL;
 
     (void)argument_count;
+
+    if (enact_builtin_value_is_collection_object(&arguments[0])) {
+        EnactObject *next_collection;
+
+        if (!enact_builtin_require_set_collection_object(&arguments[0], &left_set, diag) ||
+            !enact_builtin_require_set_collection_object(&arguments[1], &right_set, diag)) {
+            return 0;
+        }
+
+        left = enact_object_collection_items(left_set);
+        right = enact_object_collection_items(right_set);
+        if (!enact_builtin_difference_lists(left, right, &result)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        next_collection = enact_object_copy_with_collection_items(left_set, result);
+        enact_list_release(result);
+        if (!next_collection) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        *out = enact_value_make_object(next_collection);
+        return 1;
+    }
 
     if (!enact_builtin_require_list(&arguments[0], &left, diag)) {
         return 0;
@@ -1277,12 +1325,46 @@ static int enact_builtin_union(
     EnactValue *out,
     EnactDiag *diag)
 {
+    EnactObject *left_set = NULL;
+    EnactObject *right_set = NULL;
     EnactList *left = NULL;
     EnactList *right = NULL;
     EnactList *left_only = NULL;
     EnactList *result = NULL;
 
     (void)argument_count;
+
+    if (enact_builtin_value_is_collection_object(&arguments[0])) {
+        EnactObject *next_collection;
+
+        if (!enact_builtin_require_set_collection_object(&arguments[0], &left_set, diag) ||
+            !enact_builtin_require_set_collection_object(&arguments[1], &right_set, diag)) {
+            return 0;
+        }
+
+        left = enact_object_collection_items(left_set);
+        right = enact_object_collection_items(right_set);
+        if (!enact_builtin_difference_lists(left, right, &left_only)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        if (!enact_builtin_append_lists(left_only, right, &result)) {
+            enact_list_release(left_only);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        enact_list_release(left_only);
+        next_collection = enact_object_copy_with_collection_items(left_set, result);
+        enact_list_release(result);
+        if (!next_collection) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        *out = enact_value_make_object(next_collection);
+        return 1;
+    }
 
     if (!enact_builtin_require_list(&arguments[0], &left, diag)) {
         return 0;
@@ -1352,11 +1434,39 @@ static int enact_builtin_intersection(
     EnactValue *out,
     EnactDiag *diag)
 {
+    EnactObject *left_set = NULL;
+    EnactObject *right_set = NULL;
     EnactList *left = NULL;
     EnactList *right = NULL;
     EnactList *result = NULL;
 
     (void)argument_count;
+
+    if (enact_builtin_value_is_collection_object(&arguments[0])) {
+        EnactObject *next_collection;
+
+        if (!enact_builtin_require_set_collection_object(&arguments[0], &left_set, diag) ||
+            !enact_builtin_require_set_collection_object(&arguments[1], &right_set, diag)) {
+            return 0;
+        }
+
+        left = enact_object_collection_items(left_set);
+        right = enact_object_collection_items(right_set);
+        if (!enact_builtin_intersection_lists(left, right, &result)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        next_collection = enact_object_copy_with_collection_items(left_set, result);
+        enact_list_release(result);
+        if (!next_collection) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        *out = enact_value_make_object(next_collection);
+        return 1;
+    }
 
     if (!enact_builtin_require_list(&arguments[0], &left, diag)) {
         return 0;

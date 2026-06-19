@@ -4,6 +4,8 @@
 
 Slice 062 adds `collect(transform, collection)` as the collection-shape-preserving transform operation for object-backed `Set` and `Bag` values.
 
+Update note: Slice 063 adds Set-aware `union`, `difference`, and `intersection`. Bag-aware set operations remain deferred.
+
 ## Requirements
 
 - The builtin table shall include `collect` with arity 2.
@@ -58,7 +60,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Collection-aware `map` remains deferred; `collect` is the collection-transform surface.
-- Collection-aware `union`, `difference`, and `intersection` remain deferred.
+- Bag-aware `union`, `difference`, and `intersection` remain deferred.
 - `forEachDo`, `locate`, `subset`, `equal`, `add`, and `UNION` remain deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
