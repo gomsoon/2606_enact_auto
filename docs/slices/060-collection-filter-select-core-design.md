@@ -2,7 +2,7 @@
 
 Related requirements: [docs/slices/060-collection-filter-select-core-requirements.md](/home/tprover/2606_enact_auto/docs/slices/060-collection-filter-select-core-requirements.md)
 
-Update note: Slice 061 adds collection-aware `reduce` over the same hidden payload traversal surface. `map` remains deferred.
+Update note: Slice 061 adds collection-aware `reduce` over the same hidden payload traversal surface. Slice 062 adds collection-specific `collect`; `map` remains list-only.
 
 ## Filter And Select
 
@@ -48,4 +48,4 @@ This keeps `Bag` filtering aligned with Slice 058 one-occurrence removal and wit
 
 ## Deliberately Narrow Scope
 
-`map` remains list-only for collection objects. It exposes broader result-shape questions, while `filter` and `select` can safely preserve the input collection shape.
+`map` remains list-only for collection objects. Slice 062 adds `collect` as the collection-shape-preserving transform counterpart.

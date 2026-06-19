@@ -55,7 +55,7 @@ Robustness coverage shall include:
 - Collection-aware `union`, `difference`, and `intersection` remain deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
-- Collection traversal methods such as `collect`, `select`, and `forEachDo` remain deferred.
+- Collection traversal methods such as `forEachDo` remain deferred.
 
 ## Coverage
 

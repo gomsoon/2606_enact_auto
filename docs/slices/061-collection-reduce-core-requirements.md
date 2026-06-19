@@ -4,6 +4,8 @@
 
 Slice 061 extends `reduce` so it can fold object-backed `Set` and `Bag` payloads while preserving existing list and partial-application behavior.
 
+Update note: Slice 062 adds collection-specific `collect`; `map` remains list-only.
+
 ## Requirements
 
 - `reduce(reducer, initial, list)` shall keep the existing list fold behavior.
@@ -52,7 +54,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Collection-aware `map` remains deferred.
+- Collection-aware `map` remains deferred; use `collect` for collection-shape-preserving transforms.
 - Collection-aware `union`, `difference`, and `intersection` remain deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.

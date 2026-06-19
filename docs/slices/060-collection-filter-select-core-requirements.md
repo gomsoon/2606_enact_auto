@@ -4,7 +4,7 @@
 
 Slice 060 extends predicate-based filtering to object-backed `Set` and `Bag` payloads and adds the PRD-named `select` builtin as the same operation.
 
-Update note: Slice 061 supersedes this slice's deferred `reduce` item by adding collection-aware `reduce`. `map` remains deferred.
+Update note: Slice 061 supersedes this slice's deferred `reduce` item by adding collection-aware `reduce`. Slice 062 adds collection-specific `collect`; `map` remains list-only.
 
 ## Requirements
 

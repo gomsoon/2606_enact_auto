@@ -688,6 +688,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *append = enact_builtin_lookup("append");
     const EnactBuiltin *size = enact_builtin_lookup("size");
     const EnactBuiltin *map = enact_builtin_lookup("map");
+    const EnactBuiltin *collect = enact_builtin_lookup("collect");
     const EnactBuiltin *filter = enact_builtin_lookup("filter");
     const EnactBuiltin *select = enact_builtin_lookup("select");
     const EnactBuiltin *all = enact_builtin_lookup("all");
@@ -764,6 +765,7 @@ static void test_builtin_helpers(void)
     require_true(append != NULL, "append builtin lookup succeeds");
     require_true(size != NULL, "size builtin lookup succeeds");
     require_true(map != NULL, "map builtin lookup succeeds");
+    require_true(collect != NULL, "collect builtin lookup succeeds");
     require_true(filter != NULL, "filter builtin lookup succeeds");
     require_true(select != NULL, "select builtin lookup succeeds");
     require_true(all != NULL, "all builtin lookup succeeds");
@@ -798,6 +800,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(append) == 2, "append builtin arity");
     require_true(enact_builtin_arity(size) == 1, "size builtin arity");
     require_true(enact_builtin_arity(map) == 2, "map builtin arity");
+    require_true(enact_builtin_arity(collect) == 2, "collect builtin arity");
     require_true(enact_builtin_arity(filter) == 2, "filter builtin arity");
     require_true(enact_builtin_arity(select) == 2, "select builtin arity");
     require_true(enact_builtin_arity(all) == 2, "all builtin arity");
@@ -1351,6 +1354,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "map", &lookup_value), "lookup installed map");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed map value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "collect", &lookup_value), "lookup installed collect");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed collect value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "filter", &lookup_value), "lookup installed filter");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed filter value kind");

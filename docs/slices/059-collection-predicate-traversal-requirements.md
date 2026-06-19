@@ -4,7 +4,7 @@
 
 Slice 059 extends the predicate traversal builtins `all` and `exists` so they can read object-backed `Set` and `Bag` payloads.
 
-Update note: Slice 060 supersedes this slice's deferred `filter` item by adding collection-aware `filter` and `select`. Slice 061 supersedes this slice's deferred `reduce` item by adding collection-aware `reduce`. `map` remains deferred.
+Update note: Slice 060 supersedes this slice's deferred `filter` item by adding collection-aware `filter` and `select`. Slice 061 supersedes this slice's deferred `reduce` item by adding collection-aware `reduce`. Slice 062 adds collection-specific `collect`; `map` remains list-only.
 
 ## Requirements
 

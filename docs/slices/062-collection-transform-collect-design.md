@@ -1,0 +1,50 @@
+# Slice 062: Collection Transform Core: collect Design
+
+Related requirements: [docs/slices/062-collection-transform-collect-requirements.md](/home/tprover/2606_enact_auto/docs/slices/062-collection-transform-collect-requirements.md)
+
+## Collection-Only Transform
+
+`collect` is intentionally separate from list `map`:
+
+```text
+map(transform, list)        -> list
+collect(transform, object)  -> collection object
+```
+
+This keeps existing list behavior stable and gives collection transforms a result shape that is not ambiguous.
+
+## Shared Callable Application
+
+The transform uses the same callable application helper as `map`:
+
+```c
+enact_eval_apply_callable(transform, element, 1, &mapped_value, diag)
+```
+
+Each payload element is transformed exactly once. Transform errors propagate normally.
+
+## Result Construction
+
+The mapped payload is wrapped with:
+
+```c
+EnactObject *enact_object_copy_with_collection_items(const EnactObject *object, EnactList *items);
+```
+
+That helper preserves the input object's runtime class and user-visible attributes while installing the transformed hidden payload.
+
+## Set And Bag Semantics
+
+`Set` results suppress duplicate transformed values using the same runtime equality helper used by `insert` and `member`.
+
+`Bag` results preserve every transformed occurrence:
+
+```text
+size(collect(x::1, insert(1, insert(2, bag())))) == 2
+```
+
+This keeps `collect` aligned with the existing collection payload model.
+
+## Deliberately Narrow Scope
+
+`collect` does not accept ordinary lists; `map` remains the list transform builtin. Collection-aware set operations, dot-method syntax, `forEachDo`, `locate`, and custom collection printing remain deferred.
