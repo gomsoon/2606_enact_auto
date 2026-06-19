@@ -4,6 +4,8 @@
 
 Slice 063 extends the existing `union`, `difference`, and `intersection` builtins so they operate on object-backed `Set` values while preserving all existing list behavior.
 
+Update note: Slice 064 adds Set-aware `subset` and `equal`.
+
 ## Requirements
 
 - `union(list, list)`, `difference(list, list)`, and `intersection(list, list)` shall keep their existing list result behavior.
@@ -51,7 +53,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Bag-aware `union`, `difference`, and `intersection` remain deferred.
-- `subset`, `equal`, `add`, and `UNION` remain deferred.
+- `add` and `UNION` remain deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
 

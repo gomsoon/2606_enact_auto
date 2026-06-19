@@ -1483,6 +1483,105 @@ static int enact_builtin_intersection(
     return 1;
 }
 
+static int enact_builtin_list_is_subset(
+    EnactList *left,
+    EnactList *right,
+    bool *out)
+{
+    if (!out) {
+        return 0;
+    }
+
+    while (left) {
+        const EnactValue *head = enact_list_head(left);
+        bool found = false;
+
+        if (!head || !enact_builtin_list_contains_value(right, head, &found)) {
+            return 0;
+        }
+        if (!found) {
+            *out = false;
+            return 1;
+        }
+
+        left = enact_list_tail(left);
+    }
+
+    *out = true;
+    return 1;
+}
+
+static int enact_builtin_subset(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactObject *left_set = NULL;
+    EnactObject *right_set = NULL;
+    bool result = false;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_set_collection_object(&arguments[0], &left_set, diag) ||
+        !enact_builtin_require_set_collection_object(&arguments[1], &right_set, diag)) {
+        return 0;
+    }
+
+    if (!enact_builtin_list_is_subset(
+            enact_object_collection_items(left_set),
+            enact_object_collection_items(right_set),
+            &result)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_bool(result);
+    return 1;
+}
+
+static int enact_builtin_equal(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactObject *left_set = NULL;
+    EnactObject *right_set = NULL;
+    bool left_is_subset = false;
+    bool right_is_subset = false;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_set_collection_object(&arguments[0], &left_set, diag) ||
+        !enact_builtin_require_set_collection_object(&arguments[1], &right_set, diag)) {
+        return 0;
+    }
+
+    if (!enact_builtin_list_is_subset(
+            enact_object_collection_items(left_set),
+            enact_object_collection_items(right_set),
+            &left_is_subset)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!left_is_subset) {
+        *out = enact_value_make_bool(false);
+        return 1;
+    }
+
+    if (!enact_builtin_list_is_subset(
+            enact_object_collection_items(right_set),
+            enact_object_collection_items(left_set),
+            &right_is_subset)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_bool(right_is_subset);
+    return 1;
+}
+
 #define ENACT_BUILTIN(name, arity, callback) {name, arity, callback, NULL}
 #define ENACT_ENV_BUILTIN(name, arity, callback) {name, arity, NULL, callback}
 
@@ -1574,6 +1673,8 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("union", 2, enact_builtin_union),
     ENACT_BUILTIN("difference", 2, enact_builtin_difference),
     ENACT_BUILTIN("intersection", 2, enact_builtin_intersection),
+    ENACT_BUILTIN("subset", 2, enact_builtin_subset),
+    ENACT_BUILTIN("equal", 2, enact_builtin_equal),
 };
 
 static size_t enact_builtin_count(void)

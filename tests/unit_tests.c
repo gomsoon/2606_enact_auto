@@ -701,6 +701,8 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *union_builtin = enact_builtin_lookup("union");
     const EnactBuiltin *difference = enact_builtin_lookup("difference");
     const EnactBuiltin *intersection = enact_builtin_lookup("intersection");
+    const EnactBuiltin *subset = enact_builtin_lookup("subset");
+    const EnactBuiltin *equal = enact_builtin_lookup("equal");
     EnactBuiltinPartial *append_partial;
     EnactBuiltinPartial *other_append_partial;
     EnactValue builtin_value;
@@ -778,6 +780,8 @@ static void test_builtin_helpers(void)
     require_true(union_builtin != NULL, "union builtin lookup succeeds");
     require_true(difference != NULL, "difference builtin lookup succeeds");
     require_true(intersection != NULL, "intersection builtin lookup succeeds");
+    require_true(subset != NULL, "subset builtin lookup succeeds");
+    require_true(equal != NULL, "equal builtin lookup succeeds");
     require_true(enact_builtin_lookup("missing") == NULL, "missing builtin lookup fails");
     require_true(enact_builtin_lookup("load") == NULL, "load is not a builtin");
     require_true(enact_builtin_lookup(NULL) == NULL, "null builtin lookup fails");
@@ -813,6 +817,8 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(union_builtin) == 2, "union builtin arity");
     require_true(enact_builtin_arity(difference) == 2, "difference builtin arity");
     require_true(enact_builtin_arity(intersection) == 2, "intersection builtin arity");
+    require_true(enact_builtin_arity(subset) == 2, "subset builtin arity");
+    require_true(enact_builtin_arity(equal) == 2, "equal builtin arity");
     require_true(enact_builtin_arity(NULL) == 0, "null builtin arity");
     require_true(enact_builtin_partial_builtin(NULL) == NULL, "null partial builtin accessor");
     require_true(enact_builtin_partial_argument_count(NULL) == 0, "null partial argument count");
@@ -1393,6 +1399,12 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "intersection", &lookup_value), "lookup installed intersection");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed intersection value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "subset", &lookup_value), "lookup installed subset");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed subset value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "equal", &lookup_value), "lookup installed equal");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed equal value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "Object", &lookup_value), "lookup installed Object");
     require_true(lookup_value.kind == ENACT_VALUE_CLASS, "installed Object value kind");

@@ -50,4 +50,4 @@ The runtime still does not expose a user-visible collection printing order. Regr
 
 ## Deliberately Narrow Scope
 
-This slice does not define Bag multiplicity semantics for `union`, `difference`, or `intersection`. It also leaves `subset`, `equal`, `add`, `UNION`, dot-method collection syntax, and custom collection printing for later slices.
+This slice does not define Bag multiplicity semantics for `union`, `difference`, or `intersection`. Slice 064 adds Set-aware `subset` and `equal`; `add`, `UNION`, dot-method collection syntax, and custom collection printing remain deferred.

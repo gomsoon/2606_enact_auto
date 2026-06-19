@@ -2,7 +2,7 @@
 
 Related requirements: [docs/slices/062-collection-transform-collect-requirements.md](/home/tprover/2606_enact_auto/docs/slices/062-collection-transform-collect-requirements.md)
 
-Update note: Slice 063 adds Set-aware `union`, `difference`, and `intersection`. Bag-aware set operations remain deferred.
+Update note: Slice 063 adds Set-aware `union`, `difference`, and `intersection`. Slice 064 adds Set-aware `subset` and `equal`. Bag-aware set operations remain deferred.
 
 ## Collection-Only Transform
 
