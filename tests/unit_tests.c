@@ -694,6 +694,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *all = enact_builtin_lookup("all");
     const EnactBuiltin *exists = enact_builtin_lookup("exists");
     const EnactBuiltin *locate = enact_builtin_lookup("locate");
+    const EnactBuiltin *for_each_do = enact_builtin_lookup("forEachDo");
     const EnactBuiltin *reduce = enact_builtin_lookup("reduce");
     const EnactBuiltin *member = enact_builtin_lookup("member");
     const EnactBuiltin *insert = enact_builtin_lookup("insert");
@@ -776,6 +777,7 @@ static void test_builtin_helpers(void)
     require_true(all != NULL, "all builtin lookup succeeds");
     require_true(exists != NULL, "exists builtin lookup succeeds");
     require_true(locate != NULL, "locate builtin lookup succeeds");
+    require_true(for_each_do != NULL, "forEachDo builtin lookup succeeds");
     require_true(reduce != NULL, "reduce builtin lookup succeeds");
     require_true(member != NULL, "member builtin lookup succeeds");
     require_true(insert != NULL, "insert builtin lookup succeeds");
@@ -816,6 +818,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(all) == 2, "all builtin arity");
     require_true(enact_builtin_arity(exists) == 2, "exists builtin arity");
     require_true(enact_builtin_arity(locate) == 2, "locate builtin arity");
+    require_true(enact_builtin_arity(for_each_do) == 2, "forEachDo builtin arity");
     require_true(enact_builtin_arity(reduce) == 3, "reduce builtin arity");
     require_true(enact_builtin_arity(member) == 2, "member builtin arity");
     require_true(enact_builtin_arity(insert) == 2, "insert builtin arity");
@@ -1277,6 +1280,14 @@ static void test_builtin_helpers(void)
                 "locate found true-headed list");
             enact_value_free(&result);
 
+            enact_diag_reset(&diag);
+            require_true(
+                enact_builtin_apply(for_each_do, predicate_args, 2, &result, &diag),
+                "forEachDo builtin apply succeeds");
+            require_true(result.kind == ENACT_VALUE_LIST, "forEachDo builtin result kind");
+            require_true(result.as.as_list == NULL, "forEachDo builtin result nil");
+            enact_value_free(&result);
+
             enact_value_free(&predicate_args[1]);
         }
     }
@@ -1292,6 +1303,11 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_apply(locate, predicate_args, 2, &result, &diag), "locate nil apply succeeds");
     require_true(result.kind == ENACT_VALUE_LIST, "locate nil result kind");
     require_true(result.as.as_list == NULL, "locate nil result nil");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(for_each_do, predicate_args, 2, &result, &diag), "forEachDo nil apply succeeds");
+    require_true(result.kind == ENACT_VALUE_LIST, "forEachDo nil result kind");
+    require_true(result.as.as_list == NULL, "forEachDo nil result nil");
     enact_value_free(&result);
     enact_value_free(&predicate_args[1]);
 
@@ -1404,6 +1420,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "locate", &lookup_value), "lookup installed locate");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed locate value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "forEachDo", &lookup_value), "lookup installed forEachDo");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed forEachDo value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "reduce", &lookup_value), "lookup installed reduce");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed reduce value kind");

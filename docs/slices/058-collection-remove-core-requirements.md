@@ -55,7 +55,7 @@ Robustness coverage shall include:
 - Slice 063 later adds Set-aware `union`, `difference`, and `intersection`; Bag-aware set operations remain deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
-- Collection traversal methods such as `forEachDo` remain deferred.
+- Slice 068 adds list/collection-aware `forEachDo`.
 
 ## Coverage
 

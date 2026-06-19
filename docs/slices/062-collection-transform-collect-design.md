@@ -49,4 +49,4 @@ This keeps `collect` aligned with the existing collection payload model.
 
 ## Deliberately Narrow Scope
 
-`collect` does not accept ordinary lists; `map` remains the list transform builtin. Bag-aware set operations, dot-method syntax, `forEachDo`, and custom collection printing remain deferred. Slice 067 adds `locate` for ordinary lists and object-backed collections.
+`collect` does not accept ordinary lists; `map` remains the list transform builtin. Bag-aware set operations, dot-method syntax, and custom collection printing remain deferred. Slice 067 adds `locate` for ordinary lists and object-backed collections. Slice 068 adds `forEachDo` over the same traversal surface.

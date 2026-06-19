@@ -1042,6 +1042,43 @@ static int enact_builtin_locate(
     return 1;
 }
 
+static int enact_builtin_for_each_do(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *list = NULL;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_callable(&arguments[0], diag)) {
+        return 0;
+    }
+    if (!enact_builtin_require_list_or_collection(&arguments[1], &list, diag)) {
+        return 0;
+    }
+
+    while (list) {
+        const EnactValue *head = enact_list_head(list);
+        EnactValue result;
+
+        if (!head) {
+            enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+            return 0;
+        }
+        if (!enact_eval_apply_callable(&arguments[0], head, 1, &result, diag)) {
+            return 0;
+        }
+
+        enact_value_free(&result);
+        list = enact_list_tail(list);
+    }
+
+    *out = enact_value_make_list(NULL);
+    return 1;
+}
+
 static int enact_builtin_reduce(
     const EnactValue *arguments,
     size_t argument_count,
@@ -1809,6 +1846,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("all", 2, enact_builtin_all),
     ENACT_BUILTIN("exists", 2, enact_builtin_exists),
     ENACT_BUILTIN("locate", 2, enact_builtin_locate),
+    ENACT_BUILTIN("forEachDo", 2, enact_builtin_for_each_do),
     ENACT_BUILTIN("reduce", 3, enact_builtin_reduce),
     ENACT_BUILTIN("member", 2, enact_builtin_member),
     ENACT_BUILTIN("insert", 2, enact_builtin_insert),

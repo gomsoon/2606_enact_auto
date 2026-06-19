@@ -61,7 +61,7 @@ Robustness coverage shall include:
 
 - Collection-aware `map` remains deferred; `collect` is the collection-transform surface.
 - Bag-aware `union`, `difference`, and `intersection` remain deferred.
-- `forEachDo` remains deferred.
+- Slice 068 adds list/collection-aware `forEachDo`.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
 
