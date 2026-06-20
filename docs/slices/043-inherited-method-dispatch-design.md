@@ -43,7 +43,7 @@ Inherited methods use the same `enact_eval_apply_method` path as direct methods.
 
 ## Arity and Fallback
 
-Method dispatch still requires exact arity. Once lookup selects the nearest method by name, arity is checked on that method. Dispatch does not search farther up the chain for a method with a different arity.
+Method dispatch still requires exact arity in this slice. Once lookup selects the nearest method by name, arity is checked on that method. Dispatch does not search farther up the chain for a method with a different arity. Slice 080 later allows under-applied user-defined method dot-calls to return partial bound method values.
 
 That rule keeps override behavior deterministic:
 
@@ -60,5 +60,5 @@ Later slices should add:
 - `super` calls for explicit superclass dispatch
 - multiple inheritance and method ambiguity diagnostics
 - bound method values, later added by Slice 079
-- method partial application
+- method partial application, later added by Slice 080 for user-defined method dot-calls
 - class-side dispatch

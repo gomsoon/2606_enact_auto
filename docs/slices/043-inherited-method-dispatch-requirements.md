@@ -66,7 +66,7 @@ This slice does not implement:
 - multiple inheritance
 - ambiguity diagnostics
 - `super`
-- method partial application
+- method partial application, later added by Slice 080 for user-defined method dot-calls
 - method values returned by `object.method` without a call, later added by Slice 079
 - class-level method dispatch
 - class-level attributes or default attributes

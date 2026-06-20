@@ -38,7 +38,7 @@ Node.add(a,b) := a+b
 
 - `object.method(args)` shall dispatch to a method on `classof(object)` when no object attribute named `method` exists.
 - Method dispatch shall bind `self` to the receiver object while evaluating the method body.
-- Method arguments shall bind to method parameters using existing function argument rules, except that this slice requires exact arity and does not produce partial method applications.
+- Method arguments shall bind to method parameters using existing function argument rules, except that this slice requires exact arity and does not produce partial method applications. Slice 080 later adds partial application for user-defined method dot-calls.
 - Attribute reads and assignments through `self` shall work in method bodies:
 
 ```text
@@ -58,7 +58,7 @@ n.value(5)
 - The receiver expression shall be evaluated before method lookup.
 - If the receiver is not an object, dispatch shall report `ENACT_ERR_TYPE_EXPECTED_OBJECT`.
 - If neither an object attribute nor a direct class method exists for the dot-call name, dispatch shall report `ENACT_ERR_ATTRIBUTE_UNBOUND`.
-- If the method arity does not exactly match the supplied argument count, dispatch shall report `ENACT_ERR_ARITY_MISMATCH` before evaluating impossible extra arguments.
+- If the method arity does not exactly match the supplied argument count, dispatch shall report `ENACT_ERR_ARITY_MISMATCH` before evaluating impossible extra arguments in this slice. Slice 080 later allows under-applied user-defined method dot-calls when at least one argument is supplied.
 - If a dot-call name exists as a non-callable object attribute, existing attribute-call behavior shall report `ENACT_ERR_TYPE_EXPECTED_FUNCTION`.
 
 ## Regression Requirements
@@ -100,7 +100,7 @@ This slice does not implement:
 - method override ordering across inheritance
 - multiple inheritance
 - class-level method dispatch
-- method partial application
+- method partial application, later added by Slice 080 for user-defined method dot-calls
 - method values returned by `object.method` without a call, later added by Slice 079
 - `super`
 - method visibility or access control

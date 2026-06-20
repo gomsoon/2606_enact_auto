@@ -24,7 +24,7 @@ The resulting value captures the receiver object and can be called later.
 - Inherited method lookup shall use the existing class linearization and consistency diagnostics.
 - A method value shall capture the method function selected at read time.
 - A method value shall retain the receiver object selected at read time, while still observing later mutations to that object.
-- Direct dot-calls such as `object.method(args)` shall keep the existing exact-arity behavior and shall not create partial method values.
+- Direct dot-calls such as `object.method(args)` shall keep the existing exact-arity behavior in this slice and shall not create partial method values. Slice 080 later adds direct dot-call partial application for user-defined methods.
 - User-defined collection class methods shall shadow native collection method values for bare reads, matching existing dot-call shadowing.
 - Native collection method values shall continue to work when no user-defined class method shadows the native name.
 
@@ -65,7 +65,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Direct dot-call partial application remains deferred.
+- Direct dot-call partial application remains deferred in this slice and is later added by Slice 080.
 - `super` calls remain deferred.
 - Method signature or source introspection remains deferred.
 - Native collection method-table integration remains deferred.

@@ -62,13 +62,13 @@ g:=f(1)
 g(2)
 ```
 
-Direct dot-call partial application remains outside this slice. Therefore:
+Direct dot-call partial application remains outside Slice 079. Therefore, in this slice:
 
 ```text
 n.add(1)
 ```
 
-continues to report `ENACT_ERR_ARITY_MISMATCH` when `add` requires two arguments. Users can write `f:=n.add; f(1)` or `(n.add)(1)` to create a partial bound method value.
+continues to report `ENACT_ERR_ARITY_MISMATCH` when `add` requires two arguments. Users can write `f:=n.add; f(1)` or `(n.add)(1)` to create a partial bound method value. Slice 080 later allows `n.add(1)` to create the same kind of partial bound method value.
 
 ## Read-Time Capture
 
@@ -84,4 +84,4 @@ Runtime equality is pointer identity for bound object method payloads, matching 
 
 ## Deferred Work
 
-This slice does not add `super`, direct dot-call partial application, method signature introspection, method source introspection, or native collection method-table integration.
+This slice does not add `super`, direct dot-call partial application, method signature introspection, method source introspection, or native collection method-table integration. Direct dot-call partial application is later added by Slice 080.
