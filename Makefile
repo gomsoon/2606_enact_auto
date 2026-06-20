@@ -59,10 +59,6 @@ HANDWRITTEN_C_COVERAGE_SRCS := \
 	$(SRC_DIR)/scan.c \
 	$(SRC_DIR)/main.c
 
-HANDWRITTEN_GRAMMAR_COVERAGE_SRCS := \
-	$(BUILD_DIR)/lex.yy.c \
-	$(BUILD_DIR)/enact.tab.c
-
 all: $(BUILD_DIR)/enact
 
 $(BUILD_DIR):
@@ -99,7 +95,6 @@ test: $(BUILD_DIR)/enact $(BUILD_DIR)/unit_tests
 coverage: clean
 	$(MAKE) CFLAGS='-std=c11 -Wall -Wextra -O0 -g --coverage' test
 	gcov -b -c -o $(BUILD_DIR) $(HANDWRITTEN_C_COVERAGE_SRCS) >/dev/null
-	gcov -b -c -o $(BUILD_DIR) $(HANDWRITTEN_GRAMMAR_COVERAGE_SRCS) >/dev/null
 	python3 tools/coverage_report.py
 
 clean:

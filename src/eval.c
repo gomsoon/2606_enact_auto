@@ -1504,73 +1504,6 @@ static int enact_collection_dot_builtin(
     return 1;
 }
 
-static int enact_eval_collection_dot_builtin_call(
-    const EnactBuiltin *builtin,
-    size_t receiver_index,
-    const EnactValue *receiver,
-    const EnactAstList *argument_asts,
-    EnactEnv *env,
-    EnactValue *out,
-    EnactDiag *diag)
-{
-    EnactValue *arguments;
-    size_t builtin_arity;
-    size_t method_arity;
-    size_t argument_count;
-    size_t argument_index = 0;
-    size_t index;
-    int status;
-
-    if (!builtin || !receiver || !out) {
-        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
-        return 0;
-    }
-
-    builtin_arity = enact_builtin_arity(builtin);
-    if (receiver_index >= builtin_arity) {
-        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
-        return 0;
-    }
-
-    method_arity = builtin_arity - 1;
-    argument_count = enact_ast_list_count(argument_asts);
-    if (argument_count != method_arity) {
-        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
-        return 0;
-    }
-
-    arguments = calloc(builtin_arity, sizeof(*arguments));
-    if (!arguments) {
-        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-        return 0;
-    }
-
-    if (!enact_value_copy(&arguments[receiver_index], receiver)) {
-        enact_free_value_array(arguments, builtin_arity);
-        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-        return 0;
-    }
-
-    for (index = 0; index < builtin_arity; index += 1) {
-        if (index == receiver_index) {
-            continue;
-        }
-        if (!enact_eval_value(
-                enact_ast_list_get(argument_asts, argument_index),
-                env,
-                &arguments[index],
-                diag)) {
-            enact_free_value_array(arguments, builtin_arity);
-            return 0;
-        }
-        argument_index += 1;
-    }
-
-    status = enact_builtin_apply_in_env(builtin, env, arguments, builtin_arity, out, diag);
-    enact_free_value_array(arguments, builtin_arity);
-    return status;
-}
-
 static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     const EnactAst *attribute = ast->as.call.callee;
@@ -1625,14 +1558,18 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
                 attribute->as.attribute.name,
                 &collection_builtin,
                 &collection_receiver_index)) {
-            status = enact_eval_collection_dot_builtin_call(
+            status = enact_eval_make_bound_collection_method(
                 collection_builtin,
                 collection_receiver_index,
                 &receiver_value,
-                ast->as.call.arguments,
-                env,
-                out,
+                &attribute_value,
                 diag);
+            if (!status) {
+                enact_value_free(&receiver_value);
+                return 0;
+            }
+            status = enact_eval_call_value(&attribute_value, ast->as.call.arguments, env, out, diag);
+            enact_value_free(&attribute_value);
             enact_value_free(&receiver_value);
             return status;
         }

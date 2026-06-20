@@ -59,7 +59,7 @@ If an object attribute exists, the evaluator still calls that attribute value th
 
 If a user-defined class method exists, the evaluator creates a bound object method value and applies it. Inherited methods, overridden methods, and inconsistent linearization diagnostics continue to come from the existing method lookup helper.
 
-If no user-defined method exists and the receiver is a collection object, the native collection method bridge remains unchanged.
+If no user-defined method exists and the receiver is a collection object, the native collection method bridge remains unchanged in this slice.
 
 ## Native Collection Boundary
 
@@ -69,7 +69,7 @@ Native collection dot-call methods continue to use the exact-arity bridge from S
 set((1,2)).reduce((acc,x)::acc+x)
 ```
 
-still reports `ENACT_ERR_ARITY_MISMATCH` because native collection dot-call partial application is outside this slice. Users can still get partial native collection method values through bare reads introduced in Slice 078:
+still reports `ENACT_ERR_ARITY_MISMATCH` in Slice 080 because native collection dot-call partial application is outside this slice. Slice 081 later adds the direct native collection dot-call path. Users can still get partial native collection method values in Slice 080 through bare reads introduced in Slice 078:
 
 ```text
 r:=set((1,2)).reduce
@@ -89,4 +89,4 @@ Direct method dot-call partial values use the same capture semantics as Slice 07
 
 ## Deferred Work
 
-This slice does not add `super`, method signature introspection, method source introspection, native collection method-table integration, or native collection dot-call partial application.
+This slice does not add `super`, method signature introspection, method source introspection, native collection method-table integration, or native collection dot-call partial application. Native collection dot-call partial application is later added by Slice 081.

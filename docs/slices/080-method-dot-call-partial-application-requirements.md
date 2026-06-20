@@ -27,7 +27,7 @@ for a method that requires more arguments.
 - Later variable rebinding shall not change the retained receiver.
 - Later class method replacement shall not change existing partial method values.
 - User-defined collection class methods shall support direct dot-call partial application.
-- Native collection dot-call bridge methods shall keep the exact-arity behavior from Slices 074 through 077.
+- Native collection dot-call bridge methods shall keep the exact-arity behavior from Slices 074 through 077 in this slice. Native collection dot-call partial application is later added by Slice 081.
 
 ## Regression Requirements
 
@@ -64,7 +64,7 @@ Robustness coverage shall include:
 - missing methods.
 - non-object receivers.
 - inconsistent class linearization diagnostics.
-- native collection dot-call methods remaining exact-arity.
+- native collection dot-call methods remaining exact-arity in Slice 080.
 - user-defined collection method zero-argument arity mismatch.
 - misuse of partial method values as integers.
 - predicate result validation for direct method partials.
@@ -75,7 +75,7 @@ Robustness coverage shall include:
 - `super` calls remain deferred.
 - Method signature or source introspection remains deferred.
 - Native collection method-table integration remains deferred.
-- Native collection dot-call partial application remains deferred.
+- Native collection dot-call partial application is later added by Slice 081.
 
 ## Coverage
 

@@ -22,8 +22,6 @@ FILES = [
     "api.c.gcov",
     "scan.c.gcov",
     "main.c.gcov",
-    "enact.l.gcov",
-    "enact.y.gcov",
 ]
 
 
