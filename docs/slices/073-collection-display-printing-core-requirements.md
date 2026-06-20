@@ -52,7 +52,7 @@ Robustness coverage shall include:
 - Class-qualified collection display remains deferred.
 - Attribute-inclusive object display remains deferred.
 - Tuple-like or comma-style collection display remains deferred; this slice reuses the existing cons-list printer.
-- Dot-method collection syntax remains deferred.
+- Dot-method collection syntax remains deferred in this slice; Slice 074 begins Phase 1 for `size`, `member`, `insert`, and `remove`.
 
 ## Coverage
 

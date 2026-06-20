@@ -50,4 +50,4 @@ For Sets, this means display is deterministic for a given construction path but 
 
 ## Deliberately Narrow Scope
 
-This slice does not change collection semantics, does not add dot-method collection syntax, and does not introduce tuple-like or comma-style collection display. It only replaces opaque collection object printing with kind-aware payload display.
+This slice does not change collection semantics, does not add dot-method collection syntax, and does not introduce tuple-like or comma-style collection display. It only replaces opaque collection object printing with kind-aware payload display. Slice 074 later begins dot-method collection syntax for `size`, `member`, `insert`, and `remove`.

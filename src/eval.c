@@ -1162,6 +1162,105 @@ static int enact_eval_method_call(
     return status;
 }
 
+static int enact_collection_dot_builtin(
+    const char *name,
+    const EnactBuiltin **builtin_out,
+    size_t *receiver_index_out)
+{
+    size_t receiver_index;
+
+    if (!name || !builtin_out || !receiver_index_out) {
+        return 0;
+    }
+
+    if (strcmp(name, "size") == 0) {
+        receiver_index = 0;
+    } else if (strcmp(name, "member") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "insert") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "remove") == 0) {
+        receiver_index = 1;
+    } else {
+        return 0;
+    }
+
+    *builtin_out = enact_builtin_lookup(name);
+    if (!*builtin_out) {
+        return 0;
+    }
+
+    *receiver_index_out = receiver_index;
+    return 1;
+}
+
+static int enact_eval_collection_dot_builtin_call(
+    const EnactBuiltin *builtin,
+    size_t receiver_index,
+    const EnactValue *receiver,
+    const EnactAstList *argument_asts,
+    EnactEnv *env,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactValue *arguments;
+    size_t builtin_arity;
+    size_t method_arity;
+    size_t argument_count;
+    size_t argument_index = 0;
+    size_t index;
+    int status;
+
+    if (!builtin || !receiver || !out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    builtin_arity = enact_builtin_arity(builtin);
+    if (receiver_index >= builtin_arity) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    method_arity = builtin_arity - 1;
+    argument_count = enact_ast_list_count(argument_asts);
+    if (argument_count != method_arity) {
+        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+        return 0;
+    }
+
+    arguments = calloc(builtin_arity, sizeof(*arguments));
+    if (!arguments) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    if (!enact_value_copy(&arguments[receiver_index], receiver)) {
+        enact_free_value_array(arguments, builtin_arity);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    for (index = 0; index < builtin_arity; index += 1) {
+        if (index == receiver_index) {
+            continue;
+        }
+        if (!enact_eval_value(
+                enact_ast_list_get(argument_asts, argument_index),
+                env,
+                &arguments[index],
+                diag)) {
+            enact_free_value_array(arguments, builtin_arity);
+            return 0;
+        }
+        argument_index += 1;
+    }
+
+    status = enact_builtin_apply_in_env(builtin, env, arguments, builtin_arity, out, diag);
+    enact_free_value_array(arguments, builtin_arity);
+    return status;
+}
+
 static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     const EnactAst *attribute = ast->as.call.callee;
@@ -1169,6 +1268,8 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
     EnactValue attribute_value;
     EnactObject *receiver = NULL;
     EnactFunction *method = NULL;
+    const EnactBuiltin *collection_builtin = NULL;
+    size_t collection_receiver_index = 0;
     int lookup_result;
     int method_lookup_consistent = 1;
     int status;
@@ -1209,6 +1310,23 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
         return 0;
     }
     if (!method) {
+        if (enact_object_collection_kind(receiver) != ENACT_COLLECTION_NONE &&
+            enact_collection_dot_builtin(
+                attribute->as.attribute.name,
+                &collection_builtin,
+                &collection_receiver_index)) {
+            status = enact_eval_collection_dot_builtin_call(
+                collection_builtin,
+                collection_receiver_index,
+                &receiver_value,
+                ast->as.call.arguments,
+                env,
+                out,
+                diag);
+            enact_value_free(&receiver_value);
+            return status;
+        }
+
         enact_value_free(&receiver_value);
         enact_diag_set(diag, ENACT_ERR_ATTRIBUTE_UNBOUND, -1);
         return 0;
