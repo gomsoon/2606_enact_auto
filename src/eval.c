@@ -1175,11 +1175,23 @@ static int enact_collection_dot_builtin(
 
     if (strcmp(name, "size") == 0) {
         receiver_index = 0;
+    } else if (strcmp(name, "union") == 0) {
+        receiver_index = 0;
+    } else if (strcmp(name, "difference") == 0) {
+        receiver_index = 0;
+    } else if (strcmp(name, "intersection") == 0) {
+        receiver_index = 0;
+    } else if (strcmp(name, "subset") == 0) {
+        receiver_index = 0;
+    } else if (strcmp(name, "equal") == 0) {
+        receiver_index = 0;
     } else if (strcmp(name, "member") == 0) {
         receiver_index = 1;
     } else if (strcmp(name, "insert") == 0) {
         receiver_index = 1;
     } else if (strcmp(name, "remove") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "add") == 0) {
         receiver_index = 1;
     } else {
         return 0;

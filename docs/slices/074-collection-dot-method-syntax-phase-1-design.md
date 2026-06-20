@@ -46,4 +46,4 @@ Non-collection objects do not get synthetic methods from this bridge. If an ordi
 
 ## Deferred Work
 
-This slice deliberately avoids a native method-table refactor. A later slice can add builtin-backed class methods if the project wants `methods(Set)` to expose native collection operations or wants bound collection method values. The focused evaluator bridge keeps this phase small while unlocking the manual-style call surface for the most common collection operations.
+This slice deliberately avoids a native method-table refactor. A later slice can add builtin-backed class methods if the project wants `methods(Set)` to expose native collection operations or wants bound collection method values. The focused evaluator bridge keeps this phase small while unlocking the manual-style call surface for the most common collection operations. Slice 075 later extends the same bridge to collection algebra and predicate helpers.

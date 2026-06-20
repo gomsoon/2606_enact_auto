@@ -65,7 +65,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Dot-method collection syntax for `collect`, `filter`, `select`, `all`, `exists`, `locate`, `forEachDo`, and `reduce` remains deferred.
-- Dot-method collection syntax for `union`, `difference`, `intersection`, `subset`, `equal`, `add`, `unitset`, and `UNION` remains deferred.
+- Dot-method collection syntax for `union`, `difference`, `intersection`, `subset`, `equal`, and `add` remains deferred in this slice; Slice 075 adds them. Dot-method syntax for `unitset` and `UNION` remains deferred.
 - Bound collection method values such as `collection.size` remain deferred.
 - Native method table integration remains deferred; this slice uses a focused evaluator bridge after normal attribute and class-method lookup.
 - Class-qualified, attribute-inclusive, sorted, or canonical collection display remains deferred.
