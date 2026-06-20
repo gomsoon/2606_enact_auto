@@ -48,4 +48,4 @@ The constructor continues to look up `Set` and `Bag` in the current evaluation e
 
 ## Deliberately Narrow Scope
 
-This slice does not add literal set or bag syntax, dot-method constructor syntax, custom collection printing, or new Bag-specific algebra. It only makes the existing constructor names useful with ordinary list payloads.
+This slice does not add literal set or bag syntax, dot-method constructor syntax, custom collection printing, or new Bag-specific algebra. It only makes the existing constructor names useful with ordinary list payloads. Slice 071 later adds binary Bag algebraic operations; Bag-aware aggregate `UNION` remains deferred.

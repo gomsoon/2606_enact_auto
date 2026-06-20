@@ -2,7 +2,7 @@
 
 Related requirements: [docs/slices/061-collection-reduce-core-requirements.md](/home/tprover/2606_enact_auto/docs/slices/061-collection-reduce-core-requirements.md)
 
-Update note: Slice 062 adds collection-specific `collect`; `map` remains list-only. Slice 063 adds Set-aware `union`, `difference`, and `intersection`.
+Update note: Slice 062 adds collection-specific `collect`; `map` remains list-only. Slice 063 adds Set-aware `union`, `difference`, and `intersection`. Slice 071 later adds same-kind Bag support for those binary operations.
 
 ## Shared Traversal Input
 
@@ -42,4 +42,4 @@ ENACT_ERR_TYPE_EXPECTED_LIST
 
 ## Deliberately Narrow Scope
 
-`reduce` returns the reducer's accumulator value and does not construct a new collection result by itself. Collection-aware `map`, Bag-aware set-operation builtins, dot-method syntax, and custom collection printing remain deferred. Use `collect` for collection-shape-preserving transforms.
+`reduce` returns the reducer's accumulator value and does not construct a new collection result by itself. Collection-aware `map`, Bag-aware binary set-operation builtins, dot-method syntax, and custom collection printing are deferred in this slice. Slice 071 later adds binary Bag operations. Use `collect` for collection-shape-preserving transforms.

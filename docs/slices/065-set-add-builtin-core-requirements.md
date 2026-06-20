@@ -51,7 +51,8 @@ Robustness coverage shall include:
 
 - Slice 066 adds ordinary list-of-Set aggregate `UNION`.
 - Bag-aware predicate semantics are deferred in this slice and later added by Slice 070.
-- Bag-aware `union`, `difference`, `intersection`, and aggregate `UNION` remain deferred.
+- Bag-aware binary `union`, `difference`, and `intersection` are deferred in this slice and later added by Slice 071.
+- Bag-aware aggregate `UNION` remains deferred.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
 

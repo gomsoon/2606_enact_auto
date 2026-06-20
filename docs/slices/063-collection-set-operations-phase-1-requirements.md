@@ -4,7 +4,7 @@
 
 Slice 063 extends the existing `union`, `difference`, and `intersection` builtins so they operate on object-backed `Set` values while preserving all existing list behavior.
 
-Update note: Slice 064 adds Set-aware `subset` and `equal`. Slice 065 adds Set-aware `add`. Slice 066 adds Set-aware aggregate `UNION`.
+Update note: Slice 064 adds Set-aware `subset` and `equal`. Slice 065 adds Set-aware `add`. Slice 066 adds Set-aware aggregate `UNION`. Slice 071 later adds same-kind Bag support for binary `union`, `difference`, and `intersection`.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ Update note: Slice 064 adds Set-aware `subset` and `equal`. Slice 065 adds Set-a
 - `intersection(left_set, right_set)` shall contain values from the left payload that are members of the right payload.
 - Membership shall use existing runtime value equality, including object identity semantics.
 - Tests shall not depend on any user-visible iteration ordering for `Set` payloads.
-- `Bag` operands shall remain unsupported in this slice.
+- `Bag` operands shall remain unsupported in this slice; Slice 071 later adds same-kind Bag support.
 - Mixed list/Set operands shall remain unsupported in this slice.
 - Unsupported operands shall continue to report `ENACT_ERR_TYPE_EXPECTED_LIST`.
 - Existing partial-application behavior shall remain unchanged.
@@ -43,8 +43,7 @@ Boundary coverage shall include:
 Robustness coverage shall include:
 
 - arity mismatch.
-- Set/Bag operand rejection.
-- Bag/Set operand rejection.
+- mixed Set/Bag operand rejection.
 - mixed list/Set operand rejection.
 - class and non-collection object operand rejection.
 - operand evaluation errors.
@@ -52,7 +51,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Bag-aware `union`, `difference`, and `intersection` remain deferred.
+- Bag-aware binary `union`, `difference`, and `intersection` are deferred in this slice and later added by Slice 071.
 - Bag-aware aggregate `UNION` semantics remain deferred. Slice 066 adds ordinary list-of-Set aggregate `UNION`.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.

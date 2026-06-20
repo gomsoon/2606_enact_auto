@@ -14,7 +14,7 @@ difference(left_set, right_set)
 intersection(left_set, right_set)
 ```
 
-The right operand must also be a `Set` collection object. `Bag` and mixed list/Set operations remain outside this slice.
+The right operand must also be a `Set` collection object. `Bag` and mixed list/Set operations remain outside this slice. Slice 071 later adds same-kind Bag support for the same binary builtin names.
 
 ## Reused List Algorithms
 
@@ -50,4 +50,4 @@ The runtime still does not expose a user-visible collection printing order. Regr
 
 ## Deliberately Narrow Scope
 
-This slice does not define Bag multiplicity semantics for `union`, `difference`, or `intersection`. Slice 064 adds Set-aware `subset` and `equal`; Slice 065 adds Set-aware `add`; Slice 066 adds ordinary list-of-Set aggregate `UNION`. Bag aggregate semantics, dot-method collection syntax, and custom collection printing remain deferred.
+This slice does not define Bag multiplicity semantics for `union`, `difference`, or `intersection`; Slice 071 later adds those binary Bag operations. Slice 064 adds Set-aware `subset` and `equal`; Slice 065 adds Set-aware `add`; Slice 066 adds ordinary list-of-Set aggregate `UNION`. Bag aggregate semantics, dot-method collection syntax, and custom collection printing remain deferred.

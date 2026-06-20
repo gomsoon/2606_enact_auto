@@ -4,7 +4,7 @@
 
 Slice 061 extends `reduce` so it can fold object-backed `Set` and `Bag` payloads while preserving existing list and partial-application behavior.
 
-Update note: Slice 062 adds collection-specific `collect`; `map` remains list-only. Slice 063 adds Set-aware `union`, `difference`, and `intersection`.
+Update note: Slice 062 adds collection-specific `collect`; `map` remains list-only. Slice 063 adds Set-aware `union`, `difference`, and `intersection`. Slice 071 later adds same-kind Bag support for those binary operations.
 
 ## Requirements
 
@@ -55,7 +55,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Collection-aware `map` remains deferred; use `collect` for collection-shape-preserving transforms.
-- Bag-aware `union`, `difference`, and `intersection` remain deferred.
+- Bag-aware binary `union`, `difference`, and `intersection` are deferred in this slice and later added by Slice 071.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
 

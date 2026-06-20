@@ -4,7 +4,7 @@
 
 Slice 062 adds `collect(transform, collection)` as the collection-shape-preserving transform operation for object-backed `Set` and `Bag` values.
 
-Update note: Slice 063 adds Set-aware `union`, `difference`, and `intersection`. Slice 064 adds Set-aware `subset` and `equal`. Slice 065 adds Set-aware `add`. Slice 066 adds Set-aware aggregate `UNION`. Slice 067 adds list/collection-aware `locate`. Bag-aware set operations remain deferred.
+Update note: Slice 063 adds Set-aware `union`, `difference`, and `intersection`. Slice 064 adds Set-aware `subset` and `equal`. Slice 065 adds Set-aware `add`. Slice 066 adds Set-aware aggregate `UNION`. Slice 067 adds list/collection-aware `locate`. Slice 071 later adds same-kind Bag support for binary `union`, `difference`, and `intersection`.
 
 ## Requirements
 
@@ -60,7 +60,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Collection-aware `map` remains deferred; `collect` is the collection-transform surface.
-- Bag-aware `union`, `difference`, and `intersection` remain deferred.
+- Bag-aware binary `union`, `difference`, and `intersection` are deferred in this slice and later added by Slice 071.
 - Slice 068 adds list/collection-aware `forEachDo`.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
