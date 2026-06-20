@@ -67,7 +67,7 @@ This slice does not implement:
 - ambiguity diagnostics
 - `super`
 - method partial application
-- method values returned by `object.method` without a call
+- method values returned by `object.method` without a call, later added by Slice 079
 - class-level method dispatch
 - class-level attributes or default attributes
 

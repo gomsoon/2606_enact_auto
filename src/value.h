@@ -11,6 +11,7 @@ typedef struct EnactObject EnactObject;
 typedef struct EnactList EnactList;
 typedef struct EnactBuiltin EnactBuiltin;
 typedef struct EnactBuiltinPartial EnactBuiltinPartial;
+typedef struct EnactBoundObjectMethod EnactBoundObjectMethod;
 typedef struct EnactBoundCollectionMethod EnactBoundCollectionMethod;
 
 typedef enum {
@@ -24,6 +25,7 @@ typedef enum {
     ENACT_VALUE_LIST,
     ENACT_VALUE_BUILTIN,
     ENACT_VALUE_BUILTIN_PARTIAL,
+    ENACT_VALUE_BOUND_OBJECT_METHOD,
     ENACT_VALUE_BOUND_COLLECTION_METHOD
 } EnactValueKind;
 
@@ -40,6 +42,7 @@ typedef struct EnactValue {
         EnactList *as_list;
         const EnactBuiltin *as_builtin;
         EnactBuiltinPartial *as_builtin_partial;
+        EnactBoundObjectMethod *as_bound_object_method;
         EnactBoundCollectionMethod *as_bound_collection_method;
     } as;
 } EnactValue;
@@ -134,6 +137,15 @@ static inline EnactValue enact_value_make_builtin_partial(EnactBuiltinPartial *p
     return result;
 }
 
+static inline EnactValue enact_value_make_bound_object_method(EnactBoundObjectMethod *method)
+{
+    EnactValue result;
+
+    result.kind = ENACT_VALUE_BOUND_OBJECT_METHOD;
+    result.as.as_bound_object_method = method;
+    return result;
+}
+
 static inline EnactValue enact_value_make_bound_collection_method(EnactBoundCollectionMethod *method)
 {
     EnactValue result;
@@ -148,6 +160,21 @@ EnactList *enact_list_retain(EnactList *list);
 void enact_list_release(EnactList *list);
 const EnactValue *enact_list_head(const EnactList *list);
 EnactList *enact_list_tail(const EnactList *list);
+EnactBoundObjectMethod *enact_bound_object_method_new(
+    EnactFunction *method,
+    const EnactValue *receiver);
+EnactBoundObjectMethod *enact_bound_object_method_extend(
+    const EnactBoundObjectMethod *method,
+    const EnactValue *arguments,
+    size_t argument_count);
+EnactBoundObjectMethod *enact_bound_object_method_retain(EnactBoundObjectMethod *method);
+void enact_bound_object_method_release(EnactBoundObjectMethod *method);
+EnactFunction *enact_bound_object_method_function(const EnactBoundObjectMethod *method);
+const EnactValue *enact_bound_object_method_receiver(const EnactBoundObjectMethod *method);
+size_t enact_bound_object_method_argument_count(const EnactBoundObjectMethod *method);
+const EnactValue *enact_bound_object_method_argument(
+    const EnactBoundObjectMethod *method,
+    size_t index);
 EnactBoundCollectionMethod *enact_bound_collection_method_new(
     const EnactBuiltin *builtin,
     size_t receiver_index,

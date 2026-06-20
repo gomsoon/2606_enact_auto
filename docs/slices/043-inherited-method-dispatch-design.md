@@ -59,6 +59,6 @@ Later slices should add:
 
 - `super` calls for explicit superclass dispatch
 - multiple inheritance and method ambiguity diagnostics
-- bound method values
+- bound method values, later added by Slice 079
 - method partial application
 - class-side dispatch

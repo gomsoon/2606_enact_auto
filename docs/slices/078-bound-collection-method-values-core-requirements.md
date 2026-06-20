@@ -27,7 +27,7 @@ These values capture the receiver object and can be called later.
 - Argument evaluation errors for valid-arity calls shall propagate normally.
 - Object attributes shall continue to shadow native collection method values.
 - User-defined class methods shall continue to shadow native collection method values.
-- Because general object method values remain deferred, a bare read of a user-defined class method shall still report `ENACT_ERR_ATTRIBUTE_UNBOUND`.
+- Because general object method values remain deferred in this slice, a bare read of a user-defined class method shall still report `ENACT_ERR_ATTRIBUTE_UNBOUND`. Slice 079 later returns bound object method values instead.
 - Top-level bindings with the same name as a collection method shall not affect bound collection method lookup.
 - Unsupported collection method names shall keep reporting `ENACT_ERR_ATTRIBUTE_UNBOUND`.
 
@@ -63,7 +63,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- General user-defined object method values such as `object.method` remain deferred.
+- General user-defined object method values such as `object.method` remain deferred in this slice and are later added by Slice 079.
 - Bound values for unsupported collection helper surfaces such as `collection.unitset` remain deferred.
 - Native method table integration remains deferred; this slice continues the focused evaluator bridge.
 - Dedicated bound-method printing remains deferred; bound collection methods print as `<function>`.

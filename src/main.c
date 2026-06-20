@@ -213,6 +213,9 @@ static void enact_print_value_inner(FILE *stream, const EnactValue *value)
     case ENACT_VALUE_BUILTIN_PARTIAL:
         fputs("<function>", stream);
         break;
+    case ENACT_VALUE_BOUND_OBJECT_METHOD:
+        fputs("<function>", stream);
+        break;
     case ENACT_VALUE_BOUND_COLLECTION_METHOD:
         fputs("<function>", stream);
         break;

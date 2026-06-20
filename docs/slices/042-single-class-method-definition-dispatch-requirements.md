@@ -101,7 +101,7 @@ This slice does not implement:
 - multiple inheritance
 - class-level method dispatch
 - method partial application
-- method values returned by `object.method` without a call
+- method values returned by `object.method` without a call, later added by Slice 079
 - `super`
 - method visibility or access control
 

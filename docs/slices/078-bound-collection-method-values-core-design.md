@@ -17,7 +17,7 @@ The payload stores:
 - a copied receiver value.
 - zero or more already-supplied method arguments for partial application.
 
-This shape is intentionally collection-specific. It avoids changing user-defined method dispatch and keeps general object method values deferred.
+This shape is intentionally collection-specific. It avoids changing user-defined method dispatch in this slice; Slice 079 later adds general bound object method values.
 
 ## Lookup Policy
 
@@ -67,4 +67,4 @@ Runtime equality is pointer identity for bound collection method payloads, match
 
 ## Deferred Work
 
-General bound user-defined object methods remain deferred. Native collection method-table integration also remains deferred; this slice keeps using the focused evaluator bridge from Slices 074 through 077.
+General bound user-defined object methods remain deferred in this slice and are later added by Slice 079. Native collection method-table integration also remains deferred; this slice keeps using the focused evaluator bridge from Slices 074 through 077.

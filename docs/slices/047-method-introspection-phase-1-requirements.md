@@ -67,7 +67,7 @@ This slice does not implement:
 
 - inherited method introspection
 - method signature or arity introspection
-- bound method values
+- bound method values, later added by Slice 079
 - method source or body inspection
 - `super` method calls
 - multiple inheritance method resolution reporting
