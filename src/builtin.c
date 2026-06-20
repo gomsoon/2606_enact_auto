@@ -232,7 +232,8 @@ static int enact_builtin_require_callable(const EnactValue *value, EnactDiag *di
     if (!value ||
         (value->kind != ENACT_VALUE_FUNCTION &&
          value->kind != ENACT_VALUE_BUILTIN &&
-         value->kind != ENACT_VALUE_BUILTIN_PARTIAL)) {
+         value->kind != ENACT_VALUE_BUILTIN_PARTIAL &&
+         value->kind != ENACT_VALUE_BOUND_COLLECTION_METHOD)) {
         enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
         return 0;
     }

@@ -2,6 +2,7 @@
 #define ENACT_VALUE_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct EnactFunction EnactFunction;
@@ -10,6 +11,7 @@ typedef struct EnactObject EnactObject;
 typedef struct EnactList EnactList;
 typedef struct EnactBuiltin EnactBuiltin;
 typedef struct EnactBuiltinPartial EnactBuiltinPartial;
+typedef struct EnactBoundCollectionMethod EnactBoundCollectionMethod;
 
 typedef enum {
     ENACT_VALUE_INT,
@@ -21,7 +23,8 @@ typedef enum {
     ENACT_VALUE_FUNCTION,
     ENACT_VALUE_LIST,
     ENACT_VALUE_BUILTIN,
-    ENACT_VALUE_BUILTIN_PARTIAL
+    ENACT_VALUE_BUILTIN_PARTIAL,
+    ENACT_VALUE_BOUND_COLLECTION_METHOD
 } EnactValueKind;
 
 typedef struct EnactValue {
@@ -37,6 +40,7 @@ typedef struct EnactValue {
         EnactList *as_list;
         const EnactBuiltin *as_builtin;
         EnactBuiltinPartial *as_builtin_partial;
+        EnactBoundCollectionMethod *as_bound_collection_method;
     } as;
 } EnactValue;
 
@@ -130,11 +134,37 @@ static inline EnactValue enact_value_make_builtin_partial(EnactBuiltinPartial *p
     return result;
 }
 
+static inline EnactValue enact_value_make_bound_collection_method(EnactBoundCollectionMethod *method)
+{
+    EnactValue result;
+
+    result.kind = ENACT_VALUE_BOUND_COLLECTION_METHOD;
+    result.as.as_bound_collection_method = method;
+    return result;
+}
+
 EnactList *enact_list_cons(const EnactValue *head, EnactList *tail);
 EnactList *enact_list_retain(EnactList *list);
 void enact_list_release(EnactList *list);
 const EnactValue *enact_list_head(const EnactList *list);
 EnactList *enact_list_tail(const EnactList *list);
+EnactBoundCollectionMethod *enact_bound_collection_method_new(
+    const EnactBuiltin *builtin,
+    size_t receiver_index,
+    const EnactValue *receiver);
+EnactBoundCollectionMethod *enact_bound_collection_method_extend(
+    const EnactBoundCollectionMethod *method,
+    const EnactValue *arguments,
+    size_t argument_count);
+EnactBoundCollectionMethod *enact_bound_collection_method_retain(EnactBoundCollectionMethod *method);
+void enact_bound_collection_method_release(EnactBoundCollectionMethod *method);
+const EnactBuiltin *enact_bound_collection_method_builtin(const EnactBoundCollectionMethod *method);
+size_t enact_bound_collection_method_receiver_index(const EnactBoundCollectionMethod *method);
+const EnactValue *enact_bound_collection_method_receiver(const EnactBoundCollectionMethod *method);
+size_t enact_bound_collection_method_argument_count(const EnactBoundCollectionMethod *method);
+const EnactValue *enact_bound_collection_method_argument(
+    const EnactBoundCollectionMethod *method,
+    size_t index);
 int enact_value_equal(const EnactValue *left, const EnactValue *right, bool *out);
 int enact_value_copy(EnactValue *out, const EnactValue *in);
 void enact_value_free(EnactValue *value);

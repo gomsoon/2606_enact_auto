@@ -9,6 +9,10 @@
 #include "object.h"
 
 static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag);
+static int enact_collection_dot_builtin(
+    const char *name,
+    const EnactBuiltin **builtin_out,
+    size_t *receiver_index_out);
 
 static int enact_checked_binary(const EnactAst *ast, int32_t left, int32_t right, int32_t *out, EnactDiag *diag)
 {
@@ -409,11 +413,35 @@ static int enact_eval_with(const EnactAst *ast, EnactEnv *env, EnactValue *out, 
     return 1;
 }
 
+static int enact_eval_make_bound_collection_method(
+    const EnactBuiltin *builtin,
+    size_t receiver_index,
+    const EnactValue *receiver,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactBoundCollectionMethod *method;
+
+    method = enact_bound_collection_method_new(builtin, receiver_index, receiver);
+    if (!method) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_bound_collection_method(method);
+    return 1;
+}
+
 static int enact_eval_attribute(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue object_value;
     EnactObject *object = NULL;
+    EnactFunction *method = NULL;
+    const EnactBuiltin *collection_builtin = NULL;
+    size_t collection_receiver_index = 0;
     int lookup_result;
+    int method_lookup_consistent = 1;
+    int status;
 
     if (!enact_eval_value(ast->as.attribute.object, env, &object_value, diag)) {
         return 0;
@@ -429,6 +457,41 @@ static int enact_eval_attribute(const EnactAst *ast, EnactEnv *env, EnactValue *
         return 0;
     }
     if (!lookup_result) {
+        if (!enact_class_lookup_method(
+                enact_object_class(object),
+                ast->as.attribute.name,
+                &method,
+                &method_lookup_consistent)) {
+            enact_value_free(&object_value);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        if (!method_lookup_consistent) {
+            enact_value_free(&object_value);
+            enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+            return 0;
+        }
+        if (method) {
+            enact_function_release(method);
+            enact_value_free(&object_value);
+            enact_diag_set(diag, ENACT_ERR_ATTRIBUTE_UNBOUND, -1);
+            return 0;
+        }
+        if (enact_object_collection_kind(object) != ENACT_COLLECTION_NONE &&
+            enact_collection_dot_builtin(
+                ast->as.attribute.name,
+                &collection_builtin,
+                &collection_receiver_index)) {
+            status = enact_eval_make_bound_collection_method(
+                collection_builtin,
+                collection_receiver_index,
+                &object_value,
+                out,
+                diag);
+            enact_value_free(&object_value);
+            return status;
+        }
+
         enact_value_free(&object_value);
         enact_diag_set(diag, ENACT_ERR_ATTRIBUTE_UNBOUND, -1);
         return 0;
@@ -916,6 +979,27 @@ static int enact_eval_check_callable_arity(
             enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
             return 0;
         }
+    } else if (callee->kind == ENACT_VALUE_BOUND_COLLECTION_METHOD) {
+        EnactBoundCollectionMethod *method = callee->as.as_bound_collection_method;
+        const EnactBuiltin *builtin = enact_bound_collection_method_builtin(method);
+        size_t builtin_arity = enact_builtin_arity(builtin);
+
+        callable_captured_count = enact_bound_collection_method_argument_count(method);
+        if (!builtin ||
+            builtin_arity == 0 ||
+            enact_bound_collection_method_receiver_index(method) >= builtin_arity ||
+            callable_captured_count > builtin_arity - 1) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+
+        callable_arity = builtin_arity - 1;
+        remaining_arity = callable_arity - callable_captured_count;
+        if (argument_count > remaining_arity ||
+            (argument_count == 0 && remaining_arity != 0)) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
     } else {
         enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
         return 0;
@@ -924,6 +1008,85 @@ static int enact_eval_check_callable_arity(
     *arity = callable_arity;
     *captured_count = callable_captured_count;
     return 1;
+}
+
+static int enact_eval_apply_bound_collection_method(
+    const EnactBoundCollectionMethod *method,
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    const EnactBuiltin *builtin = enact_bound_collection_method_builtin(method);
+    const EnactValue *receiver = enact_bound_collection_method_receiver(method);
+    EnactValue *builtin_arguments;
+    size_t builtin_arity;
+    size_t receiver_index;
+    size_t captured_count;
+    size_t method_arity;
+    size_t method_index = 0;
+    size_t index;
+    int status;
+
+    if (!builtin || !receiver || !out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    builtin_arity = enact_builtin_arity(builtin);
+    receiver_index = enact_bound_collection_method_receiver_index(method);
+    captured_count = enact_bound_collection_method_argument_count(method);
+    if (builtin_arity == 0 ||
+        receiver_index >= builtin_arity ||
+        captured_count + argument_count != builtin_arity - 1) {
+        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+        return 0;
+    }
+    method_arity = builtin_arity - 1;
+
+    builtin_arguments = calloc(builtin_arity, sizeof(*builtin_arguments));
+    if (!builtin_arguments) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    if (!enact_value_copy(&builtin_arguments[receiver_index], receiver)) {
+        enact_free_value_array(builtin_arguments, builtin_arity);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    for (index = 0; index < builtin_arity; index += 1) {
+        const EnactValue *source;
+
+        if (index == receiver_index) {
+            continue;
+        }
+
+        if (method_index < captured_count) {
+            source = enact_bound_collection_method_argument(method, method_index);
+        } else {
+            source = &arguments[method_index - captured_count];
+        }
+        if (!source || !enact_value_copy(&builtin_arguments[index], source)) {
+            enact_free_value_array(builtin_arguments, builtin_arity);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+
+        method_index += 1;
+    }
+
+    if (method_index != method_arity) {
+        enact_free_value_array(builtin_arguments, builtin_arity);
+        enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+        return 0;
+    }
+
+    status = enact_builtin_apply_in_env(builtin, env, builtin_arguments, builtin_arity, out, diag);
+    enact_free_value_array(builtin_arguments, builtin_arity);
+    return status;
 }
 
 int enact_eval_apply_callable(
@@ -947,6 +1110,8 @@ int enact_eval_apply_callable_in_env(
     const EnactBuiltin *builtin = NULL;
     EnactBuiltinPartial *builtin_partial = NULL;
     EnactBuiltinPartial *next_builtin_partial = NULL;
+    EnactBoundCollectionMethod *bound_method = NULL;
+    EnactBoundCollectionMethod *next_bound_method = NULL;
     EnactFunction *function = NULL;
     EnactFunction *partial = NULL;
     EnactEnv local;
@@ -999,6 +1164,32 @@ int enact_eval_apply_callable_in_env(
         }
 
         return enact_builtin_partial_apply_in_env(builtin_partial, env, arguments, argument_count, out, diag);
+    }
+
+    if (callee->kind == ENACT_VALUE_BOUND_COLLECTION_METHOD) {
+        size_t method_arity;
+
+        bound_method = callee->as.as_bound_collection_method;
+        method_arity = enact_builtin_arity(enact_bound_collection_method_builtin(bound_method)) - 1;
+        if (captured_count + argument_count < method_arity) {
+            next_bound_method =
+                enact_bound_collection_method_extend(bound_method, arguments, argument_count);
+            if (!next_bound_method) {
+                enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+                return 0;
+            }
+
+            *out = enact_value_make_bound_collection_method(next_bound_method);
+            return 1;
+        }
+
+        return enact_eval_apply_bound_collection_method(
+            bound_method,
+            env,
+            arguments,
+            argument_count,
+            out,
+            diag);
     }
 
     function = callee->as.as_function;

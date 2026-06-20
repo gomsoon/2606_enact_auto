@@ -65,4 +65,4 @@ No aggregate behavior is reimplemented in the evaluator. Dot calls delegate thro
 
 ## Deferred Work
 
-`unitset` dot syntax remains deferred because it is a singleton-list constructor, not a receiver aggregate. Bound collection method values and native method-table integration also remain deferred.
+`unitset` dot syntax remains deferred because it is a singleton-list constructor, not a receiver aggregate. Bound collection method values remain deferred here and are later added by Slice 078. Native method-table integration also remains deferred.

@@ -68,7 +68,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Dot-method collection syntax for `unitset` remains deferred because `unitset(value)` constructs a list-backed singleton rather than aggregating the receiver.
-- Bound collection method values such as `collection.UNION` remain deferred.
+- Bound collection method values such as `collection.UNION` remain deferred in this slice and are later added by Slice 078.
 - Native method table integration remains deferred; this slice continues the focused evaluator bridge.
 - Class-qualified, attribute-inclusive, sorted, or canonical collection display remains deferred.
 

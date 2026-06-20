@@ -12,6 +12,15 @@ struct EnactList {
     EnactList *tail;
 };
 
+struct EnactBoundCollectionMethod {
+    size_t ref_count;
+    const EnactBuiltin *builtin;
+    size_t receiver_index;
+    EnactValue receiver;
+    EnactValue *arguments;
+    size_t argument_count;
+};
+
 static char *enact_value_copy_string(const char *value)
 {
     size_t length;
@@ -90,6 +99,196 @@ EnactList *enact_list_tail(const EnactList *list)
     return list ? list->tail : NULL;
 }
 
+static void enact_bound_collection_method_free_arguments(
+    EnactValue *arguments,
+    size_t argument_count)
+{
+    size_t index;
+
+    if (!arguments) {
+        return;
+    }
+
+    for (index = 0; index < argument_count; index += 1) {
+        enact_value_free(&arguments[index]);
+    }
+    free(arguments);
+}
+
+static int enact_bound_collection_method_copy_arguments(
+    EnactValue *out,
+    const EnactValue *in,
+    size_t argument_count)
+{
+    size_t index;
+
+    for (index = 0; index < argument_count; index += 1) {
+        if (!enact_value_copy(&out[index], &in[index])) {
+            while (index > 0) {
+                index -= 1;
+                enact_value_free(&out[index]);
+            }
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static size_t enact_bound_collection_method_arity(const EnactBuiltin *builtin)
+{
+    size_t builtin_arity = enact_builtin_arity(builtin);
+
+    return builtin_arity > 0 ? builtin_arity - 1 : 0;
+}
+
+EnactBoundCollectionMethod *enact_bound_collection_method_new(
+    const EnactBuiltin *builtin,
+    size_t receiver_index,
+    const EnactValue *receiver)
+{
+    EnactBoundCollectionMethod *method;
+
+    if (!builtin || !receiver || receiver_index >= enact_builtin_arity(builtin)) {
+        return NULL;
+    }
+
+    method = calloc(1, sizeof(*method));
+    if (!method) {
+        return NULL;
+    }
+
+    method->ref_count = 1;
+    method->builtin = builtin;
+    method->receiver_index = receiver_index;
+    if (!enact_value_copy(&method->receiver, receiver)) {
+        free(method);
+        return NULL;
+    }
+
+    return method;
+}
+
+EnactBoundCollectionMethod *enact_bound_collection_method_extend(
+    const EnactBoundCollectionMethod *method,
+    const EnactValue *arguments,
+    size_t argument_count)
+{
+    EnactBoundCollectionMethod *extended;
+    size_t total_count;
+    size_t method_arity;
+
+    if (!method || argument_count == 0 || !arguments) {
+        return NULL;
+    }
+
+    total_count = method->argument_count + argument_count;
+    if (total_count < method->argument_count) {
+        return NULL;
+    }
+    method_arity = enact_bound_collection_method_arity(method->builtin);
+    if (total_count > method_arity) {
+        return NULL;
+    }
+
+    extended = calloc(1, sizeof(*extended));
+    if (!extended) {
+        return NULL;
+    }
+    extended->arguments = calloc(total_count, sizeof(*extended->arguments));
+    if (!extended->arguments) {
+        free(extended);
+        return NULL;
+    }
+
+    extended->ref_count = 1;
+    extended->builtin = method->builtin;
+    extended->receiver_index = method->receiver_index;
+    extended->argument_count = total_count;
+    if (!enact_value_copy(&extended->receiver, &method->receiver)) {
+        free(extended->arguments);
+        free(extended);
+        return NULL;
+    }
+    if (!enact_bound_collection_method_copy_arguments(
+            extended->arguments,
+            method->arguments,
+            method->argument_count)) {
+        enact_value_free(&extended->receiver);
+        free(extended->arguments);
+        free(extended);
+        return NULL;
+    }
+    if (!enact_bound_collection_method_copy_arguments(
+            extended->arguments + method->argument_count,
+            arguments,
+            argument_count)) {
+        enact_bound_collection_method_free_arguments(extended->arguments, method->argument_count);
+        enact_value_free(&extended->receiver);
+        free(extended);
+        return NULL;
+    }
+
+    return extended;
+}
+
+EnactBoundCollectionMethod *enact_bound_collection_method_retain(EnactBoundCollectionMethod *method)
+{
+    if (!method) {
+        return NULL;
+    }
+
+    method->ref_count += 1;
+    return method;
+}
+
+void enact_bound_collection_method_release(EnactBoundCollectionMethod *method)
+{
+    if (!method) {
+        return;
+    }
+
+    if (method->ref_count > 1) {
+        method->ref_count -= 1;
+        return;
+    }
+
+    enact_value_free(&method->receiver);
+    enact_bound_collection_method_free_arguments(method->arguments, method->argument_count);
+    free(method);
+}
+
+const EnactBuiltin *enact_bound_collection_method_builtin(const EnactBoundCollectionMethod *method)
+{
+    return method ? method->builtin : NULL;
+}
+
+size_t enact_bound_collection_method_receiver_index(const EnactBoundCollectionMethod *method)
+{
+    return method ? method->receiver_index : 0;
+}
+
+const EnactValue *enact_bound_collection_method_receiver(const EnactBoundCollectionMethod *method)
+{
+    return method ? &method->receiver : NULL;
+}
+
+size_t enact_bound_collection_method_argument_count(const EnactBoundCollectionMethod *method)
+{
+    return method ? method->argument_count : 0;
+}
+
+const EnactValue *enact_bound_collection_method_argument(
+    const EnactBoundCollectionMethod *method,
+    size_t index)
+{
+    if (!method || index >= method->argument_count) {
+        return NULL;
+    }
+
+    return &method->arguments[index];
+}
+
 static int enact_list_equal(const EnactList *left, const EnactList *right, bool *out)
 {
     while (left && right) {
@@ -151,6 +350,9 @@ int enact_value_equal(const EnactValue *left, const EnactValue *right, bool *out
     case ENACT_VALUE_BUILTIN_PARTIAL:
         *out = left->as.as_builtin_partial == right->as.as_builtin_partial;
         return 1;
+    case ENACT_VALUE_BOUND_COLLECTION_METHOD:
+        *out = left->as.as_bound_collection_method == right->as.as_bound_collection_method;
+        return 1;
     }
 
     return 0;
@@ -201,6 +403,11 @@ int enact_value_copy(EnactValue *out, const EnactValue *in)
         out->kind = ENACT_VALUE_BUILTIN_PARTIAL;
         out->as.as_builtin_partial = enact_builtin_partial_retain(in->as.as_builtin_partial);
         return out->as.as_builtin_partial != NULL;
+    case ENACT_VALUE_BOUND_COLLECTION_METHOD:
+        out->kind = ENACT_VALUE_BOUND_COLLECTION_METHOD;
+        out->as.as_bound_collection_method =
+            enact_bound_collection_method_retain(in->as.as_bound_collection_method);
+        return out->as.as_bound_collection_method != NULL;
     }
 
     return 0;
@@ -226,6 +433,8 @@ void enact_value_free(EnactValue *value)
         enact_list_release(value->as.as_list);
     } else if (value->kind == ENACT_VALUE_BUILTIN_PARTIAL) {
         enact_builtin_partial_release(value->as.as_builtin_partial);
+    } else if (value->kind == ENACT_VALUE_BOUND_COLLECTION_METHOD) {
+        enact_bound_collection_method_release(value->as.as_bound_collection_method);
     }
 
     value->kind = ENACT_VALUE_INT;
