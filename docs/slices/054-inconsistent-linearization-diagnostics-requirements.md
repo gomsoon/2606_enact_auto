@@ -47,7 +47,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Detailed conflict reports naming the conflicting classes remain deferred.
-- `suppliers` and `badAttrs` remain deferred.
+- `suppliers` remains deferred. `badAttrs` is later added by Slice 083.
 - Class-definition-time rejection of inconsistent graphs remains deferred; the diagnostic is raised when linearization-dependent behavior is requested.
 
 ## Coverage

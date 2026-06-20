@@ -587,6 +587,30 @@ static int enact_builtin_ok(
     return 1;
 }
 
+static int enact_builtin_bad_attrs(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *names = NULL;
+
+    (void)argument_count;
+
+    if (arguments[0].kind != ENACT_VALUE_CLASS) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+        return 0;
+    }
+
+    if (!enact_class_bad_attribute_names(arguments[0].as.as_class, &names)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(names);
+    return 1;
+}
+
 static int enact_builtin_version(
     const EnactValue *arguments,
     size_t argument_count,
@@ -2268,6 +2292,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("supers", 1, enact_builtin_supers),
     ENACT_BUILTIN("superiors", 1, enact_builtin_superiors),
     ENACT_BUILTIN("OK", 1, enact_builtin_ok),
+    ENACT_BUILTIN("badAttrs", 1, enact_builtin_bad_attrs),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("list", 1, enact_builtin_list),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set),

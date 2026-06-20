@@ -67,7 +67,7 @@ Robustness coverage shall include:
 
 - `classes(Class)` and method dispatch keep their existing fallback behavior for inconsistent graphs in this slice.
 - Dedicated inconsistency diagnostics remain deferred.
-- `suppliers` and `badAttrs` remain deferred.
+- `suppliers` remains deferred. `badAttrs` is later added by Slice 083.
 
 ## Coverage
 

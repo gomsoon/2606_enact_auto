@@ -58,6 +58,7 @@ Operations that do not need linearization remain available:
 - `OK(Class)`
 - `supers(Class)`
 - `methods(Class)`
+- `badAttrs(Class)`, later added by Slice 083
 - `new Class`
 - `classof(object)`
 - direct object attributes and `attrs(object)`

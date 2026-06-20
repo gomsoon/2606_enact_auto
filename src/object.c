@@ -48,6 +48,17 @@ typedef struct EnactClassSequence {
     size_t index;
 } EnactClassSequence;
 
+typedef struct EnactAttributeSupplierClass {
+    const EnactClass *class_value;
+    struct EnactAttributeSupplierClass *next;
+} EnactAttributeSupplierClass;
+
+typedef struct EnactAttributeSupplier {
+    char *name;
+    EnactAttributeSupplierClass *classes;
+    struct EnactAttributeSupplier *next;
+} EnactAttributeSupplier;
+
 static char *enact_object_copy_text(const char *text)
 {
     size_t length;
@@ -752,6 +763,23 @@ static EnactFunction *enact_class_lookup_direct_method(const EnactClass *class_v
     return NULL;
 }
 
+static int enact_class_has_direct_method_name(const EnactClass *class_value, const char *name)
+{
+    const EnactMethod *method;
+
+    if (!class_value || !name) {
+        return 0;
+    }
+
+    for (method = class_value->methods; method; method = method->next) {
+        if (strcmp(method->name, name) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int enact_class_lookup_method(EnactClass *class_value, const char *name, EnactFunction **out, int *consistent)
 {
     EnactClassVector linearization = {0};
@@ -786,6 +814,298 @@ int enact_class_lookup_method(EnactClass *class_value, const char *name, EnactFu
     enact_class_vector_free(&linearization);
     *consistent = 1;
     return 1;
+}
+
+static void enact_attribute_supplier_classes_free(EnactAttributeSupplierClass *supplier_class)
+{
+    while (supplier_class) {
+        EnactAttributeSupplierClass *next = supplier_class->next;
+
+        free(supplier_class);
+        supplier_class = next;
+    }
+}
+
+static void enact_attribute_suppliers_free(EnactAttributeSupplier *supplier)
+{
+    while (supplier) {
+        EnactAttributeSupplier *next = supplier->next;
+
+        free(supplier->name);
+        enact_attribute_supplier_classes_free(supplier->classes);
+        free(supplier);
+        supplier = next;
+    }
+}
+
+static EnactAttributeSupplier *enact_attribute_supplier_find(
+    EnactAttributeSupplier *suppliers,
+    const char *name)
+{
+    while (suppliers) {
+        if (strcmp(suppliers->name, name) == 0) {
+            return suppliers;
+        }
+        suppliers = suppliers->next;
+    }
+
+    return NULL;
+}
+
+static int enact_attribute_supplier_has_class(
+    const EnactAttributeSupplier *supplier,
+    const EnactClass *class_value)
+{
+    const EnactAttributeSupplierClass *supplier_class;
+
+    if (!supplier || !class_value) {
+        return 0;
+    }
+
+    for (supplier_class = supplier->classes; supplier_class; supplier_class = supplier_class->next) {
+        if (supplier_class->class_value == class_value) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int enact_attribute_supplier_add_class(
+    EnactAttributeSupplier *supplier,
+    const EnactClass *class_value)
+{
+    EnactAttributeSupplierClass *supplier_class;
+    EnactAttributeSupplierClass *tail;
+
+    if (!supplier || !class_value) {
+        return 0;
+    }
+    if (enact_attribute_supplier_has_class(supplier, class_value)) {
+        return 1;
+    }
+
+    supplier_class = calloc(1, sizeof(*supplier_class));
+    if (!supplier_class) {
+        return 0;
+    }
+    supplier_class->class_value = class_value;
+
+    if (!supplier->classes) {
+        supplier->classes = supplier_class;
+        return 1;
+    }
+
+    tail = supplier->classes;
+    while (tail->next) {
+        tail = tail->next;
+    }
+    tail->next = supplier_class;
+    return 1;
+}
+
+static int enact_attribute_suppliers_add(
+    EnactAttributeSupplier **suppliers,
+    const char *name,
+    const EnactClass *class_value)
+{
+    EnactAttributeSupplier *supplier;
+    EnactAttributeSupplier *tail;
+    char *name_copy;
+
+    if (!suppliers || !name || !class_value) {
+        return 0;
+    }
+
+    supplier = enact_attribute_supplier_find(*suppliers, name);
+    if (supplier) {
+        return enact_attribute_supplier_add_class(supplier, class_value);
+    }
+
+    name_copy = enact_object_copy_text(name);
+    if (!name_copy) {
+        return 0;
+    }
+
+    supplier = calloc(1, sizeof(*supplier));
+    if (!supplier) {
+        free(name_copy);
+        return 0;
+    }
+    supplier->name = name_copy;
+    if (!enact_attribute_supplier_add_class(supplier, class_value)) {
+        enact_attribute_suppliers_free(supplier);
+        return 0;
+    }
+
+    if (!*suppliers) {
+        *suppliers = supplier;
+        return 1;
+    }
+
+    tail = *suppliers;
+    while (tail->next) {
+        tail = tail->next;
+    }
+    tail->next = supplier;
+    return 1;
+}
+
+static int enact_class_collect_effective_attribute_suppliers(
+    const EnactClass *class_value,
+    EnactAttributeSupplier **out);
+
+static int enact_attribute_suppliers_merge_inherited(
+    EnactAttributeSupplier **target,
+    const EnactAttributeSupplier *source,
+    const EnactClass *mask_class)
+{
+    const EnactAttributeSupplier *supplier;
+
+    if (!target || !mask_class) {
+        return 0;
+    }
+
+    for (supplier = source; supplier; supplier = supplier->next) {
+        const EnactAttributeSupplierClass *supplier_class;
+
+        if (enact_class_has_direct_method_name(mask_class, supplier->name)) {
+            continue;
+        }
+        for (supplier_class = supplier->classes; supplier_class; supplier_class = supplier_class->next) {
+            if (!enact_attribute_suppliers_add(target, supplier->name, supplier_class->class_value)) {
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
+static int enact_class_collect_effective_attribute_suppliers(
+    const EnactClass *class_value,
+    EnactAttributeSupplier **out)
+{
+    const EnactClassLink *link;
+    const EnactMethod *method;
+
+    if (!class_value || !out) {
+        return 0;
+    }
+
+    for (method = class_value->methods; method; method = method->next) {
+        if (!enact_attribute_suppliers_add(out, method->name, class_value)) {
+            return 0;
+        }
+    }
+
+    for (link = class_value->superclasses; link; link = link->next) {
+        EnactAttributeSupplier *super_suppliers = NULL;
+
+        if (!enact_class_collect_effective_attribute_suppliers(link->class_value, &super_suppliers) ||
+            !enact_attribute_suppliers_merge_inherited(out, super_suppliers, class_value)) {
+            enact_attribute_suppliers_free(super_suppliers);
+            return 0;
+        }
+        enact_attribute_suppliers_free(super_suppliers);
+    }
+
+    return 1;
+}
+
+static size_t enact_attribute_supplier_class_count(const EnactAttributeSupplier *supplier)
+{
+    const EnactAttributeSupplierClass *supplier_class;
+    size_t count = 0;
+
+    if (!supplier) {
+        return 0;
+    }
+
+    for (supplier_class = supplier->classes; supplier_class; supplier_class = supplier_class->next) {
+        count += 1;
+    }
+
+    return count;
+}
+
+static int enact_bad_attribute_suppliers_to_list(
+    const EnactAttributeSupplier *supplier,
+    EnactList **out)
+{
+    EnactList *tail = NULL;
+
+    if (!out) {
+        return 0;
+    }
+    if (!supplier) {
+        *out = NULL;
+        return 1;
+    }
+
+    if (!enact_bad_attribute_suppliers_to_list(supplier->next, &tail)) {
+        return 0;
+    }
+
+    if (enact_attribute_supplier_class_count(supplier) > 1) {
+        EnactList *next;
+        EnactValue name_value;
+        char *name_copy = enact_object_copy_text(supplier->name);
+
+        if (!name_copy) {
+            enact_list_release(tail);
+            return 0;
+        }
+
+        name_value = enact_value_make_atom(name_copy);
+        next = enact_list_cons(&name_value, tail);
+        enact_value_free(&name_value);
+        enact_list_release(tail);
+        if (!next) {
+            return 0;
+        }
+        tail = next;
+    }
+
+    *out = tail;
+    return 1;
+}
+
+int enact_class_bad_attribute_names(const EnactClass *class_value, EnactList **out)
+{
+    EnactAttributeSupplier *suppliers = NULL;
+    EnactList *names = NULL;
+    const EnactClassLink *link;
+    int ok = 0;
+
+    if (!class_value || !out) {
+        return 0;
+    }
+
+    *out = NULL;
+    for (link = class_value->superclasses; link; link = link->next) {
+        EnactAttributeSupplier *super_suppliers = NULL;
+
+        if (!enact_class_collect_effective_attribute_suppliers(link->class_value, &super_suppliers) ||
+            !enact_attribute_suppliers_merge_inherited(&suppliers, super_suppliers, class_value)) {
+            enact_attribute_suppliers_free(super_suppliers);
+            goto done;
+        }
+        enact_attribute_suppliers_free(super_suppliers);
+    }
+
+    if (!enact_bad_attribute_suppliers_to_list(suppliers, &names)) {
+        goto done;
+    }
+
+    *out = names;
+    names = NULL;
+    ok = 1;
+
+done:
+    enact_list_release(names);
+    enact_attribute_suppliers_free(suppliers);
+    return ok;
 }
 
 int enact_class_method_names(const EnactClass *class_value, EnactList **out)
