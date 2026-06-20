@@ -2146,11 +2146,12 @@ static int enact_builtin_bag(
 }
 
 static int enact_builtin_union_aggregate_lists(
-    EnactList *sets,
+    EnactList *collections,
     EnactObject **prototype,
     EnactList **out,
     EnactDiag *diag)
 {
+    EnactCollectionKind collection_kind = ENACT_COLLECTION_NONE;
     EnactList *result = NULL;
 
     if (!prototype || !out) {
@@ -2159,28 +2160,48 @@ static int enact_builtin_union_aggregate_lists(
     }
 
     *prototype = NULL;
-    while (sets) {
-        const EnactValue *head = enact_list_head(sets);
-        EnactObject *set = NULL;
+    while (collections) {
+        const EnactValue *head = enact_list_head(collections);
+        EnactObject *collection = NULL;
         EnactList *next_result = NULL;
+        EnactCollectionKind next_kind;
 
-        if (!head || !enact_builtin_require_set_collection_object(head, &set, diag)) {
+        if (!head || !enact_builtin_require_collection_object(head, &collection, diag)) {
             enact_list_release(result);
             return 0;
         }
+
+        next_kind = enact_object_collection_kind(collection);
         if (!*prototype) {
-            *prototype = set;
+            *prototype = collection;
+            collection_kind = next_kind;
+        } else if (next_kind != collection_kind) {
+            enact_list_release(result);
+            enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_LIST, -1);
+            return 0;
         }
 
-        if (!enact_builtin_union_lists(result, enact_object_collection_items(set), &next_result)) {
+        if (collection_kind == ENACT_COLLECTION_SET) {
+            if (!enact_builtin_union_lists(result, enact_object_collection_items(collection), &next_result)) {
+                enact_list_release(result);
+                enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+                return 0;
+            }
+        } else if (collection_kind == ENACT_COLLECTION_BAG) {
+            if (!enact_builtin_bag_union_lists(result, enact_object_collection_items(collection), &next_result)) {
+                enact_list_release(result);
+                enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+                return 0;
+            }
+        } else {
             enact_list_release(result);
-            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_LIST, -1);
             return 0;
         }
 
         enact_list_release(result);
         result = next_result;
-        sets = enact_list_tail(sets);
+        collections = enact_list_tail(collections);
     }
 
     *out = result;
@@ -2194,17 +2215,17 @@ static int enact_builtin_union_aggregate(
     EnactValue *out,
     EnactDiag *diag)
 {
-    EnactList *sets = NULL;
+    EnactList *collections = NULL;
     EnactList *result = NULL;
     EnactObject *prototype = NULL;
     EnactObject *next_collection;
 
     (void)argument_count;
 
-    if (!enact_builtin_require_list(&arguments[0], &sets, diag)) {
+    if (!enact_builtin_require_list(&arguments[0], &collections, diag)) {
         return 0;
     }
-    if (!enact_builtin_union_aggregate_lists(sets, &prototype, &result, diag)) {
+    if (!enact_builtin_union_aggregate_lists(collections, &prototype, &result, diag)) {
         return 0;
     }
 

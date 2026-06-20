@@ -53,7 +53,7 @@ Robustness coverage shall include:
 - Dot-method collection construction remains deferred.
 - Custom collection printing remains deferred.
 - Bag-aware binary algebraic operations are deferred in this slice and later added by Slice 071.
-- Bag-aware aggregate `UNION` remains deferred.
+- Bag-aware aggregate `UNION` is deferred in this slice and later added by Slice 072.
 
 ## Coverage
 

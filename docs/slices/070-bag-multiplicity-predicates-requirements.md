@@ -50,7 +50,7 @@ Robustness coverage shall include:
 ## Deferred
 
 - Bag-aware binary `union`, `difference`, and `intersection` are deferred in this slice and later added by Slice 071.
-- Bag-aware aggregate `UNION` remains deferred.
+- Bag-aware aggregate `UNION` is deferred in this slice and later added by Slice 072.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.
 

@@ -59,4 +59,4 @@ The runtime still does not expose a stable user-facing collection iteration orde
 
 ## Deliberately Narrow Scope
 
-This slice adds binary Bag algebra for `union`, `difference`, and `intersection` only. Bag-aware aggregate `UNION`, dot-method collection syntax, and custom collection printing remain deferred.
+This slice adds binary Bag algebra for `union`, `difference`, and `intersection` only. Bag-aware aggregate `UNION` is deferred in this slice and later added by Slice 072. Dot-method collection syntax and custom collection printing remain deferred.

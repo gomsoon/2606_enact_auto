@@ -18,7 +18,7 @@ Slice 066 adds `UNION(list_of_sets)` as an aggregate Set union helper.
 - Nested aggregate results shall be accepted as ordinary Set inputs.
 - `UNION(list_of_sets)` shall support existing builtin partial-application behavior.
 - Passing a Set directly as the argument shall remain unsupported in this slice; the input must be a list.
-- `Bag` elements shall remain unsupported in this slice.
+- `Bag` elements shall remain unsupported in this slice; Slice 072 later adds same-kind Bag aggregate support.
 - Mixed list/Set aggregate input forms other than an ordinary list of Set objects shall remain unsupported.
 - Unsupported operands shall continue to report `ENACT_ERR_TYPE_EXPECTED_LIST`.
 
@@ -51,7 +51,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Bag-aware aggregate union semantics remain deferred.
+- Bag-aware aggregate union semantics are deferred in this slice and later added by Slice 072.
 - Collection-input aggregate forms remain deferred; this slice accepts only ordinary lists of Set objects.
 - Dot-method collection syntax remains deferred.
 - Custom collection printing remains deferred.

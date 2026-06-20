@@ -10,7 +10,7 @@ This slice introduces:
 UNION(list_of_sets)
 ```
 
-The argument must be an ordinary ENACT list. Each element of that list must be an object-backed `Set`, including subclass instances. This keeps the initial aggregate form narrow and avoids defining collection-of-sets or Bag multiplicity behavior.
+The argument must be an ordinary ENACT list. Each element of that list must be an object-backed `Set`, including subclass instances. This keeps the initial aggregate form narrow and avoids defining collection-of-sets or Bag multiplicity behavior. Slice 072 later adds same-kind Bag aggregate support.
 
 ## Empty Input
 
@@ -44,4 +44,4 @@ For Set payloads, this preserves the observable union semantics while continuing
 
 ## Deliberately Narrow Scope
 
-This slice does not accept a Set directly as the aggregate argument, does not define Bag aggregate behavior, and does not introduce dot-method collection syntax or custom collection printing.
+This slice does not accept a Set directly as the aggregate argument, does not define Bag aggregate behavior, and does not introduce dot-method collection syntax or custom collection printing. Slice 072 later adds list-of-Bag aggregate behavior.
