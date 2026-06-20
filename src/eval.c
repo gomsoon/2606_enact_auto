@@ -1193,6 +1193,22 @@ static int enact_collection_dot_builtin(
         receiver_index = 1;
     } else if (strcmp(name, "add") == 0) {
         receiver_index = 1;
+    } else if (strcmp(name, "collect") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "filter") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "select") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "all") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "exists") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "locate") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "forEachDo") == 0) {
+        receiver_index = 1;
+    } else if (strcmp(name, "reduce") == 0) {
+        receiver_index = 2;
     } else {
         return 0;
     }
