@@ -41,4 +41,4 @@ Both helpers return ordinary boolean values. They do not return collection objec
 
 ## Deliberately Narrow Scope
 
-The helpers compare payload membership only. Runtime class and user-visible attributes on collection objects are ignored for `equal`, which makes it a Set predicate rather than an object equality operation. Slice 065 adds Set-aware `add`; Slice 066 adds ordinary list-of-Set aggregate `UNION`. Bag multiplicity semantics are deferred in this slice and later added by Slice 070. Dot-method collection syntax and custom collection printing remain deferred.
+The helpers compare payload membership only. Runtime class and user-visible attributes on collection objects are ignored for `equal`, which makes it a Set predicate rather than an object equality operation. Slice 065 adds Set-aware `add`; Slice 066 adds ordinary list-of-Set aggregate `UNION`. Bag multiplicity semantics are deferred in this slice and later added by Slice 070. Dot-method collection syntax remains deferred. Slice 073 later adds kind-aware collection payload display.

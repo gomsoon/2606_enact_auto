@@ -63,7 +63,7 @@ Robustness coverage shall include:
 - Bag-aware binary `union`, `difference`, and `intersection` are deferred in this slice and later added by Slice 071.
 - Slice 068 adds list/collection-aware `forEachDo`.
 - Dot-method collection syntax remains deferred.
-- Custom collection printing remains deferred.
+- Custom collection printing is deferred in this slice and later added by Slice 073.
 
 ## Coverage
 

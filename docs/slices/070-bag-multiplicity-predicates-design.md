@@ -47,4 +47,4 @@ For Bags this makes equality independent of payload order while still preserving
 
 ## Deliberately Narrow Scope
 
-This slice does not define Bag-aware binary `union`, `difference`, or `intersection`; Slice 071 later adds those operations. Bag-aware aggregate `UNION` is deferred in this slice and later added by Slice 072. This slice also does not change collection printing or introduce dot-method collection syntax.
+This slice does not define Bag-aware binary `union`, `difference`, or `intersection`; Slice 071 later adds those operations. Bag-aware aggregate `UNION` is deferred in this slice and later added by Slice 072. This slice also does not change collection printing or introduce dot-method collection syntax. Slice 073 later adds kind-aware collection payload display.

@@ -36,4 +36,4 @@ locate(x::x==9, (1,2,3)) == nil
 
 `nil` remains the no-match result, so locating a literal `nil` element is intentionally indistinguishable from no match in this slice. A richer option/result wrapper can be introduced later if the language needs that distinction.
 
-`locate` does not mutate collection objects, does not introduce dot-method syntax, and does not define custom collection printing.
+`locate` does not mutate collection objects, does not introduce dot-method syntax, and does not define custom collection printing in this slice. Slice 073 later adds kind-aware collection payload display.

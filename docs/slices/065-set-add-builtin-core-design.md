@@ -30,4 +30,4 @@ The existing `insert(value, collection)` builtin already implements the runtime 
 
 ## Deliberately Narrow Scope
 
-This slice does not change `insert`, does not add Bag-specific `add`, and does not introduce dot-method collection syntax. Slice 066 adds ordinary list-of-Set aggregate `UNION`; Slice 070 later adds Bag multiplicity predicates; Slice 071 later adds binary Bag algebraic operations; Slice 072 later adds list-of-Bag aggregate `UNION`. Custom collection printing remains deferred.
+This slice does not change `insert`, does not add Bag-specific `add`, and does not introduce dot-method collection syntax. Slice 066 adds ordinary list-of-Set aggregate `UNION`; Slice 070 later adds Bag multiplicity predicates; Slice 071 later adds binary Bag algebraic operations; Slice 072 later adds list-of-Bag aggregate `UNION`; Slice 073 later adds kind-aware collection payload display.

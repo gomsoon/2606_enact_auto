@@ -57,7 +57,7 @@ Robustness coverage shall include:
 - Collection-aware `map` remains deferred.
 - Collection-aware `union`, `difference`, and `intersection` remain deferred.
 - Dot-method collection syntax remains deferred.
-- Custom collection printing remains deferred.
+- Custom collection printing is deferred in this slice and later added by Slice 073.
 
 ## Coverage
 

@@ -38,7 +38,7 @@ For `Bag`, this gives one-occurrence removal:
 size(remove(1, insert(1, insert(1, bag())))) == 1
 ```
 
-Membership and size remain the observable surface for collection payload contents because collection printing still uses object printing.
+Membership and size remain the observable surface for collection payload contents because collection printing still uses object printing in this slice. Slice 073 later adds kind-aware collection payload display.
 
 ## Type Boundary
 

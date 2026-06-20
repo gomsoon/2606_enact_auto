@@ -50,7 +50,7 @@ Robustness coverage shall include:
 - Direct constructor payload population is deferred in this slice and later added by Slice 069.
 - Mutating or functional collection operations such as `insert`, `remove`, `union`, `difference`, and `intersection` on collection objects remain deferred.
 - Dot-method collection syntax such as `set().size()` remains deferred.
-- Custom collection printing remains deferred.
+- Custom collection printing is deferred in this slice and later added by Slice 073.
 
 ## Coverage
 

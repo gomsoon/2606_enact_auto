@@ -52,7 +52,7 @@ Robustness coverage shall include:
 
 - Bag-aware aggregate `UNION` semantics are deferred in this slice and later added by Slice 072.
 - Dot-method collection syntax remains deferred.
-- Custom collection printing remains deferred.
+- Custom collection printing is deferred in this slice and later added by Slice 073.
 
 ## Coverage
 

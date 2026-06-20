@@ -164,6 +164,18 @@ static void enact_print_list_inner(FILE *stream, EnactList *list)
     enact_print_list_inner(stream, enact_list_tail(list));
 }
 
+static void enact_print_collection_inner(FILE *stream, const EnactObject *object)
+{
+    EnactCollectionKind kind = enact_object_collection_kind(object);
+    EnactList *items = enact_object_collection_items(object);
+
+    fputs(kind == ENACT_COLLECTION_SET ? "set(" : "bag(", stream);
+    if (items) {
+        enact_print_list_inner(stream, items);
+    }
+    fputc(')', stream);
+}
+
 static void enact_print_value_inner(FILE *stream, const EnactValue *value)
 {
     switch (value->kind) {
@@ -183,7 +195,11 @@ static void enact_print_value_inner(FILE *stream, const EnactValue *value)
         fprintf(stream, "<class %s>", enact_class_name(value->as.as_class));
         break;
     case ENACT_VALUE_OBJECT:
-        fprintf(stream, "<object %s>", enact_class_name(enact_object_class(value->as.as_object)));
+        if (enact_object_collection_kind(value->as.as_object) != ENACT_COLLECTION_NONE) {
+            enact_print_collection_inner(stream, value->as.as_object);
+        } else {
+            fprintf(stream, "<object %s>", enact_class_name(enact_object_class(value->as.as_object)));
+        }
         break;
     case ENACT_VALUE_FUNCTION:
         fputs("<function>", stream);

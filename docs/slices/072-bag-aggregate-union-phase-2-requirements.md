@@ -55,7 +55,7 @@ Robustness coverage shall include:
 
 - Collection-input aggregate forms remain deferred; this slice accepts only ordinary lists of Set or Bag objects.
 - Dot-method collection syntax remains deferred.
-- Custom collection printing remains deferred.
+- Custom collection printing is deferred in this slice and later added by Slice 073.
 
 ## Coverage
 

@@ -44,4 +44,4 @@ For Set payloads, this preserves the observable union semantics while continuing
 
 ## Deliberately Narrow Scope
 
-This slice does not accept a Set directly as the aggregate argument, does not define Bag aggregate behavior, and does not introduce dot-method collection syntax or custom collection printing. Slice 072 later adds list-of-Bag aggregate behavior.
+This slice does not accept a Set directly as the aggregate argument, does not define Bag aggregate behavior, and does not introduce dot-method collection syntax or custom collection printing. Slice 072 later adds list-of-Bag aggregate behavior. Slice 073 later adds kind-aware collection payload display.

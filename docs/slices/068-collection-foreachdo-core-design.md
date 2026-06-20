@@ -46,4 +46,4 @@ Action failures stop traversal and preserve the original diagnostic.
 
 ## Deliberately Narrow Scope
 
-This slice does not add dot-method collection syntax, custom collection printing, or a distinct unit value.
+This slice does not add dot-method collection syntax, custom collection printing, or a distinct unit value. Slice 073 later adds kind-aware collection payload display.

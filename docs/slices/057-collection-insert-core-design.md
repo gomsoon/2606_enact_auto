@@ -32,7 +32,7 @@ size(insert(1, insert(1, set()))) == 1
 size(insert(1, insert(1, bag()))) == 2
 ```
 
-Both kinds store payload values in the same internal list representation introduced by Slice 056. Since collection printing is still object printing, the payload is observed through `size` and `member`.
+Both kinds store payload values in the same internal list representation introduced by Slice 056. Since collection printing is still object printing in this slice, the payload is observed through `size` and `member`. Slice 073 later adds kind-aware collection payload display.
 
 ## Type Boundary
 

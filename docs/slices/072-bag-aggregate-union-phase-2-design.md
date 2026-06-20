@@ -66,4 +66,4 @@ Regression tests observe Bag aggregate payloads through `equal`, `subset`, `size
 
 ## Deliberately Narrow Scope
 
-This slice adds Bag support to list-based `UNION` only. Collection-input aggregate forms, dot-method collection syntax, and custom collection printing remain deferred.
+This slice adds Bag support to list-based `UNION` only. Collection-input aggregate forms and dot-method collection syntax remain deferred. Slice 073 later adds kind-aware collection payload display.

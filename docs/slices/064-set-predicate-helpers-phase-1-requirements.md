@@ -54,7 +54,7 @@ Robustness coverage shall include:
 - Bag-aware `subset` and `equal` are deferred in this slice and later added by Slice 070.
 - Slice 065 adds Set-aware `add`. Slice 066 adds ordinary list-of-Set aggregate `UNION`.
 - Dot-method collection syntax remains deferred.
-- Custom collection printing remains deferred.
+- Custom collection printing is deferred in this slice and later added by Slice 073.
 
 ## Coverage
 

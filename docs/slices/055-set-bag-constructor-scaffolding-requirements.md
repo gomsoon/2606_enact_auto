@@ -46,7 +46,7 @@ Robustness coverage shall include:
 - Collection payload storage remains deferred.
 - Collection methods such as `insert`, `remove`, `member`, `union`, `difference`, and `intersection` on `Set`/`Bag` objects remain deferred.
 - Literal collection syntax remains deferred; Slice 069 later adds argument-bearing ordinary-list construction.
-- Custom printing for populated collections remains deferred.
+- Custom printing for populated collections is deferred in this slice and later added by Slice 073.
 
 ## Coverage
 

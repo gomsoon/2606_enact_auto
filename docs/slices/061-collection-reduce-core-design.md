@@ -42,4 +42,4 @@ ENACT_ERR_TYPE_EXPECTED_LIST
 
 ## Deliberately Narrow Scope
 
-`reduce` returns the reducer's accumulator value and does not construct a new collection result by itself. Collection-aware `map`, Bag-aware binary set-operation builtins, dot-method syntax, and custom collection printing are deferred in this slice. Slice 071 later adds binary Bag operations. Use `collect` for collection-shape-preserving transforms.
+`reduce` returns the reducer's accumulator value and does not construct a new collection result by itself. Collection-aware `map`, Bag-aware binary set-operation builtins, dot-method syntax, and custom collection printing are deferred in this slice. Slice 071 later adds binary Bag operations. Slice 073 later adds kind-aware collection payload display. Use `collect` for collection-shape-preserving transforms.

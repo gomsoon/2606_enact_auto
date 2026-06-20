@@ -49,7 +49,7 @@ Robustness coverage shall include:
 
 - A distinct not-found sentinel is deferred; `nil` is both the empty-list value and the no-match result.
 - Dot-method collection syntax remains deferred.
-- Custom collection printing remains deferred.
+- Custom collection printing is deferred in this slice and later added by Slice 073.
 - Slice 068 adds list/collection-aware `forEachDo`.
 
 ## Coverage
