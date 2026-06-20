@@ -81,4 +81,4 @@ The bound collection method application helper still delegates to `enact_builtin
 
 ## Deferred Work
 
-This slice does not add native collection method-table integration, `super`, method signature introspection, method source introspection, or collection display refinements.
+This slice does not add `super`, method signature introspection, method source introspection, or collection display refinements. Native collection method-table integration is added by Slice 082.

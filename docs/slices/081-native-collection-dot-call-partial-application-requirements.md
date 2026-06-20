@@ -25,7 +25,7 @@ The returned value is callable and can later be completed with the remaining nat
 - User-defined class methods on `Set`, `Bag`, or subclasses shall continue to shadow native collection methods.
 - Top-level bindings with the same name as a native collection method shall not affect native collection dot-method lookup.
 - Unsupported collection method names shall keep reporting `ENACT_ERR_ATTRIBUTE_UNBOUND`.
-- Native collection method-table integration remains deferred.
+- Native collection method-table integration is added by Slice 082.
 
 ## Regression Requirements
 

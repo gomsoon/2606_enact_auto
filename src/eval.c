@@ -16,10 +16,6 @@ static int enact_eval_apply_method(
     size_t argument_count,
     EnactValue *out,
     EnactDiag *diag);
-static int enact_collection_dot_builtin(
-    const char *name,
-    const EnactBuiltin **builtin_out,
-    size_t *receiver_index_out);
 
 static int enact_checked_binary(const EnactAst *ast, int32_t left, int32_t right, int32_t *out, EnactDiag *diag)
 {
@@ -502,8 +498,8 @@ static int enact_eval_attribute(const EnactAst *ast, EnactEnv *env, EnactValue *
             enact_value_free(&object_value);
             return status;
         }
-        if (enact_object_collection_kind(object) != ENACT_COLLECTION_NONE &&
-            enact_collection_dot_builtin(
+        if (enact_builtin_collection_method(
+                enact_object_collection_kind(object),
                 ast->as.attribute.name,
                 &collection_builtin,
                 &collection_receiver_index)) {
@@ -1442,68 +1438,6 @@ static int enact_eval_apply_method(
     return status;
 }
 
-static int enact_collection_dot_builtin(
-    const char *name,
-    const EnactBuiltin **builtin_out,
-    size_t *receiver_index_out)
-{
-    size_t receiver_index;
-
-    if (!name || !builtin_out || !receiver_index_out) {
-        return 0;
-    }
-
-    if (strcmp(name, "size") == 0) {
-        receiver_index = 0;
-    } else if (strcmp(name, "union") == 0) {
-        receiver_index = 0;
-    } else if (strcmp(name, "difference") == 0) {
-        receiver_index = 0;
-    } else if (strcmp(name, "intersection") == 0) {
-        receiver_index = 0;
-    } else if (strcmp(name, "subset") == 0) {
-        receiver_index = 0;
-    } else if (strcmp(name, "equal") == 0) {
-        receiver_index = 0;
-    } else if (strcmp(name, "UNION") == 0) {
-        receiver_index = 0;
-    } else if (strcmp(name, "member") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "insert") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "remove") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "add") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "collect") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "filter") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "select") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "all") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "exists") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "locate") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "forEachDo") == 0) {
-        receiver_index = 1;
-    } else if (strcmp(name, "reduce") == 0) {
-        receiver_index = 2;
-    } else {
-        return 0;
-    }
-
-    *builtin_out = enact_builtin_lookup(name);
-    if (!*builtin_out) {
-        return 0;
-    }
-
-    *receiver_index_out = receiver_index;
-    return 1;
-}
-
 static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     const EnactAst *attribute = ast->as.call.callee;
@@ -1553,8 +1487,8 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
         return 0;
     }
     if (!method) {
-        if (enact_object_collection_kind(receiver) != ENACT_COLLECTION_NONE &&
-            enact_collection_dot_builtin(
+        if (enact_builtin_collection_method(
+                enact_object_collection_kind(receiver),
                 attribute->as.attribute.name,
                 &collection_builtin,
                 &collection_receiver_index)) {

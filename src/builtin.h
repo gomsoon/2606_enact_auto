@@ -5,12 +5,18 @@
 
 #include "diag.h"
 #include "env.h"
+#include "object.h"
 #include "value.h"
 
 typedef struct EnactBuiltin EnactBuiltin;
 typedef struct EnactBuiltinPartial EnactBuiltinPartial;
 
 const EnactBuiltin *enact_builtin_lookup(const char *name);
+int enact_builtin_collection_method(
+    EnactCollectionKind kind,
+    const char *name,
+    const EnactBuiltin **builtin_out,
+    size_t *receiver_index_out);
 const char *enact_builtin_name(const EnactBuiltin *builtin);
 size_t enact_builtin_min_arity(const EnactBuiltin *builtin);
 size_t enact_builtin_arity(const EnactBuiltin *builtin);

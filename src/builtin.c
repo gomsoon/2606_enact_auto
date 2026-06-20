@@ -36,6 +36,16 @@ struct EnactBuiltinPartial {
     size_t argument_count;
 };
 
+typedef struct {
+    const char *name;
+    unsigned kinds;
+    size_t receiver_index;
+} EnactNativeCollectionMethod;
+
+#define ENACT_COLLECTION_METHOD_SET ((unsigned)ENACT_COLLECTION_SET)
+#define ENACT_COLLECTION_METHOD_BAG ((unsigned)ENACT_COLLECTION_BAG)
+#define ENACT_COLLECTION_METHOD_ANY (ENACT_COLLECTION_METHOD_SET | ENACT_COLLECTION_METHOD_BAG)
+
 static char *enact_builtin_copy_text(const char *text)
 {
     size_t length;
@@ -2291,6 +2301,33 @@ static size_t enact_builtin_count(void)
     return sizeof(builtin_table) / sizeof(builtin_table[0]);
 }
 
+static const EnactNativeCollectionMethod native_collection_method_table[] = {
+    {"size", ENACT_COLLECTION_METHOD_ANY, 0},
+    {"union", ENACT_COLLECTION_METHOD_ANY, 0},
+    {"difference", ENACT_COLLECTION_METHOD_ANY, 0},
+    {"intersection", ENACT_COLLECTION_METHOD_ANY, 0},
+    {"subset", ENACT_COLLECTION_METHOD_ANY, 0},
+    {"equal", ENACT_COLLECTION_METHOD_ANY, 0},
+    {"UNION", ENACT_COLLECTION_METHOD_ANY, 0},
+    {"member", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"insert", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"remove", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"add", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"collect", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"filter", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"select", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"all", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"exists", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"locate", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"forEachDo", ENACT_COLLECTION_METHOD_ANY, 1},
+    {"reduce", ENACT_COLLECTION_METHOD_ANY, 2},
+};
+
+static size_t enact_builtin_collection_method_count(void)
+{
+    return sizeof(native_collection_method_table) / sizeof(native_collection_method_table[0]);
+}
+
 const EnactBuiltin *enact_builtin_lookup(const char *name)
 {
     size_t index;
@@ -2306,6 +2343,39 @@ const EnactBuiltin *enact_builtin_lookup(const char *name)
     }
 
     return NULL;
+}
+
+int enact_builtin_collection_method(
+    EnactCollectionKind kind,
+    const char *name,
+    const EnactBuiltin **builtin_out,
+    size_t *receiver_index_out)
+{
+    const EnactNativeCollectionMethod *method;
+    const EnactBuiltin *builtin;
+    size_t index;
+
+    if (!name || !builtin_out || !receiver_index_out || kind == ENACT_COLLECTION_NONE) {
+        return 0;
+    }
+
+    for (index = 0; index < enact_builtin_collection_method_count(); index += 1) {
+        method = &native_collection_method_table[index];
+        if ((method->kinds & (unsigned)kind) == 0 || strcmp(method->name, name) != 0) {
+            continue;
+        }
+
+        builtin = enact_builtin_lookup(name);
+        if (!builtin) {
+            return 0;
+        }
+
+        *builtin_out = builtin;
+        *receiver_index_out = method->receiver_index;
+        return 1;
+    }
+
+    return 0;
 }
 
 const char *enact_builtin_name(const EnactBuiltin *builtin)
