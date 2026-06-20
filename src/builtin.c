@@ -2222,7 +2222,7 @@ static int enact_builtin_union_aggregate(
 
     (void)argument_count;
 
-    if (!enact_builtin_require_list(&arguments[0], &collections, diag)) {
+    if (!enact_builtin_require_list_or_collection(&arguments[0], &collections, diag)) {
         return 0;
     }
     if (!enact_builtin_union_aggregate_lists(collections, &prototype, &result, diag)) {

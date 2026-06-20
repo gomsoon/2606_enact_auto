@@ -50,4 +50,4 @@ Top-level bindings named `collect`, `filter`, `reduce`, or similar do not affect
 
 ## Deferred Work
 
-`unitset` and aggregate `UNION` remain outside this slice because their natural receiver model is less direct than ordinary traversal. Bound collection method values and native method-table integration also remain deferred.
+`unitset` and aggregate `UNION` remain outside this slice because their natural receiver model is less direct than ordinary traversal. Slice 077 later adds aggregate `UNION`; bound collection method values and native method-table integration remain deferred.

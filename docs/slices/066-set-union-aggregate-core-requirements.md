@@ -52,8 +52,8 @@ Robustness coverage shall include:
 ## Deferred
 
 - Bag-aware aggregate union semantics are deferred in this slice and later added by Slice 072.
-- Collection-input aggregate forms remain deferred; this slice accepts only ordinary lists of Set objects.
-- Dot-method collection syntax remains deferred.
+- Collection-input aggregate forms remain deferred in this slice and are later added by Slice 077.
+- Dot-method collection syntax remains deferred in this slice and is later extended to aggregate `UNION` by Slice 077.
 - Custom collection printing is deferred in this slice and later added by Slice 073.
 
 ## Coverage

@@ -70,7 +70,7 @@ Robustness coverage shall include:
 
 ## Deferred
 
-- Dot-method collection syntax for `unitset` and `UNION` remains deferred.
+- Dot-method collection syntax for `unitset` remains deferred; Slice 077 later adds aggregate `UNION`.
 - Bound collection method values such as `collection.collect` remain deferred.
 - Native method table integration remains deferred; this slice continues the focused evaluator bridge.
 - Collection-aware `map` remains deferred; `collect` remains the collection-shape-preserving transform surface.

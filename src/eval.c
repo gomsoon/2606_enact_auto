@@ -1185,6 +1185,8 @@ static int enact_collection_dot_builtin(
         receiver_index = 0;
     } else if (strcmp(name, "equal") == 0) {
         receiver_index = 0;
+    } else if (strcmp(name, "UNION") == 0) {
+        receiver_index = 0;
     } else if (strcmp(name, "member") == 0) {
         receiver_index = 1;
     } else if (strcmp(name, "insert") == 0) {

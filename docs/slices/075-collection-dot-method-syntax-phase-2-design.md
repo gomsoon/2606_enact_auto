@@ -46,4 +46,4 @@ This keeps explicit object or class behavior stronger than the synthetic collect
 
 ## Deferred Work
 
-Higher-order traversal dot methods are left for a later phase because they bring callable evaluation, short-circuit behavior, side effects, and `reduce` accumulator order into the method surface. Slice 076 later adds those traversal methods through the same bridge. `unitset` and aggregate `UNION` are still left out because their receiver shape is less direct than ordinary binary algebra.
+Higher-order traversal dot methods are left for a later phase because they bring callable evaluation, short-circuit behavior, side effects, and `reduce` accumulator order into the method surface. Slice 076 later adds those traversal methods through the same bridge. `unitset` and aggregate `UNION` are still left out here because their receiver shape is less direct than ordinary binary algebra; Slice 077 later adds aggregate `UNION`.
