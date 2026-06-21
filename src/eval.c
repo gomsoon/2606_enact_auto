@@ -10,6 +10,7 @@
 
 typedef struct EnactEvalMethodContext {
     const struct EnactEvalMethodContext *previous;
+    const EnactValue *receiver;
     EnactClass *receiver_class;
     EnactClass *supplier_class;
 } EnactEvalMethodContext;
@@ -22,6 +23,7 @@ typedef struct EnactEvalMethodContext {
 static const EnactEvalMethodContext *current_method_context;
 
 static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag);
+static int enact_ast_is_super_identifier(const EnactAst *ast);
 static int enact_eval_apply_method(
     EnactFunction *method,
     const EnactValue *receiver,
@@ -134,6 +136,13 @@ static int enact_require_object(const EnactValue *value, EnactObject **out, Enac
 
     *out = value->as.as_object;
     return 1;
+}
+
+static int enact_ast_is_super_identifier(const EnactAst *ast)
+{
+    return ast &&
+           ast->kind == AST_IDENTIFIER &&
+           strcmp(ast->as.identifier_name, "super") == 0;
 }
 
 static int enact_eval_arithmetic_binary(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
@@ -1461,6 +1470,7 @@ static int enact_eval_apply_method(
     }
 
     method_context.previous = current_method_context;
+    method_context.receiver = receiver;
     method_context.receiver_class = receiver->kind == ENACT_VALUE_OBJECT
         ? enact_object_class(receiver->as.as_object)
         : NULL;
@@ -1470,6 +1480,58 @@ static int enact_eval_apply_method(
     status = enact_eval_value(enact_function_body(method), &local, out, diag);
     current_method_context = previous_context;
     enact_env_free(&local);
+    return status;
+}
+
+static int enact_eval_super_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
+{
+    const EnactAst *attribute = ast->as.call.callee;
+    EnactFunction *method = NULL;
+    EnactClass *method_supplier = NULL;
+    EnactValue method_value;
+    int method_lookup_consistent = 1;
+    int status;
+
+    if (!current_method_context ||
+        !current_method_context->receiver ||
+        !current_method_context->receiver_class ||
+        !current_method_context->supplier_class) {
+        enact_diag_set(diag, ENACT_ERR_NAME_UNBOUND, -1);
+        return 0;
+    }
+
+    if (!enact_class_lookup_super_method_with_supplier(
+            current_method_context->receiver_class,
+            current_method_context->supplier_class,
+            attribute->as.attribute.name,
+            &method,
+            &method_supplier,
+            &method_lookup_consistent)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!method_lookup_consistent) {
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+        return 0;
+    }
+    if (!method) {
+        enact_diag_set(diag, ENACT_ERR_ATTRIBUTE_UNBOUND, -1);
+        return 0;
+    }
+
+    status = enact_eval_make_bound_object_method(
+        method,
+        current_method_context->receiver,
+        method_supplier,
+        &method_value,
+        diag);
+    enact_function_release(method);
+    if (!status) {
+        return 0;
+    }
+
+    status = enact_eval_call_value(&method_value, ast->as.call.arguments, env, out, diag);
+    enact_value_free(&method_value);
     return status;
 }
 
@@ -1486,6 +1548,10 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
     int lookup_result;
     int method_lookup_consistent = 1;
     int status;
+
+    if (enact_ast_is_super_identifier(attribute->as.attribute.object)) {
+        return enact_eval_super_dot_call(ast, env, out, diag);
+    }
 
     if (!enact_eval_value(attribute->as.attribute.object, env, &receiver_value, diag)) {
         return 0;
