@@ -1032,7 +1032,7 @@ static void test_builtin_helpers(void)
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "classes int error code");
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(ok_builtin, args, 1, &result, &diag), "OK int fails");
-    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "OK int error code");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "OK int error code");
     object_class = enact_class_new("Object");
     require_true(object_class != NULL, "suppliers type test class created");
     if (object_class) {

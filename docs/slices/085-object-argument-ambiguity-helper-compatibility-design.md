@@ -43,4 +43,4 @@ The second argument of `suppliers` remains atom-only and keeps `ENACT_ERR_TYPE_E
 
 ## Deferred Work
 
-This slice does not change return values from lists to native Sets, does not inspect direct object attributes as inherited attributes, and does not change `OK(Class)` into an attribute-ambiguity predicate.
+This slice does not change return values from lists to native Sets, does not inspect direct object attributes as inherited attributes, and does not change `OK(Class)` into an attribute-ambiguity predicate. `OK(object)` compatibility is later added by Slice 086.

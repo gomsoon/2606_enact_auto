@@ -20,6 +20,7 @@ OK(Class)
 - A class whose superclass graph contains contradictory local precedence requirements shall return `false`.
 - If a direct or transitive superclass is inconsistent, subclasses depending on it shall also return `false`.
 - `OK(classof(object))` shall work by composing existing `classof` introspection with `OK`.
+- `OK(object)` is later added by Slice 086 as a compatibility shorthand for `OK(classof(object))`.
 - `OK` shall be a normal first-class builtin and shall compose with `map`, `filter`, `all`, and conditionals.
 - User bindings shall be able to shadow `OK`, matching existing builtin behavior.
 
@@ -27,8 +28,8 @@ OK(Class)
 
 - `OK` shall have arity one.
 - Over-application shall report `ENACT_ERR_ARITY_MISMATCH` without evaluating impossible extra arguments.
-- Non-class arguments shall report `ENACT_ERR_TYPE_EXPECTED_CLASS`.
-- Object values shall not be accepted directly; users should call `OK(classof(obj))` when starting from an object.
+- Non-class, non-object arguments shall report `ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT` after Slice 086.
+- Object values are later accepted directly by Slice 086.
 - Misusing the boolean result as an integer, list, or callable shall follow existing boolean-value error behavior.
 
 ## Regression Requirements
@@ -56,8 +57,7 @@ Robustness coverage shall include:
 - zero-argument call
 - over-application without evaluating an impossible extra argument
 - non-class primitive values
-- list, object, function, and builtin values
-- object misuse when `classof` is not used
+- list, function, and builtin values
 - boolean result misuse as an integer
 - boolean result misuse as a list
 - boolean result misuse as a callable
