@@ -918,6 +918,21 @@ static void test_builtin_helpers(void)
         require_true(result.kind == ENACT_VALUE_LIST, "superiors root object result kind");
         require_true(result.as.as_list == NULL, "superiors root object result nil");
         enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(methods, args, 1, &result, &diag), "methods root object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "methods root object result kind");
+        require_true(result.as.as_list == NULL, "methods root object result nil");
+        enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(classes, args, 1, &result, &diag), "classes root object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "classes root object result kind");
+        require_true(result.as.as_list != NULL, "classes root object result non-empty");
+        require_true(enact_list_head(result.as.as_list)->kind == ENACT_VALUE_CLASS, "classes root object head kind");
+        require_true(
+            enact_list_head(result.as.as_list)->as.as_class == object_class,
+            "classes root object head identity");
+        require_true(enact_list_tail(result.as.as_list) == NULL, "classes root object result tail nil");
+        enact_value_free(&result);
         enact_value_free(&args[0]);
         args[0] = enact_value_make_class(object_class);
         enact_diag_reset(&diag);
@@ -1022,6 +1037,28 @@ static void test_builtin_helpers(void)
                     enact_list_tail(result.as.as_list) == NULL,
                     "superiors subclass object result tail nil");
                 enact_value_free(&result);
+                enact_diag_reset(&diag);
+                require_true(enact_builtin_apply(methods, args, 1, &result, &diag), "methods subclass object apply succeeds");
+                require_true(result.kind == ENACT_VALUE_LIST, "methods subclass object result kind");
+                require_true(result.as.as_list == NULL, "methods subclass object result nil");
+                enact_value_free(&result);
+                enact_diag_reset(&diag);
+                require_true(enact_builtin_apply(classes, args, 1, &result, &diag), "classes subclass object apply succeeds");
+                require_true(result.kind == ENACT_VALUE_LIST, "classes subclass object result kind");
+                require_true(result.as.as_list != NULL, "classes subclass object result non-empty");
+                require_true(
+                    enact_list_head(result.as.as_list)->as.as_class == node_class,
+                    "classes subclass object head identity");
+                require_true(
+                    enact_list_tail(result.as.as_list) != NULL,
+                    "classes subclass object tail non-empty");
+                require_true(
+                    enact_list_head(enact_list_tail(result.as.as_list))->as.as_class == object_class,
+                    "classes subclass object tail identity");
+                require_true(
+                    enact_list_tail(enact_list_tail(result.as.as_list)) == NULL,
+                    "classes subclass object result ends");
+                enact_value_free(&result);
                 enact_value_free(&args[0]);
             }
             leaf_class = enact_class_new_with_superclass("Leaf", node_class);
@@ -1065,10 +1102,10 @@ static void test_builtin_helpers(void)
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "superiors int error code");
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(methods, args, 1, &result, &diag), "methods int fails");
-    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "methods int error code");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "methods int error code");
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(classes, args, 1, &result, &diag), "classes int fails");
-    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "classes int error code");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "classes int error code");
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(ok_builtin, args, 1, &result, &diag), "OK int fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "OK int error code");

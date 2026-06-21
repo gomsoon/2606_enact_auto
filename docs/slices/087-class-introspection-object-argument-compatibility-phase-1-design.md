@@ -31,4 +31,4 @@ Older object-misuse failure cases for `supers` and `superiors` are superseded by
 
 ## Deferred Work
 
-This slice does not make `classes` or `methods` accept object arguments. That remains a good follow-up slice because those helpers form the next natural class-introspection compatibility pair.
+This slice does not make `classes` or `methods` accept object arguments. Slice 088 later adds that compatibility for the remaining pair.

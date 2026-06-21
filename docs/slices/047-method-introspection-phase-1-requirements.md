@@ -1,5 +1,7 @@
 # Slice 047: Method Introspection Phase 1 Requirements
 
+Update note: Slice 088 later makes `methods(object)` behave like `methods(classof(object))` and changes non-class, non-object misuse to `ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT`.
+
 ## Scope
 
 Slice 047 adds a direct-method introspection builtin:

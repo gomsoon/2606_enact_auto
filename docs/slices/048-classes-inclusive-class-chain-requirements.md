@@ -1,5 +1,7 @@
 # Slice 048: classes(Class) Inclusive Class Chain Requirements
 
+Update note: Slice 088 later makes `classes(object)` behave like `classes(classof(object))` and changes non-class, non-object misuse to `ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT`.
+
 ## Scope
 
 Slice 048 adds the PRD-named class-chain introspection builtin:
