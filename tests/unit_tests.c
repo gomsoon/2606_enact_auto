@@ -823,6 +823,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *superiors = enact_builtin_lookup("superiors");
     const EnactBuiltin *ok_builtin = enact_builtin_lookup("OK");
     const EnactBuiltin *suppliers = enact_builtin_lookup("suppliers");
+    const EnactBuiltin *method_supplier = enact_builtin_lookup("methodSupplier");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *set_builtin = enact_builtin_lookup("set");
@@ -909,6 +910,7 @@ static void test_builtin_helpers(void)
     require_true(superiors != NULL, "superiors builtin lookup succeeds");
     require_true(ok_builtin != NULL, "OK builtin lookup succeeds");
     require_true(suppliers != NULL, "suppliers builtin lookup succeeds");
+    require_true(method_supplier != NULL, "methodSupplier builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(set_builtin != NULL, "set builtin lookup succeeds");
@@ -951,6 +953,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(superiors) == 1, "superiors builtin arity");
     require_true(enact_builtin_arity(ok_builtin) == 1, "OK builtin arity");
     require_true(enact_builtin_arity(suppliers) == 2, "suppliers builtin arity");
+    require_true(enact_builtin_arity(method_supplier) == 2, "methodSupplier builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_min_arity(set_builtin) == 0, "set builtin min arity");
@@ -1110,6 +1113,15 @@ static void test_builtin_helpers(void)
         require_true(result.as.as_list == NULL, "suppliers missing result nil");
         enact_value_free(&result);
         enact_value_free(&supplier_args[1]);
+        supplier_args[1] = enact_value_make_atom(copy_test_name("missing"));
+        enact_diag_reset(&diag);
+        require_true(
+            enact_builtin_apply(method_supplier, supplier_args, 2, &result, &diag),
+            "methodSupplier missing apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "methodSupplier missing result kind");
+        require_true(result.as.as_list == NULL, "methodSupplier missing result nil");
+        enact_value_free(&result);
+        enact_value_free(&supplier_args[1]);
         node_class = enact_class_new_with_superclass("Node", object_class);
         require_true(node_class != NULL, "supers test subclass created");
         if (node_class) {
@@ -1246,6 +1258,16 @@ static void test_builtin_helpers(void)
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(ok_builtin, args, 1, &result, &diag), "OK int fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "OK int error code");
+    supplier_args[0] = enact_value_make_int(1);
+    supplier_args[1] = enact_value_make_atom(copy_test_name("missing"));
+    enact_diag_reset(&diag);
+    require_true(
+        !enact_builtin_apply(method_supplier, supplier_args, 2, &result, &diag),
+        "methodSupplier int class fails");
+    require_true(
+        diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT,
+        "methodSupplier int class error code");
+    enact_value_free(&supplier_args[1]);
     object_class = enact_class_new("Object");
     require_true(object_class != NULL, "suppliers type test class created");
     if (object_class) {
@@ -1254,6 +1276,11 @@ static void test_builtin_helpers(void)
         enact_diag_reset(&diag);
         require_true(!enact_builtin_apply(suppliers, supplier_args, 2, &result, &diag), "suppliers non-atom fails");
         require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_ATOM, "suppliers non-atom error code");
+        enact_diag_reset(&diag);
+        require_true(
+            !enact_builtin_apply(method_supplier, supplier_args, 2, &result, &diag),
+            "methodSupplier non-atom fails");
+        require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_ATOM, "methodSupplier non-atom error code");
         enact_value_free(&supplier_args[0]);
         enact_value_free(&supplier_args[1]);
         object_class = NULL;
@@ -1630,6 +1657,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "suppliers", &lookup_value), "lookup installed suppliers");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed suppliers value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "methodSupplier", &lookup_value), "lookup installed methodSupplier");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed methodSupplier value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "version", &lookup_value), "lookup installed version");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed version value kind");

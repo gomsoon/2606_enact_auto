@@ -4,6 +4,7 @@
 
 #include "builtin.h"
 #include "eval.h"
+#include "function.h"
 #include "object.h"
 
 #define ENACT_VERSION_STRING "enact-auto 0.1.0"
@@ -660,6 +661,59 @@ static int enact_builtin_suppliers(
     }
 
     *out = enact_value_make_list(classes);
+    return 1;
+}
+
+static int enact_builtin_method_supplier(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactClass *class_value;
+    EnactClass *supplier = NULL;
+    EnactFunction *method = NULL;
+    int is_consistent = 1;
+
+    (void)argument_count;
+
+    class_value = enact_builtin_class_or_object_class(&arguments[0], diag);
+    if (!class_value) {
+        return 0;
+    }
+    if (arguments[1].kind != ENACT_VALUE_ATOM) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_ATOM, -1);
+        return 0;
+    }
+
+    if (!enact_class_lookup_method_with_supplier(
+            class_value,
+            arguments[1].as.as_atom,
+            &method,
+            &supplier,
+            &is_consistent)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!is_consistent) {
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+        return 0;
+    }
+    if (method) {
+        enact_function_release(method);
+    }
+    if (!supplier) {
+        *out = enact_value_make_list(NULL);
+        return 1;
+    }
+
+    supplier = enact_class_retain(supplier);
+    if (!supplier) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_class(supplier);
     return 1;
 }
 
@@ -2346,6 +2400,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("OK", 1, enact_builtin_ok),
     ENACT_BUILTIN("badAttrs", 1, enact_builtin_bad_attrs),
     ENACT_BUILTIN("suppliers", 2, enact_builtin_suppliers),
+    ENACT_BUILTIN("methodSupplier", 2, enact_builtin_method_supplier),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("list", 1, enact_builtin_list),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set),

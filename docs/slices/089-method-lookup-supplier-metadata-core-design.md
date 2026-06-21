@@ -65,4 +65,4 @@ The Python regression suite checks that existing user-visible method behavior re
 
 ## Deferred Work
 
-This slice does not add `super`, public method supplier introspection, inherited/effective method introspection, method signature introspection, method source introspection, or native collection method-table provenance.
+This slice does not add `super`, inherited/effective method introspection, method signature introspection, method source introspection, or native collection method-table provenance. Slice 090 later exposes the selected user-defined method supplier through `methodSupplier`.
