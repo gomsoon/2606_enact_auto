@@ -477,6 +477,50 @@ static int enact_eval_make_bound_object_method(
     return 1;
 }
 
+static int enact_eval_make_super_bound_method(const char *name, EnactValue *out, EnactDiag *diag)
+{
+    EnactFunction *method = NULL;
+    EnactClass *method_supplier = NULL;
+    int method_lookup_consistent = 1;
+    int status;
+
+    if (!current_method_context ||
+        !current_method_context->receiver ||
+        !current_method_context->receiver_class ||
+        !current_method_context->supplier_class) {
+        enact_diag_set(diag, ENACT_ERR_NAME_UNBOUND, -1);
+        return 0;
+    }
+
+    if (!enact_class_lookup_super_method_with_supplier(
+            current_method_context->receiver_class,
+            current_method_context->supplier_class,
+            name,
+            &method,
+            &method_supplier,
+            &method_lookup_consistent)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!method_lookup_consistent) {
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+        return 0;
+    }
+    if (!method) {
+        enact_diag_set(diag, ENACT_ERR_ATTRIBUTE_UNBOUND, -1);
+        return 0;
+    }
+
+    status = enact_eval_make_bound_object_method(
+        method,
+        current_method_context->receiver,
+        method_supplier,
+        out,
+        diag);
+    enact_function_release(method);
+    return status;
+}
+
 static int enact_eval_attribute(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     EnactValue object_value;
@@ -488,6 +532,10 @@ static int enact_eval_attribute(const EnactAst *ast, EnactEnv *env, EnactValue *
     int lookup_result;
     int method_lookup_consistent = 1;
     int status;
+
+    if (enact_ast_is_super_identifier(ast->as.attribute.object)) {
+        return enact_eval_make_super_bound_method(ast->as.attribute.name, out, diag);
+    }
 
     if (!enact_eval_value(ast->as.attribute.object, env, &object_value, diag)) {
         return 0;
@@ -1486,47 +1534,10 @@ static int enact_eval_apply_method(
 static int enact_eval_super_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag)
 {
     const EnactAst *attribute = ast->as.call.callee;
-    EnactFunction *method = NULL;
-    EnactClass *method_supplier = NULL;
     EnactValue method_value;
-    int method_lookup_consistent = 1;
     int status;
 
-    if (!current_method_context ||
-        !current_method_context->receiver ||
-        !current_method_context->receiver_class ||
-        !current_method_context->supplier_class) {
-        enact_diag_set(diag, ENACT_ERR_NAME_UNBOUND, -1);
-        return 0;
-    }
-
-    if (!enact_class_lookup_super_method_with_supplier(
-            current_method_context->receiver_class,
-            current_method_context->supplier_class,
-            attribute->as.attribute.name,
-            &method,
-            &method_supplier,
-            &method_lookup_consistent)) {
-        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-        return 0;
-    }
-    if (!method_lookup_consistent) {
-        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
-        return 0;
-    }
-    if (!method) {
-        enact_diag_set(diag, ENACT_ERR_ATTRIBUTE_UNBOUND, -1);
-        return 0;
-    }
-
-    status = enact_eval_make_bound_object_method(
-        method,
-        current_method_context->receiver,
-        method_supplier,
-        &method_value,
-        diag);
-    enact_function_release(method);
-    if (!status) {
+    if (!enact_eval_make_super_bound_method(attribute->as.attribute.name, &method_value, diag)) {
         return 0;
     }
 
