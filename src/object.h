@@ -33,6 +33,7 @@ int enact_class_lookup_method_with_supplier(
     int *consistent);
 int enact_class_lookup_method(EnactClass *class_value, const char *name, EnactFunction **out, int *consistent);
 int enact_class_method_names(const EnactClass *class_value, EnactList **out);
+int enact_class_effective_method_names(EnactClass *class_value, EnactList **out, int *consistent);
 int enact_class_bad_attribute_names(const EnactClass *class_value, EnactList **out);
 int enact_class_attribute_suppliers(const EnactClass *class_value, const char *name, EnactList **out);
 

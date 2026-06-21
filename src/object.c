@@ -59,6 +59,11 @@ typedef struct EnactAttributeSupplier {
     struct EnactAttributeSupplier *next;
 } EnactAttributeSupplier;
 
+typedef struct EnactEffectiveMethodName {
+    char *name;
+    struct EnactEffectiveMethodName *next;
+} EnactEffectiveMethodName;
+
 static char *enact_object_copy_text(const char *text)
 {
     size_t length;
@@ -1215,6 +1220,169 @@ int enact_class_method_names(const EnactClass *class_value, EnactList **out)
 
     *out = names;
     return 1;
+}
+
+static void enact_effective_method_names_free(EnactEffectiveMethodName *names)
+{
+    while (names) {
+        EnactEffectiveMethodName *next = names->next;
+
+        free(names->name);
+        free(names);
+        names = next;
+    }
+}
+
+static int enact_effective_method_names_contains(
+    const EnactEffectiveMethodName *names,
+    const char *name)
+{
+    while (names) {
+        if (strcmp(names->name, name) == 0) {
+            return 1;
+        }
+        names = names->next;
+    }
+
+    return 0;
+}
+
+static int enact_effective_method_names_append(
+    EnactEffectiveMethodName **names,
+    const char *name)
+{
+    EnactEffectiveMethodName *entry;
+    EnactEffectiveMethodName *tail;
+    char *name_copy;
+
+    if (!names || !name) {
+        return 0;
+    }
+    if (enact_effective_method_names_contains(*names, name)) {
+        return 1;
+    }
+
+    name_copy = enact_object_copy_text(name);
+    if (!name_copy) {
+        return 0;
+    }
+
+    entry = calloc(1, sizeof(*entry));
+    if (!entry) {
+        free(name_copy);
+        return 0;
+    }
+    entry->name = name_copy;
+
+    if (!*names) {
+        *names = entry;
+        return 1;
+    }
+
+    tail = *names;
+    while (tail->next) {
+        tail = tail->next;
+    }
+    tail->next = entry;
+    return 1;
+}
+
+static int enact_effective_method_names_add_direct(
+    const EnactMethod *method,
+    EnactEffectiveMethodName **names)
+{
+    if (!method) {
+        return 1;
+    }
+    if (!enact_effective_method_names_add_direct(method->next, names)) {
+        return 0;
+    }
+
+    return enact_effective_method_names_append(names, method->name);
+}
+
+static int enact_effective_method_names_to_list(
+    const EnactEffectiveMethodName *names,
+    EnactList **out)
+{
+    EnactList *tail = NULL;
+    EnactList *result;
+    EnactValue name_value;
+    char *name_copy;
+
+    if (!out) {
+        return 0;
+    }
+    if (!names) {
+        *out = NULL;
+        return 1;
+    }
+
+    if (!enact_effective_method_names_to_list(names->next, &tail)) {
+        return 0;
+    }
+
+    name_copy = enact_object_copy_text(names->name);
+    if (!name_copy) {
+        enact_list_release(tail);
+        return 0;
+    }
+
+    name_value = enact_value_make_atom(name_copy);
+    result = enact_list_cons(&name_value, tail);
+    enact_value_free(&name_value);
+    enact_list_release(tail);
+    if (!result) {
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+int enact_class_effective_method_names(EnactClass *class_value, EnactList **out, int *consistent)
+{
+    EnactClassVector linearization = {0};
+    EnactEffectiveMethodName *names = NULL;
+    EnactList *name_list = NULL;
+    int is_consistent = 1;
+    size_t index;
+    int ok = 0;
+
+    if (!class_value || !out || !consistent) {
+        return 0;
+    }
+
+    *out = NULL;
+    if (!enact_class_linearization_vector(class_value, &linearization, 0, &is_consistent)) {
+        return 0;
+    }
+    if (!is_consistent) {
+        *consistent = 0;
+        enact_class_vector_free(&linearization);
+        return 1;
+    }
+
+    for (index = 0; index < linearization.count; index += 1) {
+        if (!enact_effective_method_names_add_direct(linearization.items[index]->methods, &names)) {
+            goto done;
+        }
+    }
+
+    if (!enact_effective_method_names_to_list(names, &name_list)) {
+        goto done;
+    }
+
+    *out = name_list;
+    name_list = NULL;
+    *consistent = 1;
+    ok = 1;
+
+done:
+    enact_list_release(name_list);
+    enact_effective_method_names_free(names);
+    enact_class_vector_free(&linearization);
+    return ok;
 }
 
 EnactObject *enact_object_new(EnactClass *class_value)

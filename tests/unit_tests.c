@@ -208,6 +208,7 @@ static void test_value_helpers(void)
     EnactList *multi_superclasses;
     EnactList *attribute_names;
     EnactList *method_names;
+    EnactList *effective_method_names;
     EnactClass *empty_class;
     EnactClass *object_class;
     EnactClass *node_class;
@@ -230,6 +231,7 @@ static void test_value_helpers(void)
     EnactFunction *recursive_function;
     EnactFunction *method_lookup;
     int method_lookup_consistent = 1;
+    int effective_method_names_consistent = 1;
     EnactValue function_value;
     EnactValue function_copy;
     EnactValue partial_args[2];
@@ -315,6 +317,10 @@ static void test_value_helpers(void)
     require_true(!enact_object_attribute_names(NULL, &attribute_names), "object attribute names null object fails");
     method_names = NULL;
     require_true(!enact_class_method_names(NULL, &method_names), "class method names null class fails");
+    effective_method_names = NULL;
+    require_true(
+        !enact_class_effective_method_names(NULL, &effective_method_names, &effective_method_names_consistent),
+        "class effective method names null class fails");
 
     object_class = enact_class_new("Object");
     require_true(object_class != NULL, "root class created");
@@ -587,10 +593,27 @@ static void test_value_helpers(void)
                 NULL),
             "method lookup supplier null consistency out fails");
         require_true(!enact_class_method_names(method_class, NULL), "method names null out fails");
+        require_true(
+            !enact_class_effective_method_names(method_class, NULL, &effective_method_names_consistent),
+            "effective method names null out fails");
+        effective_method_names = NULL;
+        require_true(
+            !enact_class_effective_method_names(method_class, &effective_method_names, NULL),
+            "effective method names null consistency out fails");
         if (method_class) {
             method_names = NULL;
             require_true(enact_class_method_names(method_class, &method_names), "empty method names succeeds");
             require_true(method_names == NULL, "empty method names nil");
+            effective_method_names = NULL;
+            effective_method_names_consistent = 0;
+            require_true(
+                enact_class_effective_method_names(
+                    method_class,
+                    &effective_method_names,
+                    &effective_method_names_consistent),
+                "empty effective method names succeeds");
+            require_true(effective_method_names_consistent, "empty effective method names consistent");
+            require_true(effective_method_names == NULL, "empty effective method names nil");
             require_true(enact_class_define_method(method_class, "id", function), "method define succeeds");
             method_lookup = NULL;
             method_supplier = NULL;
@@ -627,6 +650,24 @@ static void test_value_helpers(void)
             require_true(strcmp(enact_list_head(method_names)->as.as_atom, "id") == 0, "method name value");
             require_true(enact_list_tail(method_names) == NULL, "method names tail nil");
             enact_list_release(method_names);
+            effective_method_names = NULL;
+            effective_method_names_consistent = 0;
+            require_true(
+                enact_class_effective_method_names(
+                    method_class,
+                    &effective_method_names,
+                    &effective_method_names_consistent),
+                "method effective names succeeds");
+            require_true(effective_method_names_consistent, "method effective names consistent");
+            require_true(effective_method_names != NULL, "method effective names non-empty");
+            require_true(
+                enact_list_head(effective_method_names)->kind == ENACT_VALUE_ATOM,
+                "method effective name kind");
+            require_true(
+                strcmp(enact_list_head(effective_method_names)->as.as_atom, "id") == 0,
+                "method effective name value");
+            require_true(enact_list_tail(effective_method_names) == NULL, "method effective names tail nil");
+            enact_list_release(effective_method_names);
             node_class = enact_class_new_with_superclass("MethodLeaf", method_class);
             require_true(node_class != NULL, "method subclass created");
             if (node_class) {
@@ -650,6 +691,23 @@ static void test_value_helpers(void)
                 method_names = NULL;
                 require_true(enact_class_method_names(node_class, &method_names), "subclass direct method names succeeds");
                 require_true(method_names == NULL, "subclass direct method names exclude superclass");
+                effective_method_names = NULL;
+                effective_method_names_consistent = 0;
+                require_true(
+                    enact_class_effective_method_names(
+                        node_class,
+                        &effective_method_names,
+                        &effective_method_names_consistent),
+                    "subclass effective method names succeeds");
+                require_true(effective_method_names_consistent, "subclass effective method names consistent");
+                require_true(effective_method_names != NULL, "subclass effective method names include superclass");
+                require_true(
+                    strcmp(enact_list_head(effective_method_names)->as.as_atom, "id") == 0,
+                    "subclass effective method name value");
+                require_true(
+                    enact_list_tail(effective_method_names) == NULL,
+                    "subclass effective method names tail nil");
+                enact_list_release(effective_method_names);
                 require_true(enact_class_define_method(node_class, "id", function), "method override define succeeds");
                 method_lookup = NULL;
                 method_supplier = NULL;
@@ -668,6 +726,23 @@ static void test_value_helpers(void)
                 if (method_lookup) {
                     enact_function_release(method_lookup);
                 }
+                effective_method_names = NULL;
+                effective_method_names_consistent = 0;
+                require_true(
+                    enact_class_effective_method_names(
+                        node_class,
+                        &effective_method_names,
+                        &effective_method_names_consistent),
+                    "override effective method names succeeds");
+                require_true(effective_method_names_consistent, "override effective method names consistent");
+                require_true(effective_method_names != NULL, "override effective method names non-empty");
+                require_true(
+                    strcmp(enact_list_head(effective_method_names)->as.as_atom, "id") == 0,
+                    "override effective method name value");
+                require_true(
+                    enact_list_tail(effective_method_names) == NULL,
+                    "override effective method names masks duplicate");
+                enact_list_release(effective_method_names);
                 method_object = enact_object_new(node_class);
                 require_true(method_object != NULL, "method supplier object created");
                 if (method_object) {
@@ -818,6 +893,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *classof = enact_builtin_lookup("classof");
     const EnactBuiltin *attrs = enact_builtin_lookup("attrs");
     const EnactBuiltin *methods = enact_builtin_lookup("methods");
+    const EnactBuiltin *effective_methods = enact_builtin_lookup("effectiveMethods");
     const EnactBuiltin *classes = enact_builtin_lookup("classes");
     const EnactBuiltin *supers = enact_builtin_lookup("supers");
     const EnactBuiltin *superiors = enact_builtin_lookup("superiors");
@@ -905,6 +981,7 @@ static void test_builtin_helpers(void)
     require_true(classof != NULL, "classof builtin lookup succeeds");
     require_true(attrs != NULL, "attrs builtin lookup succeeds");
     require_true(methods != NULL, "methods builtin lookup succeeds");
+    require_true(effective_methods != NULL, "effectiveMethods builtin lookup succeeds");
     require_true(classes != NULL, "classes builtin lookup succeeds");
     require_true(supers != NULL, "supers builtin lookup succeeds");
     require_true(superiors != NULL, "superiors builtin lookup succeeds");
@@ -948,6 +1025,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(classof) == 1, "classof builtin arity");
     require_true(enact_builtin_arity(attrs) == 1, "attrs builtin arity");
     require_true(enact_builtin_arity(methods) == 1, "methods builtin arity");
+    require_true(enact_builtin_arity(effective_methods) == 1, "effectiveMethods builtin arity");
     require_true(enact_builtin_arity(classes) == 1, "classes builtin arity");
     require_true(enact_builtin_arity(supers) == 1, "supers builtin arity");
     require_true(enact_builtin_arity(superiors) == 1, "superiors builtin arity");
@@ -1091,6 +1169,13 @@ static void test_builtin_helpers(void)
         require_true(result.as.as_list == NULL, "methods root class result nil");
         enact_value_free(&result);
         enact_diag_reset(&diag);
+        require_true(
+            enact_builtin_apply(effective_methods, args, 1, &result, &diag),
+            "effectiveMethods root class apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "effectiveMethods root class result kind");
+        require_true(result.as.as_list == NULL, "effectiveMethods root class result nil");
+        enact_value_free(&result);
+        enact_diag_reset(&diag);
         require_true(enact_builtin_apply(classes, args, 1, &result, &diag), "classes root class apply succeeds");
         require_true(result.kind == ENACT_VALUE_LIST, "classes root class result kind");
         require_true(result.as.as_list != NULL, "classes root class result non-empty");
@@ -1192,6 +1277,13 @@ static void test_builtin_helpers(void)
                 require_true(result.as.as_list == NULL, "methods subclass object result nil");
                 enact_value_free(&result);
                 enact_diag_reset(&diag);
+                require_true(
+                    enact_builtin_apply(effective_methods, args, 1, &result, &diag),
+                    "effectiveMethods subclass object apply succeeds");
+                require_true(result.kind == ENACT_VALUE_LIST, "effectiveMethods subclass object result kind");
+                require_true(result.as.as_list == NULL, "effectiveMethods subclass object result nil");
+                enact_value_free(&result);
+                enact_diag_reset(&diag);
                 require_true(enact_builtin_apply(classes, args, 1, &result, &diag), "classes subclass object apply succeeds");
                 require_true(result.kind == ENACT_VALUE_LIST, "classes subclass object result kind");
                 require_true(result.as.as_list != NULL, "classes subclass object result non-empty");
@@ -1252,6 +1344,13 @@ static void test_builtin_helpers(void)
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(methods, args, 1, &result, &diag), "methods int fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "methods int error code");
+    enact_diag_reset(&diag);
+    require_true(
+        !enact_builtin_apply(effective_methods, args, 1, &result, &diag),
+        "effectiveMethods int fails");
+    require_true(
+        diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT,
+        "effectiveMethods int error code");
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(classes, args, 1, &result, &diag), "classes int fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "classes int error code");
@@ -1645,6 +1744,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "methods", &lookup_value), "lookup installed methods");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed methods value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "effectiveMethods", &lookup_value), "lookup installed effectiveMethods");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed effectiveMethods value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "classes", &lookup_value), "lookup installed classes");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed classes value kind");

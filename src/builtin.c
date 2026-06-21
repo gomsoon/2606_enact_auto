@@ -496,6 +496,36 @@ static int enact_builtin_methods(
     return 1;
 }
 
+static int enact_builtin_effective_methods(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactClass *class_value;
+    EnactList *names = NULL;
+    int is_consistent = 1;
+
+    (void)argument_count;
+
+    class_value = enact_builtin_class_or_object_class(&arguments[0], diag);
+    if (!class_value) {
+        return 0;
+    }
+
+    if (!enact_class_effective_method_names(class_value, &names, &is_consistent)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!is_consistent) {
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(names);
+    return 1;
+}
+
 static int enact_builtin_supers(
     const EnactValue *arguments,
     size_t argument_count,
@@ -2394,6 +2424,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("classof", 1, enact_builtin_classof),
     ENACT_BUILTIN("attrs", 1, enact_builtin_attrs),
     ENACT_BUILTIN("methods", 1, enact_builtin_methods),
+    ENACT_BUILTIN("effectiveMethods", 1, enact_builtin_effective_methods),
     ENACT_BUILTIN("classes", 1, enact_builtin_classes),
     ENACT_BUILTIN("supers", 1, enact_builtin_supers),
     ENACT_BUILTIN("superiors", 1, enact_builtin_superiors),
