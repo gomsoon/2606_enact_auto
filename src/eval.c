@@ -8,10 +8,24 @@
 #include "function.h"
 #include "object.h"
 
+typedef struct EnactEvalMethodContext {
+    const struct EnactEvalMethodContext *previous;
+    EnactClass *receiver_class;
+    EnactClass *supplier_class;
+} EnactEvalMethodContext;
+
+/*
+ * Dynamic method execution context for future super.method(...) evaluation.
+ * It deliberately lives outside EnactEnv so closures do not capture it as a
+ * normal lexical binding.
+ */
+static const EnactEvalMethodContext *current_method_context;
+
 static int enact_eval_value(const EnactAst *ast, EnactEnv *env, EnactValue *out, EnactDiag *diag);
 static int enact_eval_apply_method(
     EnactFunction *method,
     const EnactValue *receiver,
+    EnactClass *supplier_class,
     const EnactValue *arguments,
     size_t argument_count,
     EnactValue *out,
@@ -1103,7 +1117,14 @@ static int enact_eval_apply_bound_object_method(
         }
     }
 
-    status = enact_eval_apply_method(function, receiver, method_arguments, method_arity, out, diag);
+    status = enact_eval_apply_method(
+        function,
+        receiver,
+        enact_bound_object_method_supplier_class(method),
+        method_arguments,
+        method_arity,
+        out,
+        diag);
     enact_free_value_array(method_arguments, method_arity);
     return status;
 }
@@ -1401,12 +1422,15 @@ static int enact_eval_call_value(
 static int enact_eval_apply_method(
     EnactFunction *method,
     const EnactValue *receiver,
+    EnactClass *supplier_class,
     const EnactValue *arguments,
     size_t argument_count,
     EnactValue *out,
     EnactDiag *diag)
 {
     EnactEnv local;
+    EnactEvalMethodContext method_context;
+    const EnactEvalMethodContext *previous_context;
     int status;
     size_t index;
 
@@ -1436,7 +1460,15 @@ static int enact_eval_apply_method(
         }
     }
 
+    method_context.previous = current_method_context;
+    method_context.receiver_class = receiver->kind == ENACT_VALUE_OBJECT
+        ? enact_object_class(receiver->as.as_object)
+        : NULL;
+    method_context.supplier_class = supplier_class;
+    previous_context = current_method_context;
+    current_method_context = &method_context;
     status = enact_eval_value(enact_function_body(method), &local, out, diag);
+    current_method_context = previous_context;
     enact_env_free(&local);
     return status;
 }
