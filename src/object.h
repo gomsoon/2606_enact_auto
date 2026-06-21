@@ -25,6 +25,12 @@ int enact_class_linearization(EnactClass *class_value, EnactList **out);
 int enact_class_linearization_checked(EnactClass *class_value, EnactList **out, int *consistent);
 int enact_class_linearization_is_consistent(EnactClass *class_value, int *out);
 int enact_class_define_method(EnactClass *class_value, const char *name, EnactFunction *function);
+int enact_class_lookup_method_with_supplier(
+    EnactClass *class_value,
+    const char *name,
+    EnactFunction **out,
+    EnactClass **supplier_out,
+    int *consistent);
 int enact_class_lookup_method(EnactClass *class_value, const char *name, EnactFunction **out, int *consistent);
 int enact_class_method_names(const EnactClass *class_value, EnactList **out);
 int enact_class_bad_attribute_names(const EnactClass *class_value, EnactList **out);

@@ -163,6 +163,10 @@ EnactList *enact_list_tail(const EnactList *list);
 EnactBoundObjectMethod *enact_bound_object_method_new(
     EnactFunction *method,
     const EnactValue *receiver);
+EnactBoundObjectMethod *enact_bound_object_method_new_with_supplier(
+    EnactFunction *method,
+    const EnactValue *receiver,
+    EnactClass *supplier_class);
 EnactBoundObjectMethod *enact_bound_object_method_extend(
     const EnactBoundObjectMethod *method,
     const EnactValue *arguments,
@@ -170,6 +174,7 @@ EnactBoundObjectMethod *enact_bound_object_method_extend(
 EnactBoundObjectMethod *enact_bound_object_method_retain(EnactBoundObjectMethod *method);
 void enact_bound_object_method_release(EnactBoundObjectMethod *method);
 EnactFunction *enact_bound_object_method_function(const EnactBoundObjectMethod *method);
+EnactClass *enact_bound_object_method_supplier_class(const EnactBoundObjectMethod *method);
 const EnactValue *enact_bound_object_method_receiver(const EnactBoundObjectMethod *method);
 size_t enact_bound_object_method_argument_count(const EnactBoundObjectMethod *method);
 const EnactValue *enact_bound_object_method_argument(

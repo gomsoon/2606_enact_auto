@@ -215,8 +215,12 @@ static void test_value_helpers(void)
     EnactClass *right_class;
     EnactClass *pair_class;
     EnactClass *method_class;
+    EnactClass *method_supplier;
     EnactObject *object;
     EnactObject *other_object;
+    EnactObject *method_object;
+    EnactBoundObjectMethod *bound_method;
+    EnactBoundObjectMethod *extended_bound_method;
     bool values_equal = false;
     EnactEnv empty_env;
     EnactAst *function_body;
@@ -541,6 +545,47 @@ static void test_value_helpers(void)
         require_true(!enact_class_lookup_method(method_class, NULL, &method_lookup, &method_lookup_consistent), "method lookup null name fails");
         require_true(!enact_class_lookup_method(method_class, "id", NULL, &method_lookup_consistent), "method lookup null out fails");
         require_true(!enact_class_lookup_method(method_class, "id", &method_lookup, NULL), "method lookup null consistency out fails");
+        method_supplier = NULL;
+        require_true(
+            !enact_class_lookup_method_with_supplier(
+                NULL,
+                "id",
+                &method_lookup,
+                &method_supplier,
+                &method_lookup_consistent),
+            "method lookup supplier null class fails");
+        require_true(
+            !enact_class_lookup_method_with_supplier(
+                method_class,
+                NULL,
+                &method_lookup,
+                &method_supplier,
+                &method_lookup_consistent),
+            "method lookup supplier null name fails");
+        require_true(
+            !enact_class_lookup_method_with_supplier(
+                method_class,
+                "id",
+                NULL,
+                &method_supplier,
+                &method_lookup_consistent),
+            "method lookup supplier null function out fails");
+        require_true(
+            !enact_class_lookup_method_with_supplier(
+                method_class,
+                "id",
+                &method_lookup,
+                NULL,
+                &method_lookup_consistent),
+            "method lookup supplier null supplier out fails");
+        require_true(
+            !enact_class_lookup_method_with_supplier(
+                method_class,
+                "id",
+                &method_lookup,
+                &method_supplier,
+                NULL),
+            "method lookup supplier null consistency out fails");
         require_true(!enact_class_method_names(method_class, NULL), "method names null out fails");
         if (method_class) {
             method_names = NULL;
@@ -548,12 +593,31 @@ static void test_value_helpers(void)
             require_true(method_names == NULL, "empty method names nil");
             require_true(enact_class_define_method(method_class, "id", function), "method define succeeds");
             method_lookup = NULL;
+            method_supplier = NULL;
             method_lookup_consistent = 0;
-            require_true(enact_class_lookup_method(method_class, "id", &method_lookup, &method_lookup_consistent), "method lookup succeeds");
+            require_true(
+                enact_class_lookup_method_with_supplier(
+                    method_class,
+                    "id",
+                    &method_lookup,
+                    &method_supplier,
+                    &method_lookup_consistent),
+                "method lookup with supplier succeeds");
             require_true(method_lookup_consistent, "method lookup consistent");
             require_true(method_lookup == function, "method lookup retains same function");
+            require_true(method_supplier == method_class, "method lookup supplier is direct class");
             if (method_lookup) {
                 require_true(enact_function_arity(method_lookup) == 1, "method lookup function arity");
+                enact_function_release(method_lookup);
+            }
+            method_lookup = NULL;
+            method_lookup_consistent = 0;
+            require_true(
+                enact_class_lookup_method(method_class, "id", &method_lookup, &method_lookup_consistent),
+                "method lookup wrapper still succeeds");
+            require_true(method_lookup_consistent, "method lookup wrapper consistent");
+            require_true(method_lookup == function, "method lookup wrapper retains same function");
+            if (method_lookup) {
                 enact_function_release(method_lookup);
             }
             method_names = NULL;
@@ -567,23 +631,96 @@ static void test_value_helpers(void)
             require_true(node_class != NULL, "method subclass created");
             if (node_class) {
                 method_lookup = NULL;
+                method_supplier = NULL;
                 method_lookup_consistent = 0;
-                require_true(enact_class_lookup_method(node_class, "id", &method_lookup, &method_lookup_consistent), "method lookup superclass succeeds");
+                require_true(
+                    enact_class_lookup_method_with_supplier(
+                        node_class,
+                        "id",
+                        &method_lookup,
+                        &method_supplier,
+                        &method_lookup_consistent),
+                    "method lookup superclass with supplier succeeds");
                 require_true(method_lookup_consistent, "method lookup superclass consistent");
                 require_true(method_lookup == function, "method lookup searches superclass");
+                require_true(method_supplier == method_class, "method lookup inherited supplier is superclass");
                 if (method_lookup) {
                     enact_function_release(method_lookup);
                 }
                 method_names = NULL;
                 require_true(enact_class_method_names(node_class, &method_names), "subclass direct method names succeeds");
                 require_true(method_names == NULL, "subclass direct method names exclude superclass");
+                require_true(enact_class_define_method(node_class, "id", function), "method override define succeeds");
+                method_lookup = NULL;
+                method_supplier = NULL;
+                method_lookup_consistent = 0;
+                require_true(
+                    enact_class_lookup_method_with_supplier(
+                        node_class,
+                        "id",
+                        &method_lookup,
+                        &method_supplier,
+                        &method_lookup_consistent),
+                    "method lookup override with supplier succeeds");
+                require_true(method_lookup_consistent, "method lookup override consistent");
+                require_true(method_lookup == function, "method lookup override returns function");
+                require_true(method_supplier == node_class, "method lookup override supplier is subclass");
+                if (method_lookup) {
+                    enact_function_release(method_lookup);
+                }
+                method_object = enact_object_new(node_class);
+                require_true(method_object != NULL, "method supplier object created");
+                if (method_object) {
+                    object_value = enact_value_make_object(method_object);
+                    require_true(
+                        enact_bound_object_method_new_with_supplier(NULL, &object_value, node_class) == NULL,
+                        "bound object method with supplier null function fails");
+                    require_true(
+                        enact_bound_object_method_new_with_supplier(function, NULL, node_class) == NULL,
+                        "bound object method with supplier null receiver fails");
+                    bound_method = enact_bound_object_method_new(function, &object_value);
+                    require_true(bound_method != NULL, "bound object method wrapper created");
+                    if (bound_method) {
+                        require_true(
+                            enact_bound_object_method_supplier_class(bound_method) == NULL,
+                            "bound object method wrapper has no supplier");
+                        enact_bound_object_method_release(bound_method);
+                    }
+                    bound_method = enact_bound_object_method_new_with_supplier(function, &object_value, node_class);
+                    require_true(bound_method != NULL, "bound object method with supplier created");
+                    if (bound_method) {
+                        require_true(
+                            enact_bound_object_method_supplier_class(bound_method) == node_class,
+                            "bound object method supplier retained");
+                        partial_args[0] = enact_value_make_int(11);
+                        extended_bound_method = enact_bound_object_method_extend(bound_method, partial_args, 1);
+                        require_true(extended_bound_method != NULL, "bound object method supplier extend succeeds");
+                        if (extended_bound_method) {
+                            require_true(
+                                enact_bound_object_method_supplier_class(extended_bound_method) == node_class,
+                                "extended bound object method keeps supplier");
+                            enact_bound_object_method_release(extended_bound_method);
+                        }
+                        enact_bound_object_method_release(bound_method);
+                    }
+                    enact_value_free(&object_value);
+                }
                 enact_class_release(node_class);
             }
             method_lookup = NULL;
+            method_supplier = method_class;
             method_lookup_consistent = 0;
-            require_true(enact_class_lookup_method(method_class, "missing", &method_lookup, &method_lookup_consistent), "method lookup missing succeeds");
+            require_true(
+                enact_class_lookup_method_with_supplier(
+                    method_class,
+                    "missing",
+                    &method_lookup,
+                    &method_supplier,
+                    &method_lookup_consistent),
+                "method lookup missing with supplier succeeds");
             require_true(method_lookup_consistent, "method lookup missing consistent");
             require_true(method_lookup == NULL, "method lookup missing returns null");
+            require_true(method_supplier == NULL, "method lookup missing supplier returns null");
             enact_class_release(method_class);
         }
         enact_value_free(&function_value);

@@ -2,6 +2,8 @@
 
 Related requirements: [docs/slices/079-general-bound-object-method-values-core-requirements.md](/home/tprover/2606_enact_auto/docs/slices/079-general-bound-object-method-values-core-requirements.md)
 
+Update note: Slice 089 later adds optional supplier-class metadata to bound object method values while preserving this slice's printing, equality, receiver capture, and call behavior.
+
 ## Runtime Value
 
 Slice 079 adds a callable runtime value:

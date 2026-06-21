@@ -15,6 +15,7 @@ struct EnactList {
 struct EnactBoundObjectMethod {
     size_t ref_count;
     EnactFunction *method;
+    EnactClass *supplier_class;
     EnactValue receiver;
     EnactValue *arguments;
     size_t argument_count;
@@ -147,6 +148,14 @@ EnactBoundObjectMethod *enact_bound_object_method_new(
     EnactFunction *function,
     const EnactValue *receiver)
 {
+    return enact_bound_object_method_new_with_supplier(function, receiver, NULL);
+}
+
+EnactBoundObjectMethod *enact_bound_object_method_new_with_supplier(
+    EnactFunction *function,
+    const EnactValue *receiver,
+    EnactClass *supplier_class)
+{
     EnactBoundObjectMethod *method;
 
     if (!function || !receiver) {
@@ -164,7 +173,14 @@ EnactBoundObjectMethod *enact_bound_object_method_new(
         free(method);
         return NULL;
     }
+    method->supplier_class = enact_class_retain(supplier_class);
+    if (supplier_class && !method->supplier_class) {
+        enact_function_release(method->method);
+        free(method);
+        return NULL;
+    }
     if (!enact_value_copy(&method->receiver, receiver)) {
+        enact_class_release(method->supplier_class);
         enact_function_release(method->method);
         free(method);
         return NULL;
@@ -213,7 +229,15 @@ EnactBoundObjectMethod *enact_bound_object_method_extend(
         free(extended);
         return NULL;
     }
+    extended->supplier_class = enact_class_retain(method->supplier_class);
+    if (method->supplier_class && !extended->supplier_class) {
+        enact_function_release(extended->method);
+        free(extended->arguments);
+        free(extended);
+        return NULL;
+    }
     if (!enact_value_copy(&extended->receiver, &method->receiver)) {
+        enact_class_release(extended->supplier_class);
         enact_function_release(extended->method);
         free(extended->arguments);
         free(extended);
@@ -224,6 +248,7 @@ EnactBoundObjectMethod *enact_bound_object_method_extend(
             method->arguments,
             method->argument_count)) {
         enact_value_free(&extended->receiver);
+        enact_class_release(extended->supplier_class);
         enact_function_release(extended->method);
         free(extended->arguments);
         free(extended);
@@ -235,6 +260,7 @@ EnactBoundObjectMethod *enact_bound_object_method_extend(
             argument_count)) {
         enact_bound_object_method_free_arguments(extended->arguments, method->argument_count);
         enact_value_free(&extended->receiver);
+        enact_class_release(extended->supplier_class);
         enact_function_release(extended->method);
         free(extended);
         return NULL;
@@ -265,6 +291,7 @@ void enact_bound_object_method_release(EnactBoundObjectMethod *method)
     }
 
     enact_function_release(method->method);
+    enact_class_release(method->supplier_class);
     enact_value_free(&method->receiver);
     enact_bound_object_method_free_arguments(method->arguments, method->argument_count);
     free(method);
@@ -273,6 +300,11 @@ void enact_bound_object_method_release(EnactBoundObjectMethod *method)
 EnactFunction *enact_bound_object_method_function(const EnactBoundObjectMethod *method)
 {
     return method ? method->method : NULL;
+}
+
+EnactClass *enact_bound_object_method_supplier_class(const EnactBoundObjectMethod *method)
+{
+    return method ? method->supplier_class : NULL;
 }
 
 const EnactValue *enact_bound_object_method_receiver(const EnactBoundObjectMethod *method)

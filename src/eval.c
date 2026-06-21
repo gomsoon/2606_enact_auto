@@ -438,12 +438,13 @@ static int enact_eval_make_bound_collection_method(
 static int enact_eval_make_bound_object_method(
     EnactFunction *function,
     const EnactValue *receiver,
+    EnactClass *supplier_class,
     EnactValue *out,
     EnactDiag *diag)
 {
     EnactBoundObjectMethod *method;
 
-    method = enact_bound_object_method_new(function, receiver);
+    method = enact_bound_object_method_new_with_supplier(function, receiver, supplier_class);
     if (!method) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
@@ -458,6 +459,7 @@ static int enact_eval_attribute(const EnactAst *ast, EnactEnv *env, EnactValue *
     EnactValue object_value;
     EnactObject *object = NULL;
     EnactFunction *method = NULL;
+    EnactClass *method_supplier = NULL;
     const EnactBuiltin *collection_builtin = NULL;
     size_t collection_receiver_index = 0;
     int lookup_result;
@@ -478,10 +480,11 @@ static int enact_eval_attribute(const EnactAst *ast, EnactEnv *env, EnactValue *
         return 0;
     }
     if (!lookup_result) {
-        if (!enact_class_lookup_method(
+        if (!enact_class_lookup_method_with_supplier(
                 enact_object_class(object),
                 ast->as.attribute.name,
                 &method,
+                &method_supplier,
                 &method_lookup_consistent)) {
             enact_value_free(&object_value);
             enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
@@ -493,7 +496,7 @@ static int enact_eval_attribute(const EnactAst *ast, EnactEnv *env, EnactValue *
             return 0;
         }
         if (method) {
-            status = enact_eval_make_bound_object_method(method, &object_value, out, diag);
+            status = enact_eval_make_bound_object_method(method, &object_value, method_supplier, out, diag);
             enact_function_release(method);
             enact_value_free(&object_value);
             return status;
@@ -1445,6 +1448,7 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
     EnactValue attribute_value;
     EnactObject *receiver = NULL;
     EnactFunction *method = NULL;
+    EnactClass *method_supplier = NULL;
     const EnactBuiltin *collection_builtin = NULL;
     size_t collection_receiver_index = 0;
     int lookup_result;
@@ -1472,10 +1476,11 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
         return status;
     }
 
-    if (!enact_class_lookup_method(
+    if (!enact_class_lookup_method_with_supplier(
             enact_object_class(receiver),
             attribute->as.attribute.name,
             &method,
+            &method_supplier,
             &method_lookup_consistent)) {
         enact_value_free(&receiver_value);
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
@@ -1513,7 +1518,7 @@ static int enact_eval_dot_call(const EnactAst *ast, EnactEnv *env, EnactValue *o
         return 0;
     }
 
-    status = enact_eval_make_bound_object_method(method, &receiver_value, &attribute_value, diag);
+    status = enact_eval_make_bound_object_method(method, &receiver_value, method_supplier, &attribute_value, diag);
     enact_function_release(method);
     if (!status) {
         enact_value_free(&receiver_value);

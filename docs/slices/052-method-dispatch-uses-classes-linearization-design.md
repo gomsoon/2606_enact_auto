@@ -2,6 +2,8 @@
 
 Related requirements: [docs/slices/052-method-dispatch-uses-classes-linearization-requirements.md](/home/tprover/2606_enact_auto/docs/slices/052-method-dispatch-uses-classes-linearization-requirements.md)
 
+Update note: Slice 089 later adds a supplier-aware lookup wrapper that reports the class owning the selected direct method while keeping this dispatch ordering unchanged.
+
 ## Shared Runtime Linearization
 
 Slice 051 originally kept the C3-style linearization helper inside `builtin.c` because only `classes` and `superiors` needed it.
