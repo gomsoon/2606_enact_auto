@@ -592,6 +592,60 @@ static void test_value_helpers(void)
                 &method_supplier,
                 NULL),
             "method lookup supplier null consistency out fails");
+        require_true(
+            !enact_class_lookup_super_method_with_supplier(
+                NULL,
+                method_class,
+                "id",
+                &method_lookup,
+                &method_supplier,
+                &method_lookup_consistent),
+            "super method lookup null receiver class fails");
+        require_true(
+            !enact_class_lookup_super_method_with_supplier(
+                method_class,
+                NULL,
+                "id",
+                &method_lookup,
+                &method_supplier,
+                &method_lookup_consistent),
+            "super method lookup null current supplier fails");
+        require_true(
+            !enact_class_lookup_super_method_with_supplier(
+                method_class,
+                method_class,
+                NULL,
+                &method_lookup,
+                &method_supplier,
+                &method_lookup_consistent),
+            "super method lookup null name fails");
+        require_true(
+            !enact_class_lookup_super_method_with_supplier(
+                method_class,
+                method_class,
+                "id",
+                NULL,
+                &method_supplier,
+                &method_lookup_consistent),
+            "super method lookup null function out fails");
+        require_true(
+            !enact_class_lookup_super_method_with_supplier(
+                method_class,
+                method_class,
+                "id",
+                &method_lookup,
+                NULL,
+                &method_lookup_consistent),
+            "super method lookup null supplier out fails");
+        require_true(
+            !enact_class_lookup_super_method_with_supplier(
+                method_class,
+                method_class,
+                "id",
+                &method_lookup,
+                &method_supplier,
+                NULL),
+            "super method lookup null consistency out fails");
         require_true(!enact_class_method_names(method_class, NULL), "method names null out fails");
         require_true(
             !enact_class_effective_method_names(method_class, NULL, &effective_method_names_consistent),
@@ -615,6 +669,21 @@ static void test_value_helpers(void)
             require_true(effective_method_names_consistent, "empty effective method names consistent");
             require_true(effective_method_names == NULL, "empty effective method names nil");
             require_true(enact_class_define_method(method_class, "id", function), "method define succeeds");
+            method_lookup = NULL;
+            method_supplier = NULL;
+            method_lookup_consistent = 0;
+            require_true(
+                enact_class_lookup_super_method_with_supplier(
+                    method_class,
+                    method_class,
+                    "id",
+                    &method_lookup,
+                    &method_supplier,
+                    &method_lookup_consistent),
+                "root super method lookup succeeds");
+            require_true(method_lookup_consistent, "root super method lookup consistent");
+            require_true(method_lookup == NULL, "root super method lookup finds no method");
+            require_true(method_supplier == NULL, "root super method lookup finds no supplier");
             method_lookup = NULL;
             method_supplier = NULL;
             method_lookup_consistent = 0;
@@ -726,6 +795,54 @@ static void test_value_helpers(void)
                 if (method_lookup) {
                     enact_function_release(method_lookup);
                 }
+                method_lookup = NULL;
+                method_supplier = NULL;
+                method_lookup_consistent = 0;
+                require_true(
+                    enact_class_lookup_super_method_with_supplier(
+                        node_class,
+                        node_class,
+                        "id",
+                        &method_lookup,
+                        &method_supplier,
+                        &method_lookup_consistent),
+                    "super method lookup override succeeds");
+                require_true(method_lookup_consistent, "super method lookup override consistent");
+                require_true(method_lookup == function, "super method lookup override returns inherited function");
+                require_true(method_supplier == method_class, "super method lookup override supplier is superclass");
+                if (method_lookup) {
+                    enact_function_release(method_lookup);
+                }
+                method_lookup = NULL;
+                method_supplier = NULL;
+                method_lookup_consistent = 0;
+                require_true(
+                    enact_class_lookup_super_method_with_supplier(
+                        node_class,
+                        method_class,
+                        "id",
+                        &method_lookup,
+                        &method_supplier,
+                        &method_lookup_consistent),
+                    "super method lookup after superclass succeeds");
+                require_true(method_lookup_consistent, "super method lookup after superclass consistent");
+                require_true(method_lookup == NULL, "super method lookup after superclass finds no method");
+                require_true(method_supplier == NULL, "super method lookup after superclass finds no supplier");
+                method_lookup = NULL;
+                method_supplier = NULL;
+                method_lookup_consistent = 0;
+                require_true(
+                    enact_class_lookup_super_method_with_supplier(
+                        method_class,
+                        node_class,
+                        "id",
+                        &method_lookup,
+                        &method_supplier,
+                        &method_lookup_consistent),
+                    "super method lookup unrelated supplier succeeds");
+                require_true(method_lookup_consistent, "super method lookup unrelated supplier consistent");
+                require_true(method_lookup == NULL, "super method lookup unrelated supplier finds no method");
+                require_true(method_supplier == NULL, "super method lookup unrelated supplier finds no supplier");
                 effective_method_names = NULL;
                 effective_method_names_consistent = 0;
                 require_true(
@@ -782,6 +899,70 @@ static void test_value_helpers(void)
                 }
                 enact_class_release(node_class);
             }
+            left_class = enact_class_new("SuperLeft");
+            right_class = enact_class_new("SuperRight");
+            require_true(left_class != NULL && right_class != NULL, "super method lookup MI classes created");
+            if (left_class && right_class) {
+                left_class_value = enact_value_make_class(left_class);
+                right_class_value = enact_value_make_class(right_class);
+                multi_superclass_tail = enact_list_cons(&right_class_value, NULL);
+                require_true(multi_superclass_tail != NULL, "super method lookup MI tail created");
+                multi_superclasses = multi_superclass_tail
+                    ? enact_list_cons(&left_class_value, multi_superclass_tail)
+                    : NULL;
+                enact_list_release(multi_superclass_tail);
+                require_true(multi_superclasses != NULL, "super method lookup MI list created");
+                pair_class = enact_class_new_with_superclasses("SuperPair", multi_superclasses);
+                enact_list_release(multi_superclasses);
+                require_true(pair_class != NULL, "super method lookup MI receiver created");
+                if (pair_class) {
+                    require_true(
+                        enact_class_define_method(left_class, "id", function),
+                        "super method lookup MI left method defined");
+                    require_true(
+                        enact_class_define_method(right_class, "id", function),
+                        "super method lookup MI right method defined");
+                    method_lookup = NULL;
+                    method_supplier = NULL;
+                    method_lookup_consistent = 0;
+                    require_true(
+                        enact_class_lookup_super_method_with_supplier(
+                            pair_class,
+                            pair_class,
+                            "id",
+                            &method_lookup,
+                            &method_supplier,
+                            &method_lookup_consistent),
+                        "super method lookup MI first supplier succeeds");
+                    require_true(method_lookup_consistent, "super method lookup MI first supplier consistent");
+                    require_true(method_lookup == function, "super method lookup MI first supplier function");
+                    require_true(method_supplier == left_class, "super method lookup MI first supplier identity");
+                    if (method_lookup) {
+                        enact_function_release(method_lookup);
+                    }
+                    method_lookup = NULL;
+                    method_supplier = NULL;
+                    method_lookup_consistent = 0;
+                    require_true(
+                        enact_class_lookup_super_method_with_supplier(
+                            pair_class,
+                            left_class,
+                            "id",
+                            &method_lookup,
+                            &method_supplier,
+                            &method_lookup_consistent),
+                        "super method lookup MI second supplier succeeds");
+                    require_true(method_lookup_consistent, "super method lookup MI second supplier consistent");
+                    require_true(method_lookup == function, "super method lookup MI second supplier function");
+                    require_true(method_supplier == right_class, "super method lookup MI second supplier identity");
+                    if (method_lookup) {
+                        enact_function_release(method_lookup);
+                    }
+                    enact_class_release(pair_class);
+                }
+            }
+            enact_class_release(left_class);
+            enact_class_release(right_class);
             method_lookup = NULL;
             method_supplier = method_class;
             method_lookup_consistent = 0;

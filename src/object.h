@@ -31,6 +31,13 @@ int enact_class_lookup_method_with_supplier(
     EnactFunction **out,
     EnactClass **supplier_out,
     int *consistent);
+int enact_class_lookup_super_method_with_supplier(
+    EnactClass *receiver_class,
+    EnactClass *current_supplier,
+    const char *name,
+    EnactFunction **out,
+    EnactClass **supplier_out,
+    int *consistent);
 int enact_class_lookup_method(EnactClass *class_value, const char *name, EnactFunction **out, int *consistent);
 int enact_class_method_names(const EnactClass *class_value, EnactList **out);
 int enact_class_effective_method_names(EnactClass *class_value, EnactList **out, int *consistent);

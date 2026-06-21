@@ -828,6 +828,59 @@ int enact_class_lookup_method_with_supplier(
     return 1;
 }
 
+int enact_class_lookup_super_method_with_supplier(
+    EnactClass *receiver_class,
+    EnactClass *current_supplier,
+    const char *name,
+    EnactFunction **out,
+    EnactClass **supplier_out,
+    int *consistent)
+{
+    EnactClassVector linearization = {0};
+    EnactFunction *function;
+    int is_consistent = 1;
+    size_t start_index;
+    size_t index;
+
+    if (!receiver_class || !current_supplier || !name || !out || !supplier_out || !consistent) {
+        return 0;
+    }
+
+    *out = NULL;
+    *supplier_out = NULL;
+    if (!enact_class_linearization_vector(receiver_class, &linearization, 0, &is_consistent)) {
+        return 0;
+    }
+    if (!is_consistent) {
+        enact_class_vector_free(&linearization);
+        *consistent = 0;
+        return 1;
+    }
+
+    start_index = linearization.count;
+    for (index = 0; index < linearization.count; index += 1) {
+        if (linearization.items[index] == current_supplier) {
+            start_index = index + 1;
+            break;
+        }
+    }
+
+    for (index = start_index; index < linearization.count; index += 1) {
+        function = enact_class_lookup_direct_method(linearization.items[index], name);
+        if (function) {
+            *out = function;
+            *supplier_out = linearization.items[index];
+            enact_class_vector_free(&linearization);
+            *consistent = 1;
+            return 1;
+        }
+    }
+
+    enact_class_vector_free(&linearization);
+    *consistent = 1;
+    return 1;
+}
+
 int enact_class_lookup_method(EnactClass *class_value, const char *name, EnactFunction **out, int *consistent)
 {
     EnactClass *supplier = NULL;
