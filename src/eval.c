@@ -16,7 +16,7 @@ typedef struct EnactEvalMethodContext {
 } EnactEvalMethodContext;
 
 /*
- * Dynamic method execution context for future super.method(...) evaluation.
+ * Dynamic method execution context for super.method(...) evaluation.
  * It deliberately lives outside EnactEnv so closures do not capture it as a
  * normal lexical binding.
  */
@@ -488,7 +488,7 @@ static int enact_eval_make_super_bound_method(const char *name, EnactValue *out,
         !current_method_context->receiver ||
         !current_method_context->receiver_class ||
         !current_method_context->supplier_class) {
-        enact_diag_set(diag, ENACT_ERR_NAME_UNBOUND, -1);
+        enact_diag_set(diag, ENACT_ERR_INVALID_SUPER_CONTEXT, -1);
         return 0;
     }
 

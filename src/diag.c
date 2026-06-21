@@ -49,6 +49,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_NAME_UNBOUND";
     case ENACT_ERR_ATTRIBUTE_UNBOUND:
         return "ENACT_ERR_ATTRIBUTE_UNBOUND";
+    case ENACT_ERR_INVALID_SUPER_CONTEXT:
+        return "ENACT_ERR_INVALID_SUPER_CONTEXT";
     case ENACT_ERR_INCONSISTENT_LINEARIZATION:
         return "ENACT_ERR_INCONSISTENT_LINEARIZATION";
     case ENACT_ERR_LOAD_FILE:
@@ -109,6 +111,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "unbound identifier";
     case ENACT_ERR_ATTRIBUTE_UNBOUND:
         return "unbound attribute";
+    case ENACT_ERR_INVALID_SUPER_CONTEXT:
+        return "super method access requires an active method context";
     case ENACT_ERR_INCONSISTENT_LINEARIZATION:
         return "inconsistent class linearization";
     case ENACT_ERR_LOAD_FILE:

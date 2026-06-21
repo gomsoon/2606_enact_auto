@@ -150,6 +150,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ARITY_MISMATCH), "ENACT_ERR_ARITY_MISMATCH") == 0, "error code arity mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_NAME_UNBOUND), "ENACT_ERR_NAME_UNBOUND") == 0, "error code unbound name");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ATTRIBUTE_UNBOUND), "ENACT_ERR_ATTRIBUTE_UNBOUND") == 0, "error code unbound attribute");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_INVALID_SUPER_CONTEXT), "ENACT_ERR_INVALID_SUPER_CONTEXT") == 0, "error code invalid super context");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_INCONSISTENT_LINEARIZATION), "ENACT_ERR_INCONSISTENT_LINEARIZATION") == 0, "error code inconsistent linearization");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LOAD_FILE), "ENACT_ERR_LOAD_FILE") == 0, "error code load file");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_OUT_OF_MEMORY), "ENACT_ERR_OUT_OF_MEMORY") == 0, "error code oom");
@@ -171,6 +172,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_ARITY_MISMATCH), "function arity mismatch") == 0, "error message arity mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_NAME_UNBOUND), "unbound identifier") == 0, "error message unbound name");
     require_true(strcmp(enact_error_message(ENACT_ERR_ATTRIBUTE_UNBOUND), "unbound attribute") == 0, "error message unbound attribute");
+    require_true(strcmp(enact_error_message(ENACT_ERR_INVALID_SUPER_CONTEXT), "super method access requires an active method context") == 0, "error message invalid super context");
     require_true(strcmp(enact_error_message(ENACT_ERR_INCONSISTENT_LINEARIZATION), "inconsistent class linearization") == 0, "error message inconsistent linearization");
     require_true(strcmp(enact_error_message(ENACT_ERR_LOAD_FILE), "could not load file") == 0, "error message load file");
     require_true(strcmp(enact_error_message(ENACT_ERR_OUT_OF_MEMORY), "out of memory") == 0, "error message oom");
