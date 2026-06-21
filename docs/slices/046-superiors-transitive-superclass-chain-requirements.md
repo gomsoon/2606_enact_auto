@@ -1,5 +1,7 @@
 # Slice 046: superiors(Class) Transitive Superclass Chain Requirements
 
+Update note: Slice 087 later makes `superiors(object)` behave like `superiors(classof(object))` and changes non-class, non-object misuse to `ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT`.
+
 ## Scope
 
 Slice 046 adds the transitive superclass introspection builtin named by the PRD:

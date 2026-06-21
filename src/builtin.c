@@ -500,16 +500,17 @@ static int enact_builtin_supers(
     EnactValue *out,
     EnactDiag *diag)
 {
+    EnactClass *class_value;
     EnactList *superclasses = NULL;
 
     (void)argument_count;
 
-    if (arguments[0].kind != ENACT_VALUE_CLASS) {
-        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+    class_value = enact_builtin_class_or_object_class(&arguments[0], diag);
+    if (!class_value) {
         return 0;
     }
 
-    if (!enact_class_superclasses(arguments[0].as.as_class, &superclasses)) {
+    if (!enact_class_superclasses(class_value, &superclasses)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }
@@ -553,18 +554,19 @@ static int enact_builtin_superiors(
     EnactValue *out,
     EnactDiag *diag)
 {
+    EnactClass *class_value;
     EnactList *classes = NULL;
     EnactList *superiors = NULL;
     int is_consistent = 1;
 
     (void)argument_count;
 
-    if (arguments[0].kind != ENACT_VALUE_CLASS) {
-        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+    class_value = enact_builtin_class_or_object_class(&arguments[0], diag);
+    if (!class_value) {
         return 0;
     }
 
-    if (!enact_class_linearization_checked(arguments[0].as.as_class, &classes, &is_consistent)) {
+    if (!enact_class_linearization_checked(class_value, &classes, &is_consistent)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }

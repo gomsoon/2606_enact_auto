@@ -752,6 +752,7 @@ static void test_builtin_helpers(void)
     EnactClass *node_class;
     EnactClass *leaf_class;
     EnactObject *object;
+    EnactObject *node_object;
     EnactDiag diag;
     EnactEnv env;
     EnactAst *call;
@@ -907,6 +908,16 @@ static void test_builtin_helpers(void)
         require_true(strcmp(enact_list_head(result.as.as_list)->as.as_atom, "x") == 0, "attrs object head value");
         require_true(enact_list_tail(result.as.as_list) == NULL, "attrs object result tail nil");
         enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(supers, args, 1, &result, &diag), "supers root object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "supers root object result kind");
+        require_true(result.as.as_list == NULL, "supers root object result nil");
+        enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(superiors, args, 1, &result, &diag), "superiors root object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "superiors root object result kind");
+        require_true(result.as.as_list == NULL, "superiors root object result nil");
+        enact_value_free(&result);
         enact_value_free(&args[0]);
         args[0] = enact_value_make_class(object_class);
         enact_diag_reset(&diag);
@@ -985,6 +996,34 @@ static void test_builtin_helpers(void)
                 "superiors subclass head identity");
             require_true(enact_list_tail(result.as.as_list) == NULL, "superiors subclass result tail nil");
             enact_value_free(&result);
+            node_object = enact_object_new(node_class);
+            require_true(node_object != NULL, "supers object test subclass object created");
+            if (node_object) {
+                args[0] = enact_value_make_object(node_object);
+                enact_diag_reset(&diag);
+                require_true(enact_builtin_apply(supers, args, 1, &result, &diag), "supers subclass object apply succeeds");
+                require_true(result.kind == ENACT_VALUE_LIST, "supers subclass object result kind");
+                require_true(result.as.as_list != NULL, "supers subclass object result non-empty");
+                require_true(
+                    enact_list_head(result.as.as_list)->as.as_class == object_class,
+                    "supers subclass object head identity");
+                require_true(enact_list_tail(result.as.as_list) == NULL, "supers subclass object result tail nil");
+                enact_value_free(&result);
+                enact_diag_reset(&diag);
+                require_true(
+                    enact_builtin_apply(superiors, args, 1, &result, &diag),
+                    "superiors subclass object apply succeeds");
+                require_true(result.kind == ENACT_VALUE_LIST, "superiors subclass object result kind");
+                require_true(result.as.as_list != NULL, "superiors subclass object result non-empty");
+                require_true(
+                    enact_list_head(result.as.as_list)->as.as_class == object_class,
+                    "superiors subclass object head identity");
+                require_true(
+                    enact_list_tail(result.as.as_list) == NULL,
+                    "superiors subclass object result tail nil");
+                enact_value_free(&result);
+                enact_value_free(&args[0]);
+            }
             leaf_class = enact_class_new_with_superclass("Leaf", node_class);
             require_true(leaf_class != NULL, "superiors test leaf class created");
             if (leaf_class) {
@@ -1020,10 +1059,10 @@ static void test_builtin_helpers(void)
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_OBJECT, "attrs int error code");
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(supers, args, 1, &result, &diag), "supers int fails");
-    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "supers int error code");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "supers int error code");
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(superiors, args, 1, &result, &diag), "superiors int fails");
-    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "superiors int error code");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, "superiors int error code");
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(methods, args, 1, &result, &diag), "methods int fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "methods int error code");

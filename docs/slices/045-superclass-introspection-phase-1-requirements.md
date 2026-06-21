@@ -1,5 +1,7 @@
 # Slice 045: Superclass Introspection Phase 1 Requirements
 
+Update note: Slice 087 later makes `supers(object)` behave like `supers(classof(object))` and changes non-class, non-object misuse to `ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT`.
+
 ## Scope
 
 Slice 045 adds the first class-inheritance introspection builtin:

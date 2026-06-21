@@ -41,4 +41,4 @@ The returned list elements from `filter` remain the original object values. `OK`
 
 ## Deferred Work
 
-This slice does not make other class introspection helpers such as `classes`, `superiors`, `supers`, or `methods` accept object arguments. It also does not change `OK` into an attribute-ambiguity predicate.
+This slice does not make other class introspection helpers accept object arguments. Slice 087 later adds that compatibility for `supers` and `superiors`; `classes` and `methods` remain deferred. This slice also does not change `OK` into an attribute-ambiguity predicate.
