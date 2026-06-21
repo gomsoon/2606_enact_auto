@@ -74,6 +74,6 @@ This makes `badAttrs` an inspection tool for problematic graphs rather than anot
 
 ## Deferred Work
 
-This slice does not add `suppliers(obj, attr)`, native collection method introspection, `super`, method signature introspection, or method source introspection. `suppliers(Class, attr)` is later added by Slice 084.
+This slice does not add `suppliers(obj, attr)`, native collection method introspection, `super`, method signature introspection, or method source introspection. `suppliers(Class, attr)` is later added by Slice 084, and direct object arguments for ambiguity helpers are later added by Slice 085.
 
 Existing `OK(Class)` remains the Slice 053 linearization-consistency predicate. A later slice can decide whether to add a separate manual-style attribute-uniqueness predicate or extend `OK` with method-name ambiguity once the compatibility contract is explicit.

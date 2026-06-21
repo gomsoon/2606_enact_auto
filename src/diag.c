@@ -35,6 +35,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_TYPE_EXPECTED_CLASS";
     case ENACT_ERR_TYPE_EXPECTED_OBJECT:
         return "ENACT_ERR_TYPE_EXPECTED_OBJECT";
+    case ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT:
+        return "ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT";
     case ENACT_ERR_TYPE_EXPECTED_ATOM:
         return "ENACT_ERR_TYPE_EXPECTED_ATOM";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:
@@ -93,6 +95,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "class value required";
     case ENACT_ERR_TYPE_EXPECTED_OBJECT:
         return "object value required";
+    case ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT:
+        return "class or object value required";
     case ENACT_ERR_TYPE_EXPECTED_ATOM:
         return "atom value required";
     case ENACT_ERR_TYPE_EQUALITY_MISMATCH:

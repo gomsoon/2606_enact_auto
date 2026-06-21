@@ -453,6 +453,23 @@ static int enact_builtin_attrs(
     return 1;
 }
 
+static EnactClass *enact_builtin_class_or_object_class(const EnactValue *value, EnactDiag *diag)
+{
+    if (!value) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, -1);
+        return NULL;
+    }
+    if (value->kind == ENACT_VALUE_CLASS) {
+        return value->as.as_class;
+    }
+    if (value->kind == ENACT_VALUE_OBJECT) {
+        return enact_object_class(value->as.as_object);
+    }
+
+    enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT, -1);
+    return NULL;
+}
+
 static int enact_builtin_methods(
     const EnactValue *arguments,
     size_t argument_count,
@@ -594,15 +611,16 @@ static int enact_builtin_bad_attrs(
     EnactDiag *diag)
 {
     EnactList *names = NULL;
+    EnactClass *class_value;
 
     (void)argument_count;
 
-    if (arguments[0].kind != ENACT_VALUE_CLASS) {
-        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+    class_value = enact_builtin_class_or_object_class(&arguments[0], diag);
+    if (!class_value) {
         return 0;
     }
 
-    if (!enact_class_bad_attribute_names(arguments[0].as.as_class, &names)) {
+    if (!enact_class_bad_attribute_names(class_value, &names)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }
@@ -618,11 +636,12 @@ static int enact_builtin_suppliers(
     EnactDiag *diag)
 {
     EnactList *classes = NULL;
+    EnactClass *class_value;
 
     (void)argument_count;
 
-    if (arguments[0].kind != ENACT_VALUE_CLASS) {
-        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_CLASS, -1);
+    class_value = enact_builtin_class_or_object_class(&arguments[0], diag);
+    if (!class_value) {
         return 0;
     }
     if (arguments[1].kind != ENACT_VALUE_ATOM) {
@@ -630,7 +649,7 @@ static int enact_builtin_suppliers(
         return 0;
     }
 
-    if (!enact_class_attribute_suppliers(arguments[0].as.as_class, arguments[1].as.as_atom, &classes)) {
+    if (!enact_class_attribute_suppliers(class_value, arguments[1].as.as_atom, &classes)) {
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }

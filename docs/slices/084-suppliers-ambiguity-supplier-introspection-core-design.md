@@ -78,6 +78,6 @@ This mirrors `badAttrs`: both operations inspect an inheritance problem without 
 
 ## Deferred Work
 
-This slice does not add object-argument `suppliers(obj, attr)`, native Set-returning manual compatibility, native collection method introspection, `super`, method signature introspection, or method source introspection.
+This slice does not add object-argument `suppliers(obj, attr)`, native Set-returning manual compatibility, native collection method introspection, `super`, method signature introspection, or method source introspection. Object-argument compatibility is later added by Slice 085.
 
 Existing `OK(Class)` remains the Slice 053 linearization-consistency predicate. A later slice can decide whether to add a separate manual-style attribute-uniqueness predicate or extend `OK` with method-name ambiguity once the compatibility contract is explicit.

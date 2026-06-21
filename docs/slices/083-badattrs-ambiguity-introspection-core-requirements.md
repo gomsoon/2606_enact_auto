@@ -21,6 +21,7 @@ The manual describes `badAttrs` as the attributes, including inherited attribute
 - If one superclass overrides a shared ancestor method and another superclass inherits the ancestor method, the two distinct supplier classes shall make that method bad.
 - Ambiguity inherited through a superclass shall remain visible to subclasses until masked by a direct method definition.
 - `badAttrs(classof(object))` shall work by composing existing `classof` introspection with `badAttrs`.
+- `badAttrs(object)` is later added by Slice 085 as a compatibility shorthand for `badAttrs(classof(object))`.
 - `badAttrs` shall remain usable on classes with inconsistent linearization because it does not need to choose a method dispatch order.
 - `badAttrs` shall be a normal first-class builtin and shall compose with `map`, `filter`, `member`, `size`, `all`, and conditionals.
 - User bindings shall be able to shadow `badAttrs`, matching existing builtin behavior.
@@ -30,8 +31,8 @@ The manual describes `badAttrs` as the attributes, including inherited attribute
 
 - `badAttrs` shall have arity one.
 - Over-application shall report `ENACT_ERR_ARITY_MISMATCH` without evaluating impossible extra arguments.
-- Non-class arguments shall report `ENACT_ERR_TYPE_EXPECTED_CLASS`.
-- Object values shall not be accepted directly; users should call `badAttrs(classof(obj))` when starting from an object.
+- Non-class, non-object arguments shall report `ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT` after Slice 085.
+- Object values are later accepted directly by Slice 085.
 - Misusing the returned list as an integer, boolean, or callable shall follow existing list-value error behavior.
 
 ## Regression Requirements
@@ -63,7 +64,6 @@ Robustness coverage shall include:
 - over-application without evaluating an impossible extra argument.
 - non-class primitive values.
 - list, object, function, and builtin values.
-- subclass object misuse when `classof` is not used.
 - list result misuse as an integer.
 - list result misuse as a boolean.
 - list result misuse as a callable.

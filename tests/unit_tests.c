@@ -143,6 +143,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_LIST), "ENACT_ERR_TYPE_EXPECTED_LIST") == 0, "error code expected list");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_CLASS), "ENACT_ERR_TYPE_EXPECTED_CLASS") == 0, "error code expected class");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_OBJECT), "ENACT_ERR_TYPE_EXPECTED_OBJECT") == 0, "error code expected object");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT), "ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT") == 0, "error code expected class or object");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_ATOM), "ENACT_ERR_TYPE_EXPECTED_ATOM") == 0, "error code expected atom");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "ENACT_ERR_TYPE_EQUALITY_MISMATCH") == 0, "error code equality mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LIST_EMPTY), "ENACT_ERR_LIST_EMPTY") == 0, "error code list empty");
@@ -163,6 +164,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_LIST), "list value required") == 0, "error message expected list");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_CLASS), "class value required") == 0, "error message expected class");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_OBJECT), "object value required") == 0, "error message expected object");
+    require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_CLASS_OR_OBJECT), "class or object value required") == 0, "error message expected class or object");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_ATOM), "atom value required") == 0, "error message expected atom");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "cannot compare values of different kinds") == 0, "error message equality mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_LIST_EMPTY), "non-empty list required") == 0, "error message list empty");
