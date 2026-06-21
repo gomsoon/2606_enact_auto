@@ -1071,6 +1071,37 @@ static int enact_bad_attribute_suppliers_to_list(
     return 1;
 }
 
+static int enact_attribute_supplier_classes_to_list(
+    const EnactAttributeSupplierClass *supplier_class,
+    EnactList **out)
+{
+    EnactList *tail = NULL;
+    EnactList *result;
+    EnactValue class_value;
+
+    if (!out) {
+        return 0;
+    }
+    if (!supplier_class) {
+        *out = NULL;
+        return 1;
+    }
+
+    if (!enact_attribute_supplier_classes_to_list(supplier_class->next, &tail)) {
+        return 0;
+    }
+
+    class_value = enact_value_make_class((EnactClass *)supplier_class->class_value);
+    result = enact_list_cons(&class_value, tail);
+    enact_list_release(tail);
+    if (!result) {
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
 int enact_class_bad_attribute_names(const EnactClass *class_value, EnactList **out)
 {
     EnactAttributeSupplier *suppliers = NULL;
@@ -1104,6 +1135,37 @@ int enact_class_bad_attribute_names(const EnactClass *class_value, EnactList **o
 
 done:
     enact_list_release(names);
+    enact_attribute_suppliers_free(suppliers);
+    return ok;
+}
+
+int enact_class_attribute_suppliers(const EnactClass *class_value, const char *name, EnactList **out)
+{
+    EnactAttributeSupplier *suppliers = NULL;
+    EnactAttributeSupplier *supplier;
+    EnactList *classes = NULL;
+    int ok = 0;
+
+    if (!class_value || !name || !out) {
+        return 0;
+    }
+
+    *out = NULL;
+    if (!enact_class_collect_effective_attribute_suppliers(class_value, &suppliers)) {
+        goto done;
+    }
+
+    supplier = enact_attribute_supplier_find(suppliers, name);
+    if (supplier && !enact_attribute_supplier_classes_to_list(supplier->classes, &classes)) {
+        goto done;
+    }
+
+    *out = classes;
+    classes = NULL;
+    ok = 1;
+
+done:
+    enact_list_release(classes);
     enact_attribute_suppliers_free(suppliers);
     return ok;
 }

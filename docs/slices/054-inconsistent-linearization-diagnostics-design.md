@@ -59,6 +59,7 @@ Operations that do not need linearization remain available:
 - `supers(Class)`
 - `methods(Class)`
 - `badAttrs(Class)`, later added by Slice 083
+- `suppliers(Class, attr)`, later added by Slice 084
 - `new Class`
 - `classof(object)`
 - direct object attributes and `attrs(object)`

@@ -143,6 +143,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_LIST), "ENACT_ERR_TYPE_EXPECTED_LIST") == 0, "error code expected list");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_CLASS), "ENACT_ERR_TYPE_EXPECTED_CLASS") == 0, "error code expected class");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_OBJECT), "ENACT_ERR_TYPE_EXPECTED_OBJECT") == 0, "error code expected object");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EXPECTED_ATOM), "ENACT_ERR_TYPE_EXPECTED_ATOM") == 0, "error code expected atom");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "ENACT_ERR_TYPE_EQUALITY_MISMATCH") == 0, "error code equality mismatch");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LIST_EMPTY), "ENACT_ERR_LIST_EMPTY") == 0, "error code list empty");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_ARITY_MISMATCH), "ENACT_ERR_ARITY_MISMATCH") == 0, "error code arity mismatch");
@@ -162,6 +163,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_LIST), "list value required") == 0, "error message expected list");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_CLASS), "class value required") == 0, "error message expected class");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_OBJECT), "object value required") == 0, "error message expected object");
+    require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EXPECTED_ATOM), "atom value required") == 0, "error message expected atom");
     require_true(strcmp(enact_error_message(ENACT_ERR_TYPE_EQUALITY_MISMATCH), "cannot compare values of different kinds") == 0, "error message equality mismatch");
     require_true(strcmp(enact_error_message(ENACT_ERR_LIST_EMPTY), "non-empty list required") == 0, "error message list empty");
     require_true(strcmp(enact_error_message(ENACT_ERR_ARITY_MISMATCH), "function arity mismatch") == 0, "error message arity mismatch");
@@ -681,6 +683,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *supers = enact_builtin_lookup("supers");
     const EnactBuiltin *superiors = enact_builtin_lookup("superiors");
     const EnactBuiltin *ok_builtin = enact_builtin_lookup("OK");
+    const EnactBuiltin *suppliers = enact_builtin_lookup("suppliers");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *set_builtin = enact_builtin_lookup("set");
@@ -718,6 +721,7 @@ static void test_builtin_helpers(void)
     EnactValue head;
     EnactValue args[1];
     EnactValue append_args[2];
+    EnactValue supplier_args[2];
     EnactValue set_args[2];
     EnactValue map_args[2];
     EnactValue predicate_args[2];
@@ -764,6 +768,7 @@ static void test_builtin_helpers(void)
     require_true(supers != NULL, "supers builtin lookup succeeds");
     require_true(superiors != NULL, "superiors builtin lookup succeeds");
     require_true(ok_builtin != NULL, "OK builtin lookup succeeds");
+    require_true(suppliers != NULL, "suppliers builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(set_builtin != NULL, "set builtin lookup succeeds");
@@ -805,6 +810,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(supers) == 1, "supers builtin arity");
     require_true(enact_builtin_arity(superiors) == 1, "superiors builtin arity");
     require_true(enact_builtin_arity(ok_builtin) == 1, "OK builtin arity");
+    require_true(enact_builtin_arity(suppliers) == 2, "suppliers builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_min_arity(set_builtin) == 0, "set builtin min arity");
@@ -931,6 +937,14 @@ static void test_builtin_helpers(void)
         require_true(result.kind == ENACT_VALUE_BOOL, "OK root class result kind");
         require_true(result.as.as_bool, "OK root class result true");
         enact_value_free(&result);
+        supplier_args[0] = enact_value_make_class(object_class);
+        supplier_args[1] = enact_value_make_atom(copy_test_name("missing"));
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(suppliers, supplier_args, 2, &result, &diag), "suppliers missing apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "suppliers missing result kind");
+        require_true(result.as.as_list == NULL, "suppliers missing result nil");
+        enact_value_free(&result);
+        enact_value_free(&supplier_args[1]);
         node_class = enact_class_new_with_superclass("Node", object_class);
         require_true(node_class != NULL, "supers test subclass created");
         if (node_class) {
@@ -1017,6 +1031,18 @@ static void test_builtin_helpers(void)
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(ok_builtin, args, 1, &result, &diag), "OK int fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_CLASS, "OK int error code");
+    object_class = enact_class_new("Object");
+    require_true(object_class != NULL, "suppliers type test class created");
+    if (object_class) {
+        supplier_args[0] = enact_value_make_class(object_class);
+        supplier_args[1] = enact_value_make_int(1);
+        enact_diag_reset(&diag);
+        require_true(!enact_builtin_apply(suppliers, supplier_args, 2, &result, &diag), "suppliers non-atom fails");
+        require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_ATOM, "suppliers non-atom error code");
+        enact_value_free(&supplier_args[0]);
+        enact_value_free(&supplier_args[1]);
+        object_class = NULL;
+    }
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(version_builtin, NULL, 0, &result, &diag), "version apply succeeds");
     require_true(result.kind == ENACT_VALUE_STRING, "version result kind");
@@ -1386,6 +1412,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "superiors", &lookup_value), "lookup installed superiors");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed superiors value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "suppliers", &lookup_value), "lookup installed suppliers");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed suppliers value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "version", &lookup_value), "lookup installed version");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed version value kind");

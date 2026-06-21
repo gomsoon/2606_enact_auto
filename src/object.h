@@ -28,6 +28,7 @@ int enact_class_define_method(EnactClass *class_value, const char *name, EnactFu
 int enact_class_lookup_method(EnactClass *class_value, const char *name, EnactFunction **out, int *consistent);
 int enact_class_method_names(const EnactClass *class_value, EnactList **out);
 int enact_class_bad_attribute_names(const EnactClass *class_value, EnactList **out);
+int enact_class_attribute_suppliers(const EnactClass *class_value, const char *name, EnactList **out);
 
 EnactObject *enact_object_new(EnactClass *class_value);
 EnactObject *enact_object_retain(EnactObject *object);
