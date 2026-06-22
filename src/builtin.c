@@ -941,15 +941,17 @@ static int enact_builtin_callable_params(
     }
 }
 
-static int enact_builtin_callable_remaining_arity(
+static int enact_builtin_callable_remaining_arity_range(
     const EnactValue *value,
-    size_t *out,
+    size_t *min_out,
+    size_t *max_out,
     EnactDiag *diag)
 {
+    size_t min_arity;
     size_t arity;
     size_t captured_count;
 
-    if (!out) {
+    if (!min_out || !max_out) {
         enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
         return 0;
     }
@@ -959,19 +961,30 @@ static int enact_builtin_callable_remaining_arity(
 
     switch (value->kind) {
     case ENACT_VALUE_FUNCTION:
-        *out = enact_function_arity(value->as.as_function);
+        arity = enact_function_arity(value->as.as_function);
+        *min_out = arity;
+        *max_out = arity;
         return 1;
     case ENACT_VALUE_BUILTIN:
-        *out = enact_builtin_arity(value->as.as_builtin);
-        return 1;
-    case ENACT_VALUE_BUILTIN_PARTIAL:
-        arity = enact_builtin_arity(enact_builtin_partial_builtin(value->as.as_builtin_partial));
-        captured_count = enact_builtin_partial_argument_count(value->as.as_builtin_partial);
-        if (captured_count > arity) {
+        min_arity = enact_builtin_min_arity(value->as.as_builtin);
+        arity = enact_builtin_arity(value->as.as_builtin);
+        if (min_arity > arity) {
             enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
             return 0;
         }
-        *out = arity - captured_count;
+        *min_out = min_arity;
+        *max_out = arity;
+        return 1;
+    case ENACT_VALUE_BUILTIN_PARTIAL:
+        min_arity = enact_builtin_min_arity(enact_builtin_partial_builtin(value->as.as_builtin_partial));
+        arity = enact_builtin_arity(enact_builtin_partial_builtin(value->as.as_builtin_partial));
+        captured_count = enact_builtin_partial_argument_count(value->as.as_builtin_partial);
+        if (min_arity > arity || captured_count > arity) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+        *min_out = min_arity > captured_count ? min_arity - captured_count : 0;
+        *max_out = arity - captured_count;
         return 1;
     case ENACT_VALUE_BOUND_OBJECT_METHOD: {
         EnactBoundObjectMethod *method = value->as.as_bound_object_method;
@@ -983,7 +996,9 @@ static int enact_builtin_callable_remaining_arity(
             enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
             return 0;
         }
-        *out = arity - captured_count;
+        arity -= captured_count;
+        *min_out = arity;
+        *max_out = arity;
         return 1;
     }
     case ENACT_VALUE_BOUND_COLLECTION_METHOD: {
@@ -999,13 +1014,25 @@ static int enact_builtin_callable_remaining_arity(
             enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
             return 0;
         }
-        *out = arity - 1 - captured_count;
+        arity = arity - 1 - captured_count;
+        *min_out = arity;
+        *max_out = arity;
         return 1;
     }
     default:
         enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
         return 0;
     }
+}
+
+static int enact_builtin_callable_remaining_arity(
+    const EnactValue *value,
+    size_t *out,
+    EnactDiag *diag)
+{
+    size_t min_arity;
+
+    return enact_builtin_callable_remaining_arity_range(value, &min_arity, out, diag);
 }
 
 static int enact_builtin_callable_arity(
@@ -1027,6 +1054,62 @@ static int enact_builtin_callable_arity(
     }
 
     *out = enact_value_make_int((int32_t)arity);
+    return 1;
+}
+
+static int enact_builtin_int_pair_list(int32_t first, int32_t second, EnactList **out)
+{
+    EnactValue first_value;
+    EnactValue second_value;
+    EnactList *second_node;
+    EnactList *first_node;
+
+    if (!out) {
+        return 0;
+    }
+
+    second_value = enact_value_make_int(second);
+    second_node = enact_list_cons(&second_value, NULL);
+    if (!second_node) {
+        return 0;
+    }
+
+    first_value = enact_value_make_int(first);
+    first_node = enact_list_cons(&first_value, second_node);
+    enact_list_release(second_node);
+    if (!first_node) {
+        return 0;
+    }
+
+    *out = first_node;
+    return 1;
+}
+
+static int enact_builtin_callable_arity_range(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *range = NULL;
+    size_t min_arity;
+    size_t max_arity;
+
+    (void)argument_count;
+
+    if (!enact_builtin_callable_remaining_arity_range(&arguments[0], &min_arity, &max_arity, diag)) {
+        return 0;
+    }
+    if (min_arity > (size_t)INT_MAX || max_arity > (size_t)INT_MAX) {
+        enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
+        return 0;
+    }
+    if (!enact_builtin_int_pair_list((int32_t)min_arity, (int32_t)max_arity, &range)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_list(range);
     return 1;
 }
 
@@ -2719,6 +2802,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("methodParams", 2, enact_builtin_method_params),
     ENACT_BUILTIN("callableArity", 1, enact_builtin_callable_arity),
     ENACT_BUILTIN("callableParams", 1, enact_builtin_callable_params),
+    ENACT_BUILTIN("callableArityRange", 1, enact_builtin_callable_arity_range),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("list", 1, enact_builtin_list),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set),

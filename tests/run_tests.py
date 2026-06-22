@@ -4332,6 +4332,61 @@ def main() -> int:
         ("callableParams:=1\ncallableParams(hd)\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
     ]
 
+    slice_101_boundary_success_cases = [
+        ("callableArityRange(x::x)\n", "1:1:nil\n"),
+        ("callableArityRange((x,y)::x+y)\n", "2:2:nil\n"),
+        ("callableArityRange(()::1)\n", "0:0:nil\n"),
+        ("f(x,y,z):=x+y+z\ncallableArityRange(f)\n", "<function>\n3:3:nil\n"),
+        (
+            "add:=(x,y,z)::x+y+z\np:=add(1)\ncallableArityRange(p)\n",
+            "<function>\n<function>\n2:2:nil\n",
+        ),
+        ("callableArityRange(hd)\n", "1:1:nil\n"),
+        ("callableArityRange(append)\n", "2:2:nil\n"),
+        ("callableArityRange(set)\n", "0:1:nil\n"),
+        ("callableArityRange(bag)\n", "0:1:nil\n"),
+        ("p:=append(nil)\ncallableArityRange(p)\n", "<function>\n1:1:nil\n"),
+        ("callableArity(set)==hd(tl(callableArityRange(set)))\n", "true\n"),
+        (
+            "class A < Object\nA.f(x,y):=x+y\ncallableArityRange((new A).f)\n",
+            "<class A>\n<function>\n2:2:nil\n",
+        ),
+        (
+            "class A < Object\nA.f(x,y):=x+y\nm:=(new A).f(1)\ncallableArityRange(m)\n",
+            "<class A>\n<function>\n<function>\n1:1:nil\n",
+        ),
+        (
+            "class A < Object\nA.f():=1\ncallableArityRange((new A).f)\n",
+            "<class A>\n<function>\n0:0:nil\n",
+        ),
+        ("callableArityRange(set().size)\n", "0:0:nil\n"),
+        ("callableArityRange(set().member)\n", "1:1:nil\n"),
+        (
+            "m:=set((1,2)).reduce((acc,x)::acc+x)\ncallableArityRange(m)\n",
+            "<function>\n1:1:nil\n",
+        ),
+        ("map(callableArityRange,(hd,set,x::x))\n", "(1:1:nil):(0:1:nil):(1:1:nil):nil\n"),
+        ("callableArityRange:=x::42\ncallableArityRange(hd)\n", "<function>\n42\n"),
+    ]
+
+    slice_101_robustness_failure_cases = [
+        ("callableArityRange()\n", "ENACT_ERR_ARITY_MISMATCH"),
+        ("callableArityRange(hd,1/0)\n", "ENACT_ERR_ARITY_MISMATCH"),
+        ("callableArityRange(1)\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("callableArityRange(true)\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("callableArityRange(\"x\")\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("callableArityRange(nil)\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("callableArityRange((1,2))\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("callableArityRange(Object)\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("callableArityRange(new Object)\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("not callableArityRange(hd)\n", "ENACT_ERR_TYPE_EXPECTED_BOOL"),
+        ("callableArityRange(hd)+1\n", "ENACT_ERR_TYPE_EXPECTED_INT"),
+        ("callableArityRange(hd)(1)\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("p:=callableArityRange\np(1)\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("callableArityRange(set())\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+        ("callableArityRange:=1\ncallableArityRange(hd)\n", "ENACT_ERR_TYPE_EXPECTED_FUNCTION"),
+    ]
+
     token_cases = [
         ("-1.", "TOK_UMINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
         ("1-2.", "TOK_INT_LITERAL TOK_MINUS TOK_INT_LITERAL TOK_DOT TOK_EOF\n"),
@@ -4477,7 +4532,7 @@ def main() -> int:
         ("1 if x where x:=true else 2.", "1\n"),
         ("true and x where x:=true.", "true\n"),
         ("x:=1; (x where x:=2); x.", "1\n"),
-    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases + slice_010_boundary_success_cases + slice_011_boundary_success_cases + slice_012_boundary_success_cases + slice_013_boundary_success_cases + slice_014_boundary_success_cases + slice_015_boundary_success_cases + slice_016_boundary_success_cases + slice_017_boundary_success_cases + slice_018_boundary_success_cases + slice_019_boundary_success_cases + slice_020_boundary_success_cases + slice_021_boundary_success_cases + slice_022_boundary_success_cases + slice_023_boundary_success_cases + slice_024_boundary_success_cases + slice_025_boundary_success_cases + slice_026_boundary_success_cases + slice_027_boundary_success_cases + slice_028_boundary_success_cases + slice_029_boundary_success_cases + slice_031_boundary_success_cases + slice_032_boundary_success_cases + slice_033_boundary_success_cases + slice_034_boundary_success_cases + slice_035_boundary_success_cases + slice_036_boundary_success_cases + slice_037_boundary_success_cases + slice_038_boundary_success_cases + slice_039_boundary_success_cases + slice_040_boundary_success_cases + slice_041_boundary_success_cases + slice_042_boundary_success_cases + slice_043_boundary_success_cases + slice_044_boundary_success_cases + slice_045_boundary_success_cases + slice_046_boundary_success_cases + slice_047_boundary_success_cases + slice_048_boundary_success_cases + slice_049_boundary_success_cases + slice_050_boundary_success_cases + slice_051_boundary_success_cases + slice_052_boundary_success_cases + slice_053_boundary_success_cases + slice_054_boundary_success_cases + slice_055_boundary_success_cases + slice_056_boundary_success_cases + slice_057_boundary_success_cases + slice_058_boundary_success_cases + slice_059_boundary_success_cases + slice_060_boundary_success_cases + slice_061_boundary_success_cases + slice_062_boundary_success_cases + slice_063_boundary_success_cases + slice_064_boundary_success_cases + slice_065_boundary_success_cases + slice_066_boundary_success_cases + slice_067_boundary_success_cases + slice_068_boundary_success_cases + slice_069_boundary_success_cases + slice_070_boundary_success_cases + slice_071_boundary_success_cases + slice_072_boundary_success_cases + slice_073_boundary_success_cases + slice_074_boundary_success_cases + slice_075_boundary_success_cases + slice_076_boundary_success_cases + slice_077_boundary_success_cases + slice_078_boundary_success_cases + slice_079_boundary_success_cases + slice_080_boundary_success_cases + slice_081_boundary_success_cases + slice_082_boundary_success_cases + slice_083_boundary_success_cases + slice_084_boundary_success_cases + slice_085_boundary_success_cases + slice_086_boundary_success_cases + slice_087_boundary_success_cases + slice_088_boundary_success_cases + slice_089_boundary_success_cases + slice_090_boundary_success_cases + slice_091_boundary_success_cases + slice_092_boundary_success_cases + slice_093_boundary_success_cases + slice_094_boundary_success_cases + slice_095_boundary_success_cases + slice_096_boundary_success_cases + slice_097_boundary_success_cases + slice_098_boundary_success_cases + slice_099_boundary_success_cases + slice_100_boundary_success_cases
+    ] + slice_008_boundary_success_cases + slice_009_boundary_success_cases + slice_010_boundary_success_cases + slice_011_boundary_success_cases + slice_012_boundary_success_cases + slice_013_boundary_success_cases + slice_014_boundary_success_cases + slice_015_boundary_success_cases + slice_016_boundary_success_cases + slice_017_boundary_success_cases + slice_018_boundary_success_cases + slice_019_boundary_success_cases + slice_020_boundary_success_cases + slice_021_boundary_success_cases + slice_022_boundary_success_cases + slice_023_boundary_success_cases + slice_024_boundary_success_cases + slice_025_boundary_success_cases + slice_026_boundary_success_cases + slice_027_boundary_success_cases + slice_028_boundary_success_cases + slice_029_boundary_success_cases + slice_031_boundary_success_cases + slice_032_boundary_success_cases + slice_033_boundary_success_cases + slice_034_boundary_success_cases + slice_035_boundary_success_cases + slice_036_boundary_success_cases + slice_037_boundary_success_cases + slice_038_boundary_success_cases + slice_039_boundary_success_cases + slice_040_boundary_success_cases + slice_041_boundary_success_cases + slice_042_boundary_success_cases + slice_043_boundary_success_cases + slice_044_boundary_success_cases + slice_045_boundary_success_cases + slice_046_boundary_success_cases + slice_047_boundary_success_cases + slice_048_boundary_success_cases + slice_049_boundary_success_cases + slice_050_boundary_success_cases + slice_051_boundary_success_cases + slice_052_boundary_success_cases + slice_053_boundary_success_cases + slice_054_boundary_success_cases + slice_055_boundary_success_cases + slice_056_boundary_success_cases + slice_057_boundary_success_cases + slice_058_boundary_success_cases + slice_059_boundary_success_cases + slice_060_boundary_success_cases + slice_061_boundary_success_cases + slice_062_boundary_success_cases + slice_063_boundary_success_cases + slice_064_boundary_success_cases + slice_065_boundary_success_cases + slice_066_boundary_success_cases + slice_067_boundary_success_cases + slice_068_boundary_success_cases + slice_069_boundary_success_cases + slice_070_boundary_success_cases + slice_071_boundary_success_cases + slice_072_boundary_success_cases + slice_073_boundary_success_cases + slice_074_boundary_success_cases + slice_075_boundary_success_cases + slice_076_boundary_success_cases + slice_077_boundary_success_cases + slice_078_boundary_success_cases + slice_079_boundary_success_cases + slice_080_boundary_success_cases + slice_081_boundary_success_cases + slice_082_boundary_success_cases + slice_083_boundary_success_cases + slice_084_boundary_success_cases + slice_085_boundary_success_cases + slice_086_boundary_success_cases + slice_087_boundary_success_cases + slice_088_boundary_success_cases + slice_089_boundary_success_cases + slice_090_boundary_success_cases + slice_091_boundary_success_cases + slice_092_boundary_success_cases + slice_093_boundary_success_cases + slice_094_boundary_success_cases + slice_095_boundary_success_cases + slice_096_boundary_success_cases + slice_097_boundary_success_cases + slice_098_boundary_success_cases + slice_099_boundary_success_cases + slice_100_boundary_success_cases + slice_101_boundary_success_cases
 
     failure_cases = [
         ("1", "ENACT_ERR_PARSE_MISSING_DOT"),
@@ -4578,7 +4633,7 @@ def main() -> int:
         ("x:=y.", "ENACT_ERR_NAME_UNBOUND"),
         ("x+1; x:=2.", "ENACT_ERR_NAME_UNBOUND"),
         ("x:=1; y.", "ENACT_ERR_NAME_UNBOUND"),
-    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases + slice_010_robustness_failure_cases + slice_011_robustness_failure_cases + slice_012_robustness_failure_cases + slice_013_robustness_failure_cases + slice_014_robustness_failure_cases + slice_015_robustness_failure_cases + slice_016_robustness_failure_cases + slice_017_robustness_failure_cases + slice_018_robustness_failure_cases + slice_019_robustness_failure_cases + slice_020_robustness_failure_cases + slice_021_robustness_failure_cases + slice_022_robustness_failure_cases + slice_023_robustness_failure_cases + slice_024_robustness_failure_cases + slice_025_robustness_failure_cases + slice_026_robustness_failure_cases + slice_027_robustness_failure_cases + slice_028_robustness_failure_cases + slice_029_robustness_failure_cases + slice_031_robustness_failure_cases + slice_032_robustness_failure_cases + slice_033_robustness_failure_cases + slice_034_robustness_failure_cases + slice_035_robustness_failure_cases + slice_036_robustness_failure_cases + slice_037_robustness_failure_cases + slice_038_robustness_failure_cases + slice_039_robustness_failure_cases + slice_040_robustness_failure_cases + slice_041_robustness_failure_cases + slice_042_robustness_failure_cases + slice_043_robustness_failure_cases + slice_044_robustness_failure_cases + slice_045_robustness_failure_cases + slice_046_robustness_failure_cases + slice_047_robustness_failure_cases + slice_048_robustness_failure_cases + slice_049_robustness_failure_cases + slice_050_robustness_failure_cases + slice_051_robustness_failure_cases + slice_052_robustness_failure_cases + slice_053_robustness_failure_cases + slice_054_robustness_failure_cases + slice_055_robustness_failure_cases + slice_056_robustness_failure_cases + slice_057_robustness_failure_cases + slice_058_robustness_failure_cases + slice_059_robustness_failure_cases + slice_060_robustness_failure_cases + slice_061_robustness_failure_cases + slice_062_robustness_failure_cases + slice_063_robustness_failure_cases + slice_064_robustness_failure_cases + slice_065_robustness_failure_cases + slice_066_robustness_failure_cases + slice_067_robustness_failure_cases + slice_068_robustness_failure_cases + slice_069_robustness_failure_cases + slice_070_robustness_failure_cases + slice_071_robustness_failure_cases + slice_072_robustness_failure_cases + slice_073_robustness_failure_cases + slice_074_robustness_failure_cases + slice_075_robustness_failure_cases + slice_076_robustness_failure_cases + slice_077_robustness_failure_cases + slice_078_robustness_failure_cases + slice_079_robustness_failure_cases + slice_080_robustness_failure_cases + slice_081_robustness_failure_cases + slice_082_robustness_failure_cases + slice_083_robustness_failure_cases + slice_084_robustness_failure_cases + slice_085_robustness_failure_cases + slice_086_robustness_failure_cases + slice_087_robustness_failure_cases + slice_088_robustness_failure_cases + slice_089_robustness_failure_cases + slice_090_robustness_failure_cases + slice_091_robustness_failure_cases + slice_092_robustness_failure_cases + slice_093_robustness_failure_cases + slice_094_robustness_failure_cases + slice_095_robustness_failure_cases + slice_096_robustness_failure_cases + slice_097_robustness_failure_cases + slice_098_robustness_failure_cases + slice_099_robustness_failure_cases + slice_100_robustness_failure_cases
+    ] + slice_008_robustness_failure_cases + slice_009_robustness_failure_cases + slice_010_robustness_failure_cases + slice_011_robustness_failure_cases + slice_012_robustness_failure_cases + slice_013_robustness_failure_cases + slice_014_robustness_failure_cases + slice_015_robustness_failure_cases + slice_016_robustness_failure_cases + slice_017_robustness_failure_cases + slice_018_robustness_failure_cases + slice_019_robustness_failure_cases + slice_020_robustness_failure_cases + slice_021_robustness_failure_cases + slice_022_robustness_failure_cases + slice_023_robustness_failure_cases + slice_024_robustness_failure_cases + slice_025_robustness_failure_cases + slice_026_robustness_failure_cases + slice_027_robustness_failure_cases + slice_028_robustness_failure_cases + slice_029_robustness_failure_cases + slice_031_robustness_failure_cases + slice_032_robustness_failure_cases + slice_033_robustness_failure_cases + slice_034_robustness_failure_cases + slice_035_robustness_failure_cases + slice_036_robustness_failure_cases + slice_037_robustness_failure_cases + slice_038_robustness_failure_cases + slice_039_robustness_failure_cases + slice_040_robustness_failure_cases + slice_041_robustness_failure_cases + slice_042_robustness_failure_cases + slice_043_robustness_failure_cases + slice_044_robustness_failure_cases + slice_045_robustness_failure_cases + slice_046_robustness_failure_cases + slice_047_robustness_failure_cases + slice_048_robustness_failure_cases + slice_049_robustness_failure_cases + slice_050_robustness_failure_cases + slice_051_robustness_failure_cases + slice_052_robustness_failure_cases + slice_053_robustness_failure_cases + slice_054_robustness_failure_cases + slice_055_robustness_failure_cases + slice_056_robustness_failure_cases + slice_057_robustness_failure_cases + slice_058_robustness_failure_cases + slice_059_robustness_failure_cases + slice_060_robustness_failure_cases + slice_061_robustness_failure_cases + slice_062_robustness_failure_cases + slice_063_robustness_failure_cases + slice_064_robustness_failure_cases + slice_065_robustness_failure_cases + slice_066_robustness_failure_cases + slice_067_robustness_failure_cases + slice_068_robustness_failure_cases + slice_069_robustness_failure_cases + slice_070_robustness_failure_cases + slice_071_robustness_failure_cases + slice_072_robustness_failure_cases + slice_073_robustness_failure_cases + slice_074_robustness_failure_cases + slice_075_robustness_failure_cases + slice_076_robustness_failure_cases + slice_077_robustness_failure_cases + slice_078_robustness_failure_cases + slice_079_robustness_failure_cases + slice_080_robustness_failure_cases + slice_081_robustness_failure_cases + slice_082_robustness_failure_cases + slice_083_robustness_failure_cases + slice_084_robustness_failure_cases + slice_085_robustness_failure_cases + slice_086_robustness_failure_cases + slice_087_robustness_failure_cases + slice_088_robustness_failure_cases + slice_089_robustness_failure_cases + slice_090_robustness_failure_cases + slice_091_robustness_failure_cases + slice_092_robustness_failure_cases + slice_093_robustness_failure_cases + slice_094_robustness_failure_cases + slice_095_robustness_failure_cases + slice_096_robustness_failure_cases + slice_097_robustness_failure_cases + slice_098_robustness_failure_cases + slice_099_robustness_failure_cases + slice_100_robustness_failure_cases + slice_101_robustness_failure_cases
 
     token_failure_cases = [
         ("$x.", "ENACT_ERR_LEX_INVALID_CHAR"),
@@ -4810,6 +4865,8 @@ def main() -> int:
     print(f"slice 099 robustness regression checks: {len(slice_099_robustness_failure_cases)}")
     print(f"slice 100 boundary regression checks: {len(slice_100_boundary_success_cases)}")
     print(f"slice 100 robustness regression checks: {len(slice_100_robustness_failure_cases)}")
+    print(f"slice 101 boundary regression checks: {len(slice_101_boundary_success_cases)}")
+    print(f"slice 101 robustness regression checks: {len(slice_101_robustness_failure_cases)}")
     return 0
 
 
