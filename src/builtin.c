@@ -243,14 +243,19 @@ static int enact_builtin_require_same_collection_kind(
     return 1;
 }
 
+static int enact_builtin_value_is_callable(const EnactValue *value)
+{
+    return value &&
+           (value->kind == ENACT_VALUE_FUNCTION ||
+            value->kind == ENACT_VALUE_BUILTIN ||
+            value->kind == ENACT_VALUE_BUILTIN_PARTIAL ||
+            value->kind == ENACT_VALUE_BOUND_OBJECT_METHOD ||
+            value->kind == ENACT_VALUE_BOUND_COLLECTION_METHOD);
+}
+
 static int enact_builtin_require_callable(const EnactValue *value, EnactDiag *diag)
 {
-    if (!value ||
-        (value->kind != ENACT_VALUE_FUNCTION &&
-         value->kind != ENACT_VALUE_BUILTIN &&
-         value->kind != ENACT_VALUE_BUILTIN_PARTIAL &&
-         value->kind != ENACT_VALUE_BOUND_OBJECT_METHOD &&
-         value->kind != ENACT_VALUE_BOUND_COLLECTION_METHOD)) {
+    if (!enact_builtin_value_is_callable(value)) {
         enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
         return 0;
     }
@@ -407,6 +412,32 @@ static int enact_builtin_is_object(
     (void)diag;
 
     *out = enact_value_make_bool(arguments[0].kind == ENACT_VALUE_OBJECT);
+    return 1;
+}
+
+static int enact_builtin_is_class(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(arguments[0].kind == ENACT_VALUE_CLASS);
+    return 1;
+}
+
+static int enact_builtin_is_callable(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(enact_builtin_value_is_callable(&arguments[0]));
     return 1;
 }
 
@@ -3132,6 +3163,8 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN_PARAMS("tl", 1, enact_builtin_tl, enact_builtin_params_list),
     ENACT_BUILTIN_PARAMS("atom", 1, enact_builtin_atom, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isObject", 1, enact_builtin_is_object, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isClass", 1, enact_builtin_is_class, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isCallable", 1, enact_builtin_is_callable, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("classof", 1, enact_builtin_classof, enact_builtin_params_object),
     ENACT_BUILTIN_PARAMS("attrs", 1, enact_builtin_attrs, enact_builtin_params_object),
     ENACT_BUILTIN_PARAMS("hasAttr", 2, enact_builtin_has_attr, enact_builtin_params_object_attr),
