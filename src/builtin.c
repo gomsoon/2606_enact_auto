@@ -415,6 +415,71 @@ static int enact_builtin_is_object(
     return 1;
 }
 
+static int enact_builtin_is_int(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(arguments[0].kind == ENACT_VALUE_INT);
+    return 1;
+}
+
+static int enact_builtin_is_bool(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(arguments[0].kind == ENACT_VALUE_BOOL);
+    return 1;
+}
+
+static int enact_builtin_is_string(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(arguments[0].kind == ENACT_VALUE_STRING);
+    return 1;
+}
+
+static int enact_builtin_is_list(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(arguments[0].kind == ENACT_VALUE_LIST);
+    return 1;
+}
+
+static int enact_builtin_is_symbol(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(arguments[0].kind == ENACT_VALUE_ATOM);
+    return 1;
+}
+
 static int enact_builtin_is_class(
     const EnactValue *arguments,
     size_t argument_count,
@@ -3214,6 +3279,11 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN_PARAMS("tl", 1, enact_builtin_tl, enact_builtin_params_list),
     ENACT_BUILTIN_PARAMS("atom", 1, enact_builtin_atom, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isObject", 1, enact_builtin_is_object, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isInt", 1, enact_builtin_is_int, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isBool", 1, enact_builtin_is_bool, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isString", 1, enact_builtin_is_string, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isList", 1, enact_builtin_is_list, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isSymbol", 1, enact_builtin_is_symbol, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isClass", 1, enact_builtin_is_class, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isCallable", 1, enact_builtin_is_callable, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isCollection", 1, enact_builtin_is_collection, enact_builtin_params_value),
