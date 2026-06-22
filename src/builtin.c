@@ -799,24 +799,27 @@ static int enact_builtin_method_arity(
     return 1;
 }
 
-static int enact_builtin_method_params_to_list(const EnactFunction *method, EnactList **out)
+static int enact_builtin_function_params_to_list(
+    const EnactFunction *function,
+    size_t start_index,
+    EnactList **out)
 {
     EnactList *result = NULL;
     size_t index;
 
-    if (!method || !out) {
+    if (!function || !out || start_index > enact_function_arity(function)) {
         return 0;
     }
 
-    index = enact_function_arity(method);
-    while (index > 0) {
+    index = enact_function_arity(function);
+    while (index > start_index) {
         const char *name;
         char *name_copy;
         EnactValue name_value;
         EnactList *next;
 
         index -= 1;
-        name = enact_function_param_name(method, index);
+        name = enact_function_param_name(function, index);
         name_copy = enact_builtin_copy_text(name);
         if (!name_copy) {
             enact_list_release(result);
@@ -878,7 +881,7 @@ static int enact_builtin_method_params(
         return 1;
     }
 
-    if (!enact_builtin_method_params_to_list(method, &params)) {
+    if (!enact_builtin_function_params_to_list(method, 0, &params)) {
         enact_function_release(method);
         enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
@@ -887,6 +890,55 @@ static int enact_builtin_method_params(
 
     *out = enact_value_make_list(params);
     return 1;
+}
+
+static int enact_builtin_callable_params(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactList *params = NULL;
+
+    (void)argument_count;
+
+    if (!enact_builtin_require_callable(&arguments[0], diag)) {
+        return 0;
+    }
+
+    switch (arguments[0].kind) {
+    case ENACT_VALUE_FUNCTION:
+        if (!enact_builtin_function_params_to_list(arguments[0].as.as_function, 0, &params)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        *out = enact_value_make_list(params);
+        return 1;
+    case ENACT_VALUE_BUILTIN:
+    case ENACT_VALUE_BUILTIN_PARTIAL:
+    case ENACT_VALUE_BOUND_COLLECTION_METHOD:
+        *out = enact_value_make_list(NULL);
+        return 1;
+    case ENACT_VALUE_BOUND_OBJECT_METHOD: {
+        EnactBoundObjectMethod *method = arguments[0].as.as_bound_object_method;
+        EnactFunction *function = enact_bound_object_method_function(method);
+        size_t captured_count = enact_bound_object_method_argument_count(method);
+
+        if (!function || captured_count > enact_function_arity(function)) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+        if (!enact_builtin_function_params_to_list(function, captured_count, &params)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        *out = enact_value_make_list(params);
+        return 1;
+    }
+    default:
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
+        return 0;
+    }
 }
 
 static int enact_builtin_callable_remaining_arity(
@@ -2666,6 +2718,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("methodArity", 2, enact_builtin_method_arity),
     ENACT_BUILTIN("methodParams", 2, enact_builtin_method_params),
     ENACT_BUILTIN("callableArity", 1, enact_builtin_callable_arity),
+    ENACT_BUILTIN("callableParams", 1, enact_builtin_callable_params),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("list", 1, enact_builtin_list),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set),
