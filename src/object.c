@@ -279,7 +279,7 @@ static int enact_class_inherits_name(const EnactClass *class_value, const char *
     return 0;
 }
 
-static EnactCollectionKind enact_class_collection_kind(const EnactClass *class_value)
+EnactCollectionKind enact_class_collection_kind(const EnactClass *class_value)
 {
     if (enact_class_inherits_name(class_value, "Set")) {
         return ENACT_COLLECTION_SET;

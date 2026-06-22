@@ -472,6 +472,30 @@ static EnactClass *enact_builtin_class_or_object_class(const EnactValue *value, 
     return NULL;
 }
 
+static int enact_builtin_native_collection_method_signature(
+    const EnactClass *class_value,
+    const char *method_name,
+    const EnactBuiltin **builtin_out,
+    size_t *receiver_index_out)
+{
+    EnactCollectionKind collection_kind;
+
+    if (!class_value || !method_name || !builtin_out || !receiver_index_out) {
+        return 0;
+    }
+
+    collection_kind = enact_class_collection_kind(class_value);
+    if (collection_kind == ENACT_COLLECTION_NONE) {
+        return 0;
+    }
+
+    return enact_builtin_collection_method(
+        collection_kind,
+        method_name,
+        builtin_out,
+        receiver_index_out);
+}
+
 static int enact_builtin_methods(
     const EnactValue *arguments,
     size_t argument_count,
@@ -757,7 +781,9 @@ static int enact_builtin_method_arity(
     EnactClass *class_value;
     EnactClass *supplier = NULL;
     EnactFunction *method = NULL;
+    const EnactBuiltin *native_builtin = NULL;
     size_t arity;
+    size_t receiver_index = 0;
     int is_consistent = 1;
 
     (void)argument_count;
@@ -784,13 +810,25 @@ static int enact_builtin_method_arity(
         enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
         return 0;
     }
-    if (!method) {
+    if (method) {
+        arity = enact_function_arity(method);
+        enact_function_release(method);
+    } else if (enact_builtin_native_collection_method_signature(
+            class_value,
+            arguments[1].as.as_atom,
+            &native_builtin,
+            &receiver_index)) {
+        arity = enact_builtin_arity(native_builtin);
+        if (arity == 0 || receiver_index >= arity) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+        arity -= 1;
+    } else {
         *out = enact_value_make_list(NULL);
         return 1;
     }
 
-    arity = enact_function_arity(method);
-    enact_function_release(method);
     if (arity > (size_t)INT_MAX) {
         enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
         return 0;
@@ -898,23 +936,17 @@ static int enact_builtin_params_to_list(
         out);
 }
 
-static int enact_builtin_bound_collection_params_to_list(
-    const EnactBoundCollectionMethod *method,
+static int enact_builtin_collection_method_params_to_list(
+    const EnactBuiltin *builtin,
+    size_t receiver_index,
+    size_t captured_count,
     EnactList **out)
 {
-    const EnactBuiltin *builtin;
     EnactList *result = NULL;
     size_t arity;
-    size_t receiver_index;
-    size_t captured_count;
     size_t index;
 
-    if (!method || !out) {
-        return 0;
-    }
-
-    builtin = enact_bound_collection_method_builtin(method);
-    if (!builtin) {
+    if (!builtin || !out) {
         return 0;
     }
     if (!builtin->param_names) {
@@ -923,8 +955,6 @@ static int enact_builtin_bound_collection_params_to_list(
     }
 
     arity = enact_builtin_arity(builtin);
-    receiver_index = enact_bound_collection_method_receiver_index(method);
-    captured_count = enact_bound_collection_method_argument_count(method);
     if (arity == 0 || receiver_index >= arity || captured_count > arity - 1) {
         return 0;
     }
@@ -952,6 +982,21 @@ static int enact_builtin_bound_collection_params_to_list(
     return 1;
 }
 
+static int enact_builtin_bound_collection_params_to_list(
+    const EnactBoundCollectionMethod *method,
+    EnactList **out)
+{
+    if (!method) {
+        return 0;
+    }
+
+    return enact_builtin_collection_method_params_to_list(
+        enact_bound_collection_method_builtin(method),
+        enact_bound_collection_method_receiver_index(method),
+        enact_bound_collection_method_argument_count(method),
+        out);
+}
+
 static int enact_builtin_method_params(
     const EnactValue *arguments,
     size_t argument_count,
@@ -961,7 +1006,9 @@ static int enact_builtin_method_params(
     EnactClass *class_value;
     EnactClass *supplier = NULL;
     EnactFunction *method = NULL;
+    const EnactBuiltin *native_builtin = NULL;
     EnactList *params = NULL;
+    size_t receiver_index = 0;
     int is_consistent = 1;
 
     (void)argument_count;
@@ -988,17 +1035,30 @@ static int enact_builtin_method_params(
         enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
         return 0;
     }
-    if (!method) {
+    if (method) {
+        if (!enact_builtin_function_params_to_list(method, 0, &params)) {
+            enact_function_release(method);
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        enact_function_release(method);
+    } else if (enact_builtin_native_collection_method_signature(
+            class_value,
+            arguments[1].as.as_atom,
+            &native_builtin,
+            &receiver_index)) {
+        if (!enact_builtin_collection_method_params_to_list(
+                native_builtin,
+                receiver_index,
+                0,
+                &params)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+    } else {
         *out = enact_value_make_list(NULL);
         return 1;
     }
-
-    if (!enact_builtin_function_params_to_list(method, 0, &params)) {
-        enact_function_release(method);
-        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
-        return 0;
-    }
-    enact_function_release(method);
 
     *out = enact_value_make_list(params);
     return 1;

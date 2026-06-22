@@ -19,6 +19,7 @@ EnactClass *enact_class_new_with_superclasses(const char *name, EnactList *super
 EnactClass *enact_class_retain(EnactClass *class_value);
 void enact_class_release(EnactClass *class_value);
 const char *enact_class_name(const EnactClass *class_value);
+EnactCollectionKind enact_class_collection_kind(const EnactClass *class_value);
 EnactClass *enact_class_superclass(const EnactClass *class_value);
 int enact_class_superclasses(const EnactClass *class_value, EnactList **out);
 int enact_class_linearization(EnactClass *class_value, EnactList **out);
