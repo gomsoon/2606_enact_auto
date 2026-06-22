@@ -1075,6 +1075,9 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *is_object = enact_builtin_lookup("isObject");
     const EnactBuiltin *is_class = enact_builtin_lookup("isClass");
     const EnactBuiltin *is_callable = enact_builtin_lookup("isCallable");
+    const EnactBuiltin *is_collection = enact_builtin_lookup("isCollection");
+    const EnactBuiltin *is_set = enact_builtin_lookup("isSet");
+    const EnactBuiltin *is_bag = enact_builtin_lookup("isBag");
     const EnactBuiltin *classof = enact_builtin_lookup("classof");
     const EnactBuiltin *attrs = enact_builtin_lookup("attrs");
     const EnactBuiltin *has_attr = enact_builtin_lookup("hasAttr");
@@ -1173,6 +1176,9 @@ static void test_builtin_helpers(void)
     require_true(is_object != NULL, "isObject builtin lookup succeeds");
     require_true(is_class != NULL, "isClass builtin lookup succeeds");
     require_true(is_callable != NULL, "isCallable builtin lookup succeeds");
+    require_true(is_collection != NULL, "isCollection builtin lookup succeeds");
+    require_true(is_set != NULL, "isSet builtin lookup succeeds");
+    require_true(is_bag != NULL, "isBag builtin lookup succeeds");
     require_true(classof != NULL, "classof builtin lookup succeeds");
     require_true(attrs != NULL, "attrs builtin lookup succeeds");
     require_true(has_attr != NULL, "hasAttr builtin lookup succeeds");
@@ -1227,6 +1233,9 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(is_object) == 1, "isObject builtin arity");
     require_true(enact_builtin_arity(is_class) == 1, "isClass builtin arity");
     require_true(enact_builtin_arity(is_callable) == 1, "isCallable builtin arity");
+    require_true(enact_builtin_arity(is_collection) == 1, "isCollection builtin arity");
+    require_true(enact_builtin_arity(is_set) == 1, "isSet builtin arity");
+    require_true(enact_builtin_arity(is_bag) == 1, "isBag builtin arity");
     require_true(enact_builtin_arity(classof) == 1, "classof builtin arity");
     require_true(enact_builtin_arity(attrs) == 1, "attrs builtin arity");
     require_true(enact_builtin_arity(has_attr) == 2, "hasAttr builtin arity");
@@ -1365,6 +1374,23 @@ static void test_builtin_helpers(void)
         require_true(enact_builtin_apply(is_callable, args, 1, &result, &diag), "isCallable object apply succeeds");
         require_true(result.kind == ENACT_VALUE_BOOL, "isCallable object result kind");
         require_true(!result.as.as_bool, "isCallable object result false");
+        enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(
+            enact_builtin_apply(is_collection, args, 1, &result, &diag),
+            "isCollection object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "isCollection object result kind");
+        require_true(!result.as.as_bool, "isCollection object result false");
+        enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(is_set, args, 1, &result, &diag), "isSet object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "isSet object result kind");
+        require_true(!result.as.as_bool, "isSet object result false");
+        enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(is_bag, args, 1, &result, &diag), "isBag object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "isBag object result kind");
+        require_true(!result.as.as_bool, "isBag object result false");
         enact_value_free(&result);
         enact_diag_reset(&diag);
         require_true(enact_builtin_apply(atom, args, 1, &result, &diag), "atom object apply succeeds");
@@ -2116,6 +2142,15 @@ static void test_builtin_helpers(void)
     require_true(enact_env_lookup(&env, "isCallable", &lookup_value), "lookup installed isCallable");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isCallable value kind");
     enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "isCollection", &lookup_value), "lookup installed isCollection");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isCollection value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "isSet", &lookup_value), "lookup installed isSet");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isSet value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "isBag", &lookup_value), "lookup installed isBag");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isBag value kind");
+    enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "classof", &lookup_value), "lookup installed classof");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed classof value kind");
     enact_value_free(&lookup_value);
@@ -2273,6 +2308,22 @@ static void test_builtin_helpers(void)
         enact_object_collection_kind(result.as.as_object) == ENACT_COLLECTION_SET,
         "set object collection kind");
     require_true(enact_object_collection_items(result.as.as_object) == NULL, "set object collection items nil");
+    args[0] = result;
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_collection, args, 1, &lookup_value, &diag), "isCollection set apply succeeds");
+    require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isCollection set result kind");
+    require_true(lookup_value.as.as_bool, "isCollection set result true");
+    enact_value_free(&lookup_value);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_set, args, 1, &lookup_value, &diag), "isSet set apply succeeds");
+    require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isSet set result kind");
+    require_true(lookup_value.as.as_bool, "isSet set result true");
+    enact_value_free(&lookup_value);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_bag, args, 1, &lookup_value, &diag), "isBag set apply succeeds");
+    require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isBag set result kind");
+    require_true(!lookup_value.as.as_bool, "isBag set result false");
+    enact_value_free(&lookup_value);
     {
         EnactValue query_args[2];
         EnactValue query_result;
@@ -2423,6 +2474,22 @@ static void test_builtin_helpers(void)
         enact_object_collection_kind(result.as.as_object) == ENACT_COLLECTION_BAG,
         "bag object collection kind");
     require_true(enact_object_collection_items(result.as.as_object) == NULL, "bag object collection items nil");
+    args[0] = result;
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_collection, args, 1, &lookup_value, &diag), "isCollection bag apply succeeds");
+    require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isCollection bag result kind");
+    require_true(lookup_value.as.as_bool, "isCollection bag result true");
+    enact_value_free(&lookup_value);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_set, args, 1, &lookup_value, &diag), "isSet bag apply succeeds");
+    require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isSet bag result kind");
+    require_true(!lookup_value.as.as_bool, "isSet bag result false");
+    enact_value_free(&lookup_value);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_bag, args, 1, &lookup_value, &diag), "isBag bag apply succeeds");
+    require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isBag bag result kind");
+    require_true(lookup_value.as.as_bool, "isBag bag result true");
+    enact_value_free(&lookup_value);
     {
         EnactValue query_args[2];
         EnactValue query_result;

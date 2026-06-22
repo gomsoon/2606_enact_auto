@@ -441,6 +441,57 @@ static int enact_builtin_is_callable(
     return 1;
 }
 
+static EnactCollectionKind enact_builtin_value_collection_kind(const EnactValue *value)
+{
+    if (!value || value->kind != ENACT_VALUE_OBJECT) {
+        return ENACT_COLLECTION_NONE;
+    }
+
+    return enact_object_collection_kind(value->as.as_object);
+}
+
+static int enact_builtin_is_collection(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(
+        enact_builtin_value_collection_kind(&arguments[0]) != ENACT_COLLECTION_NONE);
+    return 1;
+}
+
+static int enact_builtin_is_set(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(
+        enact_builtin_value_collection_kind(&arguments[0]) == ENACT_COLLECTION_SET);
+    return 1;
+}
+
+static int enact_builtin_is_bag(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(
+        enact_builtin_value_collection_kind(&arguments[0]) == ENACT_COLLECTION_BAG);
+    return 1;
+}
+
 static int enact_builtin_classof(
     const EnactValue *arguments,
     size_t argument_count,
@@ -3165,6 +3216,9 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN_PARAMS("isObject", 1, enact_builtin_is_object, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isClass", 1, enact_builtin_is_class, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isCallable", 1, enact_builtin_is_callable, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isCollection", 1, enact_builtin_is_collection, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isSet", 1, enact_builtin_is_set, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isBag", 1, enact_builtin_is_bag, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("classof", 1, enact_builtin_classof, enact_builtin_params_object),
     ENACT_BUILTIN_PARAMS("attrs", 1, enact_builtin_attrs, enact_builtin_params_object),
     ENACT_BUILTIN_PARAMS("hasAttr", 2, enact_builtin_has_attr, enact_builtin_params_object_attr),
