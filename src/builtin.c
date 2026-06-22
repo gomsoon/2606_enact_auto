@@ -467,6 +467,20 @@ static int enact_builtin_is_list(
     return 1;
 }
 
+static int enact_builtin_is_nil(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    (void)argument_count;
+    (void)diag;
+
+    *out = enact_value_make_bool(
+        arguments[0].kind == ENACT_VALUE_LIST && arguments[0].as.as_list == NULL);
+    return 1;
+}
+
 static int enact_builtin_is_symbol(
     const EnactValue *arguments,
     size_t argument_count,
@@ -3283,6 +3297,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN_PARAMS("isBool", 1, enact_builtin_is_bool, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isString", 1, enact_builtin_is_string, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isList", 1, enact_builtin_is_list, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isNil", 1, enact_builtin_is_nil, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isSymbol", 1, enact_builtin_is_symbol, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isClass", 1, enact_builtin_is_class, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("isCallable", 1, enact_builtin_is_callable, enact_builtin_params_value),

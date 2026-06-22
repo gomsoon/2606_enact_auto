@@ -1077,6 +1077,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *is_bool = enact_builtin_lookup("isBool");
     const EnactBuiltin *is_string = enact_builtin_lookup("isString");
     const EnactBuiltin *is_list = enact_builtin_lookup("isList");
+    const EnactBuiltin *is_nil = enact_builtin_lookup("isNil");
     const EnactBuiltin *is_symbol = enact_builtin_lookup("isSymbol");
     const EnactBuiltin *is_class = enact_builtin_lookup("isClass");
     const EnactBuiltin *is_callable = enact_builtin_lookup("isCallable");
@@ -1183,6 +1184,7 @@ static void test_builtin_helpers(void)
     require_true(is_bool != NULL, "isBool builtin lookup succeeds");
     require_true(is_string != NULL, "isString builtin lookup succeeds");
     require_true(is_list != NULL, "isList builtin lookup succeeds");
+    require_true(is_nil != NULL, "isNil builtin lookup succeeds");
     require_true(is_symbol != NULL, "isSymbol builtin lookup succeeds");
     require_true(is_class != NULL, "isClass builtin lookup succeeds");
     require_true(is_callable != NULL, "isCallable builtin lookup succeeds");
@@ -1245,6 +1247,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(is_bool) == 1, "isBool builtin arity");
     require_true(enact_builtin_arity(is_string) == 1, "isString builtin arity");
     require_true(enact_builtin_arity(is_list) == 1, "isList builtin arity");
+    require_true(enact_builtin_arity(is_nil) == 1, "isNil builtin arity");
     require_true(enact_builtin_arity(is_symbol) == 1, "isSymbol builtin arity");
     require_true(enact_builtin_arity(is_class) == 1, "isClass builtin arity");
     require_true(enact_builtin_arity(is_callable) == 1, "isCallable builtin arity");
@@ -1391,6 +1394,11 @@ static void test_builtin_helpers(void)
     require_true(!result.as.as_bool, "isList int result false");
     enact_value_free(&result);
     enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_nil, args, 1, &result, &diag), "isNil int apply succeeds");
+    require_true(result.kind == ENACT_VALUE_BOOL, "isNil int result kind");
+    require_true(!result.as.as_bool, "isNil int result false");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
     require_true(enact_builtin_apply(is_symbol, args, 1, &result, &diag), "isSymbol int apply succeeds");
     require_true(result.kind == ENACT_VALUE_BOOL, "isSymbol int result kind");
     require_true(!result.as.as_bool, "isSymbol int result false");
@@ -1413,6 +1421,21 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_apply(is_list, args, 1, &result, &diag), "isList nil apply succeeds");
     require_true(result.kind == ENACT_VALUE_BOOL, "isList nil result kind");
     require_true(result.as.as_bool, "isList nil result true");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_nil, args, 1, &result, &diag), "isNil nil apply succeeds");
+    require_true(result.kind == ENACT_VALUE_BOOL, "isNil nil result kind");
+    require_true(result.as.as_bool, "isNil nil result true");
+    enact_value_free(&result);
+    enact_value_free(&args[0]);
+    head = enact_value_make_int(1);
+    list = enact_list_cons(&head, NULL);
+    require_true(list != NULL, "isNil non-empty list fixture created");
+    args[0] = enact_value_make_list(list);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_nil, args, 1, &result, &diag), "isNil list apply succeeds");
+    require_true(result.kind == ENACT_VALUE_BOOL, "isNil list result kind");
+    require_true(!result.as.as_bool, "isNil list result false");
     enact_value_free(&result);
     enact_value_free(&args[0]);
     args[0] = enact_value_make_atom(copy_test_name("x"));
@@ -2214,6 +2237,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "isList", &lookup_value), "lookup installed isList");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isList value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "isNil", &lookup_value), "lookup installed isNil");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isNil value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "isSymbol", &lookup_value), "lookup installed isSymbol");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isSymbol value kind");
