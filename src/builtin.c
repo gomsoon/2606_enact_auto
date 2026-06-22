@@ -459,6 +459,42 @@ static int enact_builtin_attrs(
     return 1;
 }
 
+static int enact_builtin_has_attr(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactValue value;
+    int lookup_result;
+
+    (void)argument_count;
+
+    if (arguments[0].kind != ENACT_VALUE_OBJECT) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_OBJECT, -1);
+        return 0;
+    }
+    if (arguments[1].kind != ENACT_VALUE_ATOM) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_ATOM, -1);
+        return 0;
+    }
+
+    lookup_result = enact_object_lookup_attribute(
+        arguments[0].as.as_object,
+        arguments[1].as.as_atom,
+        &value);
+    if (lookup_result < 0) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (lookup_result > 0) {
+        enact_value_free(&value);
+    }
+
+    *out = enact_value_make_bool(lookup_result > 0);
+    return 1;
+}
+
 static EnactClass *enact_builtin_class_or_object_class(const EnactValue *value, EnactDiag *diag)
 {
     if (!value) {
@@ -2809,6 +2845,7 @@ static const char *const enact_builtin_params_items[] = {"items"};
 static const char *const enact_builtin_params_collection[] = {"collection"};
 static const char *const enact_builtin_params_collections[] = {"collections"};
 static const char *const enact_builtin_params_left_right[] = {"left", "right"};
+static const char *const enact_builtin_params_object_attr[] = {"object", "attr"};
 static const char *const enact_builtin_params_target_attr[] = {"target", "attr"};
 static const char *const enact_builtin_params_target_method[] = {"target", "method"};
 static const char *const enact_builtin_params_function_collection[] = {"function", "collection"};
@@ -3097,6 +3134,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN_PARAMS("isObject", 1, enact_builtin_is_object, enact_builtin_params_value),
     ENACT_BUILTIN_PARAMS("classof", 1, enact_builtin_classof, enact_builtin_params_object),
     ENACT_BUILTIN_PARAMS("attrs", 1, enact_builtin_attrs, enact_builtin_params_object),
+    ENACT_BUILTIN_PARAMS("hasAttr", 2, enact_builtin_has_attr, enact_builtin_params_object_attr),
     ENACT_BUILTIN_PARAMS("methods", 1, enact_builtin_methods, enact_builtin_params_target),
     ENACT_BUILTIN_PARAMS("effectiveMethods", 1, enact_builtin_effective_methods, enact_builtin_params_target),
     ENACT_BUILTIN_PARAMS("classes", 1, enact_builtin_classes, enact_builtin_params_target),

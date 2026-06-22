@@ -1075,6 +1075,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *is_object = enact_builtin_lookup("isObject");
     const EnactBuiltin *classof = enact_builtin_lookup("classof");
     const EnactBuiltin *attrs = enact_builtin_lookup("attrs");
+    const EnactBuiltin *has_attr = enact_builtin_lookup("hasAttr");
     const EnactBuiltin *methods = enact_builtin_lookup("methods");
     const EnactBuiltin *effective_methods = enact_builtin_lookup("effectiveMethods");
     const EnactBuiltin *classes = enact_builtin_lookup("classes");
@@ -1170,6 +1171,7 @@ static void test_builtin_helpers(void)
     require_true(is_object != NULL, "isObject builtin lookup succeeds");
     require_true(classof != NULL, "classof builtin lookup succeeds");
     require_true(attrs != NULL, "attrs builtin lookup succeeds");
+    require_true(has_attr != NULL, "hasAttr builtin lookup succeeds");
     require_true(methods != NULL, "methods builtin lookup succeeds");
     require_true(effective_methods != NULL, "effectiveMethods builtin lookup succeeds");
     require_true(classes != NULL, "classes builtin lookup succeeds");
@@ -1221,6 +1223,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(is_object) == 1, "isObject builtin arity");
     require_true(enact_builtin_arity(classof) == 1, "classof builtin arity");
     require_true(enact_builtin_arity(attrs) == 1, "attrs builtin arity");
+    require_true(enact_builtin_arity(has_attr) == 2, "hasAttr builtin arity");
     require_true(enact_builtin_arity(methods) == 1, "methods builtin arity");
     require_true(enact_builtin_arity(effective_methods) == 1, "effectiveMethods builtin arity");
     require_true(enact_builtin_arity(classes) == 1, "classes builtin arity");
@@ -1353,6 +1356,16 @@ static void test_builtin_helpers(void)
         require_true(result.kind == ENACT_VALUE_LIST, "attrs empty object result kind");
         require_true(result.as.as_list == NULL, "attrs empty object result nil");
         enact_value_free(&result);
+        supplier_args[0] = args[0];
+        supplier_args[1] = enact_value_make_atom(copy_test_name("x"));
+        enact_diag_reset(&diag);
+        require_true(
+            enact_builtin_apply(has_attr, supplier_args, 2, &result, &diag),
+            "hasAttr missing apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "hasAttr missing result kind");
+        require_true(!result.as.as_bool, "hasAttr missing result false");
+        enact_value_free(&result);
+        enact_value_free(&supplier_args[1]);
         attribute_value = enact_value_make_int(1);
         require_true(enact_object_define_attribute(object, "x", attribute_value), "attrs test attribute define");
         enact_diag_reset(&diag);
@@ -1363,6 +1376,15 @@ static void test_builtin_helpers(void)
         require_true(strcmp(enact_list_head(result.as.as_list)->as.as_atom, "x") == 0, "attrs object head value");
         require_true(enact_list_tail(result.as.as_list) == NULL, "attrs object result tail nil");
         enact_value_free(&result);
+        supplier_args[1] = enact_value_make_atom(copy_test_name("x"));
+        enact_diag_reset(&diag);
+        require_true(
+            enact_builtin_apply(has_attr, supplier_args, 2, &result, &diag),
+            "hasAttr object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "hasAttr object result kind");
+        require_true(result.as.as_bool, "hasAttr object result true");
+        enact_value_free(&result);
+        enact_value_free(&supplier_args[1]);
         enact_diag_reset(&diag);
         require_true(enact_builtin_apply(supers, args, 1, &result, &diag), "supers root object apply succeeds");
         require_true(result.kind == ENACT_VALUE_LIST, "supers root object result kind");
@@ -2057,6 +2079,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "attrs", &lookup_value), "lookup installed attrs");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed attrs value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "hasAttr", &lookup_value), "lookup installed hasAttr");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed hasAttr value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "methods", &lookup_value), "lookup installed methods");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed methods value kind");
