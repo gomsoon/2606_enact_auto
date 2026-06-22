@@ -1086,6 +1086,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *method_arity = enact_builtin_lookup("methodArity");
     const EnactBuiltin *method_params = enact_builtin_lookup("methodParams");
     const EnactBuiltin *callable_arity = enact_builtin_lookup("callableArity");
+    const EnactBuiltin *callable_min_arity = enact_builtin_lookup("callableMinArity");
     const EnactBuiltin *callable_params = enact_builtin_lookup("callableParams");
     const EnactBuiltin *callable_arity_range = enact_builtin_lookup("callableArityRange");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
@@ -1179,6 +1180,7 @@ static void test_builtin_helpers(void)
     require_true(method_arity != NULL, "methodArity builtin lookup succeeds");
     require_true(method_params != NULL, "methodParams builtin lookup succeeds");
     require_true(callable_arity != NULL, "callableArity builtin lookup succeeds");
+    require_true(callable_min_arity != NULL, "callableMinArity builtin lookup succeeds");
     require_true(callable_params != NULL, "callableParams builtin lookup succeeds");
     require_true(callable_arity_range != NULL, "callableArityRange builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
@@ -1228,6 +1230,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(method_arity) == 2, "methodArity builtin arity");
     require_true(enact_builtin_arity(method_params) == 2, "methodParams builtin arity");
     require_true(enact_builtin_arity(callable_arity) == 1, "callableArity builtin arity");
+    require_true(enact_builtin_arity(callable_min_arity) == 1, "callableMinArity builtin arity");
     require_true(enact_builtin_arity(callable_params) == 1, "callableParams builtin arity");
     require_true(enact_builtin_arity(callable_arity_range) == 1, "callableArityRange builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
@@ -1278,6 +1281,13 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_apply(callable_arity, args, 1, &result, &diag), "callableArity builtin apply succeeds");
     require_true(result.kind == ENACT_VALUE_INT, "callableArity builtin result kind");
     require_true(result.as.as_int == 1, "callableArity builtin result value");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(
+        enact_builtin_apply(callable_min_arity, args, 1, &result, &diag),
+        "callableMinArity builtin apply succeeds");
+    require_true(result.kind == ENACT_VALUE_INT, "callableMinArity builtin result kind");
+    require_true(result.as.as_int == 1, "callableMinArity builtin result value");
     enact_value_free(&result);
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(callable_params, args, 1, &result, &diag), "callableParams builtin apply succeeds");
@@ -1777,6 +1787,13 @@ static void test_builtin_helpers(void)
             enact_value_free(&result);
             enact_diag_reset(&diag);
             require_true(
+                enact_builtin_apply(callable_min_arity, args, 1, &result, &diag),
+                "callableMinArity partial apply succeeds");
+            require_true(result.kind == ENACT_VALUE_INT, "callableMinArity partial result kind");
+            require_true(result.as.as_int == 1, "callableMinArity partial result value");
+            enact_value_free(&result);
+            enact_diag_reset(&diag);
+            require_true(
                 enact_builtin_apply(callable_params, args, 1, &result, &diag),
                 "callableParams partial apply succeeds");
             require_true(result.kind == ENACT_VALUE_LIST, "callableParams partial result kind");
@@ -1950,6 +1967,11 @@ static void test_builtin_helpers(void)
     require_true(!enact_builtin_apply(callable_arity, args, 1, &result, &diag), "callableArity non-callable fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_FUNCTION, "callableArity non-callable code");
     enact_diag_reset(&diag);
+    require_true(
+        !enact_builtin_apply(callable_min_arity, args, 1, &result, &diag),
+        "callableMinArity non-callable fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_FUNCTION, "callableMinArity non-callable code");
+    enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(callable_params, args, 1, &result, &diag), "callableParams non-callable fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_FUNCTION, "callableParams non-callable code");
     enact_diag_reset(&diag);
@@ -2045,6 +2067,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "callableArity", &lookup_value), "lookup installed callableArity");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed callableArity value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "callableMinArity", &lookup_value), "lookup installed callableMinArity");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed callableMinArity value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "callableParams", &lookup_value), "lookup installed callableParams");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed callableParams value kind");

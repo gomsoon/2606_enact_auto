@@ -1057,6 +1057,29 @@ static int enact_builtin_callable_arity(
     return 1;
 }
 
+static int enact_builtin_callable_min_arity(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    size_t min_arity;
+    size_t max_arity;
+
+    (void)argument_count;
+
+    if (!enact_builtin_callable_remaining_arity_range(&arguments[0], &min_arity, &max_arity, diag)) {
+        return 0;
+    }
+    if (min_arity > (size_t)INT_MAX) {
+        enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_int((int32_t)min_arity);
+    return 1;
+}
+
 static int enact_builtin_int_pair_list(int32_t first, int32_t second, EnactList **out)
 {
     EnactValue first_value;
@@ -2801,6 +2824,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("methodArity", 2, enact_builtin_method_arity),
     ENACT_BUILTIN("methodParams", 2, enact_builtin_method_params),
     ENACT_BUILTIN("callableArity", 1, enact_builtin_callable_arity),
+    ENACT_BUILTIN("callableMinArity", 1, enact_builtin_callable_min_arity),
     ENACT_BUILTIN("callableParams", 1, enact_builtin_callable_params),
     ENACT_BUILTIN("callableArityRange", 1, enact_builtin_callable_arity_range),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
