@@ -1084,6 +1084,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *suppliers = enact_builtin_lookup("suppliers");
     const EnactBuiltin *method_supplier = enact_builtin_lookup("methodSupplier");
     const EnactBuiltin *method_arity = enact_builtin_lookup("methodArity");
+    const EnactBuiltin *method_params = enact_builtin_lookup("methodParams");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *set_builtin = enact_builtin_lookup("set");
@@ -1173,6 +1174,7 @@ static void test_builtin_helpers(void)
     require_true(suppliers != NULL, "suppliers builtin lookup succeeds");
     require_true(method_supplier != NULL, "methodSupplier builtin lookup succeeds");
     require_true(method_arity != NULL, "methodArity builtin lookup succeeds");
+    require_true(method_params != NULL, "methodParams builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(set_builtin != NULL, "set builtin lookup succeeds");
@@ -1218,6 +1220,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(suppliers) == 2, "suppliers builtin arity");
     require_true(enact_builtin_arity(method_supplier) == 2, "methodSupplier builtin arity");
     require_true(enact_builtin_arity(method_arity) == 2, "methodArity builtin arity");
+    require_true(enact_builtin_arity(method_params) == 2, "methodParams builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_min_arity(set_builtin) == 0, "set builtin min arity");
@@ -1400,6 +1403,15 @@ static void test_builtin_helpers(void)
             "methodArity missing apply succeeds");
         require_true(result.kind == ENACT_VALUE_LIST, "methodArity missing result kind");
         require_true(result.as.as_list == NULL, "methodArity missing result nil");
+        enact_value_free(&result);
+        enact_value_free(&supplier_args[1]);
+        supplier_args[1] = enact_value_make_atom(copy_test_name("missing"));
+        enact_diag_reset(&diag);
+        require_true(
+            enact_builtin_apply(method_params, supplier_args, 2, &result, &diag),
+            "methodParams missing apply succeeds");
+        require_true(result.kind == ENACT_VALUE_LIST, "methodParams missing result kind");
+        require_true(result.as.as_list == NULL, "methodParams missing result nil");
         enact_value_free(&result);
         enact_value_free(&supplier_args[1]);
         node_class = enact_class_new_with_superclass("Node", object_class);

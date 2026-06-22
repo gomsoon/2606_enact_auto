@@ -799,6 +799,96 @@ static int enact_builtin_method_arity(
     return 1;
 }
 
+static int enact_builtin_method_params_to_list(const EnactFunction *method, EnactList **out)
+{
+    EnactList *result = NULL;
+    size_t index;
+
+    if (!method || !out) {
+        return 0;
+    }
+
+    index = enact_function_arity(method);
+    while (index > 0) {
+        const char *name;
+        char *name_copy;
+        EnactValue name_value;
+        EnactList *next;
+
+        index -= 1;
+        name = enact_function_param_name(method, index);
+        name_copy = enact_builtin_copy_text(name);
+        if (!name_copy) {
+            enact_list_release(result);
+            return 0;
+        }
+
+        name_value = enact_value_make_atom(name_copy);
+        next = enact_list_cons(&name_value, result);
+        enact_value_free(&name_value);
+        enact_list_release(result);
+        if (!next) {
+            return 0;
+        }
+        result = next;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_method_params(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactClass *class_value;
+    EnactClass *supplier = NULL;
+    EnactFunction *method = NULL;
+    EnactList *params = NULL;
+    int is_consistent = 1;
+
+    (void)argument_count;
+
+    class_value = enact_builtin_class_or_object_class(&arguments[0], diag);
+    if (!class_value) {
+        return 0;
+    }
+    if (arguments[1].kind != ENACT_VALUE_ATOM) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_ATOM, -1);
+        return 0;
+    }
+
+    if (!enact_class_lookup_method_with_supplier(
+            class_value,
+            arguments[1].as.as_atom,
+            &method,
+            &supplier,
+            &is_consistent)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!is_consistent) {
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+        return 0;
+    }
+    if (!method) {
+        *out = enact_value_make_list(NULL);
+        return 1;
+    }
+
+    if (!enact_builtin_method_params_to_list(method, &params)) {
+        enact_function_release(method);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    enact_function_release(method);
+
+    *out = enact_value_make_list(params);
+    return 1;
+}
+
 static int enact_builtin_version(
     const EnactValue *arguments,
     size_t argument_count,
@@ -2485,6 +2575,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("suppliers", 2, enact_builtin_suppliers),
     ENACT_BUILTIN("methodSupplier", 2, enact_builtin_method_supplier),
     ENACT_BUILTIN("methodArity", 2, enact_builtin_method_arity),
+    ENACT_BUILTIN("methodParams", 2, enact_builtin_method_params),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("list", 1, enact_builtin_list),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set),
