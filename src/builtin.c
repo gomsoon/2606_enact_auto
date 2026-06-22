@@ -67,6 +67,10 @@ static char *enact_builtin_copy_text(const char *text)
     return copy;
 }
 
+static int enact_builtin_effective_methods_add_native_collection_methods(
+    EnactClass *class_value,
+    EnactList **names);
+
 static void enact_builtin_free_argument_values(EnactValue *arguments, size_t argument_count)
 {
     size_t index;
@@ -544,6 +548,11 @@ static int enact_builtin_effective_methods(
     }
     if (!is_consistent) {
         enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+        return 0;
+    }
+    if (!enact_builtin_effective_methods_add_native_collection_methods(class_value, &names)) {
+        enact_list_release(names);
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
         return 0;
     }
 
@@ -3116,6 +3125,130 @@ static const EnactNativeCollectionMethod native_collection_method_table[] = {
 static size_t enact_builtin_collection_method_count(void)
 {
     return sizeof(native_collection_method_table) / sizeof(native_collection_method_table[0]);
+}
+
+static int enact_builtin_list_contains_atom_name(EnactList *list, const char *name, int *out)
+{
+    if (!name || !out) {
+        return 0;
+    }
+
+    while (list) {
+        const EnactValue *head = enact_list_head(list);
+
+        if (!head) {
+            return 0;
+        }
+        if (head->kind == ENACT_VALUE_ATOM && strcmp(head->as.as_atom, name) == 0) {
+            *out = 1;
+            return 1;
+        }
+
+        list = enact_list_tail(list);
+    }
+
+    *out = 0;
+    return 1;
+}
+
+static int enact_builtin_native_collection_method_names_to_list(
+    EnactCollectionKind kind,
+    EnactList *existing_names,
+    size_t index,
+    EnactList **out)
+{
+    const EnactNativeCollectionMethod *method;
+    EnactList *tail = NULL;
+    EnactList *result;
+    EnactValue name_value;
+    char *name_copy;
+    int already_present = 0;
+
+    if (!out) {
+        return 0;
+    }
+    if (index >= enact_builtin_collection_method_count()) {
+        *out = NULL;
+        return 1;
+    }
+
+    if (!enact_builtin_native_collection_method_names_to_list(
+            kind,
+            existing_names,
+            index + 1,
+            &tail)) {
+        return 0;
+    }
+
+    method = &native_collection_method_table[index];
+    if ((method->kinds & (unsigned)kind) == 0) {
+        *out = tail;
+        return 1;
+    }
+    if (!enact_builtin_list_contains_atom_name(existing_names, method->name, &already_present)) {
+        enact_list_release(tail);
+        return 0;
+    }
+    if (already_present) {
+        *out = tail;
+        return 1;
+    }
+
+    name_copy = enact_builtin_copy_text(method->name);
+    if (!name_copy) {
+        enact_list_release(tail);
+        return 0;
+    }
+
+    name_value = enact_value_make_atom(name_copy);
+    result = enact_list_cons(&name_value, tail);
+    enact_value_free(&name_value);
+    enact_list_release(tail);
+    if (!result) {
+        return 0;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_effective_methods_add_native_collection_methods(
+    EnactClass *class_value,
+    EnactList **names)
+{
+    EnactCollectionKind collection_kind;
+    EnactList *native_names = NULL;
+    EnactList *combined_names = NULL;
+
+    if (!class_value || !names) {
+        return 0;
+    }
+
+    collection_kind = enact_class_collection_kind(class_value);
+    if (collection_kind == ENACT_COLLECTION_NONE) {
+        return 1;
+    }
+
+    if (!enact_builtin_native_collection_method_names_to_list(
+            collection_kind,
+            *names,
+            0,
+            &native_names)) {
+        return 0;
+    }
+    if (!native_names) {
+        return 1;
+    }
+
+    if (!enact_builtin_append_lists(*names, native_names, &combined_names)) {
+        enact_list_release(native_names);
+        return 0;
+    }
+
+    enact_list_release(native_names);
+    enact_list_release(*names);
+    *names = combined_names;
+    return 1;
 }
 
 const EnactBuiltin *enact_builtin_lookup(const char *name)
