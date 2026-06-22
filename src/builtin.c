@@ -28,6 +28,7 @@ struct EnactBuiltin {
     size_t arity;
     EnactBuiltinCallback callback;
     EnactBuiltinEnvCallback env_callback;
+    const char *const *param_names;
 };
 
 struct EnactBuiltinPartial {
@@ -799,6 +800,33 @@ static int enact_builtin_method_arity(
     return 1;
 }
 
+static int enact_builtin_prepend_atom_name(const char *name, EnactList **list)
+{
+    char *name_copy;
+    EnactValue name_value;
+    EnactList *next;
+
+    if (!list) {
+        return 0;
+    }
+
+    name_copy = enact_builtin_copy_text(name);
+    if (!name_copy) {
+        return 0;
+    }
+
+    name_value = enact_value_make_atom(name_copy);
+    next = enact_list_cons(&name_value, *list);
+    enact_value_free(&name_value);
+    if (!next) {
+        return 0;
+    }
+
+    enact_list_release(*list);
+    *list = next;
+    return 1;
+}
+
 static int enact_builtin_function_params_to_list(
     const EnactFunction *function,
     size_t start_index,
@@ -813,27 +841,111 @@ static int enact_builtin_function_params_to_list(
 
     index = enact_function_arity(function);
     while (index > start_index) {
-        const char *name;
-        char *name_copy;
-        EnactValue name_value;
-        EnactList *next;
-
         index -= 1;
-        name = enact_function_param_name(function, index);
-        name_copy = enact_builtin_copy_text(name);
-        if (!name_copy) {
+        if (!enact_builtin_prepend_atom_name(enact_function_param_name(function, index), &result)) {
             enact_list_release(result);
             return 0;
         }
+    }
 
-        name_value = enact_value_make_atom(name_copy);
-        next = enact_list_cons(&name_value, result);
-        enact_value_free(&name_value);
-        enact_list_release(result);
-        if (!next) {
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_param_names_to_list(
+    const char *const *param_names,
+    size_t param_count,
+    size_t start_index,
+    EnactList **out)
+{
+    EnactList *result = NULL;
+    size_t index;
+
+    if (!out || start_index > param_count) {
+        return 0;
+    }
+    if (!param_names) {
+        *out = NULL;
+        return 1;
+    }
+
+    index = param_count;
+    while (index > start_index) {
+        index -= 1;
+        if (!enact_builtin_prepend_atom_name(param_names[index], &result)) {
+            enact_list_release(result);
             return 0;
         }
-        result = next;
+    }
+
+    *out = result;
+    return 1;
+}
+
+static int enact_builtin_params_to_list(
+    const EnactBuiltin *builtin,
+    size_t start_index,
+    EnactList **out)
+{
+    if (!builtin) {
+        return 0;
+    }
+
+    return enact_builtin_param_names_to_list(
+        builtin->param_names,
+        enact_builtin_arity(builtin),
+        start_index,
+        out);
+}
+
+static int enact_builtin_bound_collection_params_to_list(
+    const EnactBoundCollectionMethod *method,
+    EnactList **out)
+{
+    const EnactBuiltin *builtin;
+    EnactList *result = NULL;
+    size_t arity;
+    size_t receiver_index;
+    size_t captured_count;
+    size_t index;
+
+    if (!method || !out) {
+        return 0;
+    }
+
+    builtin = enact_bound_collection_method_builtin(method);
+    if (!builtin) {
+        return 0;
+    }
+    if (!builtin->param_names) {
+        *out = NULL;
+        return 1;
+    }
+
+    arity = enact_builtin_arity(builtin);
+    receiver_index = enact_bound_collection_method_receiver_index(method);
+    captured_count = enact_bound_collection_method_argument_count(method);
+    if (arity == 0 || receiver_index >= arity || captured_count > arity - 1) {
+        return 0;
+    }
+
+    index = arity;
+    while (index > 0) {
+        size_t visible_index;
+
+        index -= 1;
+        if (index == receiver_index) {
+            continue;
+        }
+
+        visible_index = index < receiver_index ? index : index - 1;
+        if (visible_index < captured_count) {
+            continue;
+        }
+        if (!enact_builtin_prepend_atom_name(builtin->param_names[index], &result)) {
+            enact_list_release(result);
+            return 0;
+        }
     }
 
     *out = result;
@@ -915,9 +1027,33 @@ static int enact_builtin_callable_params(
         *out = enact_value_make_list(params);
         return 1;
     case ENACT_VALUE_BUILTIN:
-    case ENACT_VALUE_BUILTIN_PARTIAL:
+        if (!enact_builtin_params_to_list(arguments[0].as.as_builtin, 0, &params)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        *out = enact_value_make_list(params);
+        return 1;
+    case ENACT_VALUE_BUILTIN_PARTIAL: {
+        const EnactBuiltin *builtin = enact_builtin_partial_builtin(arguments[0].as.as_builtin_partial);
+        size_t captured_count = enact_builtin_partial_argument_count(arguments[0].as.as_builtin_partial);
+
+        if (!builtin || captured_count > enact_builtin_arity(builtin)) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+        if (!enact_builtin_params_to_list(builtin, captured_count, &params)) {
+            enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+            return 0;
+        }
+        *out = enact_value_make_list(params);
+        return 1;
+    }
     case ENACT_VALUE_BOUND_COLLECTION_METHOD:
-        *out = enact_value_make_list(NULL);
+        if (!enact_builtin_bound_collection_params_to_list(arguments[0].as.as_bound_collection_method, &params)) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+        *out = enact_value_make_list(params);
         return 1;
     case ENACT_VALUE_BOUND_OBJECT_METHOD: {
         EnactBoundObjectMethod *method = arguments[0].as.as_bound_object_method;
@@ -2531,9 +2667,32 @@ static int enact_builtin_equal(
     return 1;
 }
 
-#define ENACT_BUILTIN(name, arity, callback) {name, arity, arity, callback, NULL}
-#define ENACT_ENV_BUILTIN(name, arity, callback) {name, arity, arity, NULL, callback}
-#define ENACT_ENV_BUILTIN_RANGE(name, min_arity, arity, callback) {name, min_arity, arity, NULL, callback}
+#define ENACT_BUILTIN(name, arity, callback) {name, arity, arity, callback, NULL, NULL}
+#define ENACT_BUILTIN_PARAMS(name, arity, callback, params) {name, arity, arity, callback, NULL, params}
+#define ENACT_ENV_BUILTIN(name, arity, callback) {name, arity, arity, NULL, callback, NULL}
+#define ENACT_ENV_BUILTIN_PARAMS(name, arity, callback, params) {name, arity, arity, NULL, callback, params}
+#define ENACT_ENV_BUILTIN_RANGE(name, min_arity, arity, callback, params) \
+    {name, min_arity, arity, NULL, callback, params}
+
+static const char *const enact_builtin_params_value[] = {"value"};
+static const char *const enact_builtin_params_list[] = {"list"};
+static const char *const enact_builtin_params_object[] = {"object"};
+static const char *const enact_builtin_params_target[] = {"target"};
+static const char *const enact_builtin_params_callable[] = {"callable"};
+static const char *const enact_builtin_params_items[] = {"items"};
+static const char *const enact_builtin_params_collection[] = {"collection"};
+static const char *const enact_builtin_params_collections[] = {"collections"};
+static const char *const enact_builtin_params_left_right[] = {"left", "right"};
+static const char *const enact_builtin_params_target_attr[] = {"target", "attr"};
+static const char *const enact_builtin_params_target_method[] = {"target", "method"};
+static const char *const enact_builtin_params_function_collection[] = {"function", "collection"};
+static const char *const enact_builtin_params_predicate_collection[] = {"predicate", "collection"};
+static const char *const enact_builtin_params_value_collection[] = {"value", "collection"};
+static const char *const enact_builtin_params_function_initial_collection[] = {
+    "function",
+    "initial",
+    "collection",
+};
 
 static int enact_builtin_construct_object(
     EnactEnv *env,
@@ -2806,53 +2965,65 @@ static int enact_builtin_union_aggregate(
 }
 
 static const EnactBuiltin builtin_table[] = {
-    ENACT_BUILTIN("hd", 1, enact_builtin_hd),
-    ENACT_BUILTIN("tl", 1, enact_builtin_tl),
-    ENACT_BUILTIN("atom", 1, enact_builtin_atom),
-    ENACT_BUILTIN("isObject", 1, enact_builtin_is_object),
-    ENACT_BUILTIN("classof", 1, enact_builtin_classof),
-    ENACT_BUILTIN("attrs", 1, enact_builtin_attrs),
-    ENACT_BUILTIN("methods", 1, enact_builtin_methods),
-    ENACT_BUILTIN("effectiveMethods", 1, enact_builtin_effective_methods),
-    ENACT_BUILTIN("classes", 1, enact_builtin_classes),
-    ENACT_BUILTIN("supers", 1, enact_builtin_supers),
-    ENACT_BUILTIN("superiors", 1, enact_builtin_superiors),
-    ENACT_BUILTIN("OK", 1, enact_builtin_ok),
-    ENACT_BUILTIN("badAttrs", 1, enact_builtin_bad_attrs),
-    ENACT_BUILTIN("suppliers", 2, enact_builtin_suppliers),
-    ENACT_BUILTIN("methodSupplier", 2, enact_builtin_method_supplier),
-    ENACT_BUILTIN("methodArity", 2, enact_builtin_method_arity),
-    ENACT_BUILTIN("methodParams", 2, enact_builtin_method_params),
-    ENACT_BUILTIN("callableArity", 1, enact_builtin_callable_arity),
-    ENACT_BUILTIN("callableMinArity", 1, enact_builtin_callable_min_arity),
-    ENACT_BUILTIN("callableParams", 1, enact_builtin_callable_params),
-    ENACT_BUILTIN("callableArityRange", 1, enact_builtin_callable_arity_range),
+    ENACT_BUILTIN_PARAMS("hd", 1, enact_builtin_hd, enact_builtin_params_list),
+    ENACT_BUILTIN_PARAMS("tl", 1, enact_builtin_tl, enact_builtin_params_list),
+    ENACT_BUILTIN_PARAMS("atom", 1, enact_builtin_atom, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("isObject", 1, enact_builtin_is_object, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("classof", 1, enact_builtin_classof, enact_builtin_params_object),
+    ENACT_BUILTIN_PARAMS("attrs", 1, enact_builtin_attrs, enact_builtin_params_object),
+    ENACT_BUILTIN_PARAMS("methods", 1, enact_builtin_methods, enact_builtin_params_target),
+    ENACT_BUILTIN_PARAMS("effectiveMethods", 1, enact_builtin_effective_methods, enact_builtin_params_target),
+    ENACT_BUILTIN_PARAMS("classes", 1, enact_builtin_classes, enact_builtin_params_target),
+    ENACT_BUILTIN_PARAMS("supers", 1, enact_builtin_supers, enact_builtin_params_target),
+    ENACT_BUILTIN_PARAMS("superiors", 1, enact_builtin_superiors, enact_builtin_params_target),
+    ENACT_BUILTIN_PARAMS("OK", 1, enact_builtin_ok, enact_builtin_params_target),
+    ENACT_BUILTIN_PARAMS("badAttrs", 1, enact_builtin_bad_attrs, enact_builtin_params_target),
+    ENACT_BUILTIN_PARAMS("suppliers", 2, enact_builtin_suppliers, enact_builtin_params_target_attr),
+    ENACT_BUILTIN_PARAMS(
+        "methodSupplier",
+        2,
+        enact_builtin_method_supplier,
+        enact_builtin_params_target_method),
+    ENACT_BUILTIN_PARAMS("methodArity", 2, enact_builtin_method_arity, enact_builtin_params_target_method),
+    ENACT_BUILTIN_PARAMS("methodParams", 2, enact_builtin_method_params, enact_builtin_params_target_method),
+    ENACT_BUILTIN_PARAMS("callableArity", 1, enact_builtin_callable_arity, enact_builtin_params_callable),
+    ENACT_BUILTIN_PARAMS(
+        "callableMinArity",
+        1,
+        enact_builtin_callable_min_arity,
+        enact_builtin_params_callable),
+    ENACT_BUILTIN_PARAMS("callableParams", 1, enact_builtin_callable_params, enact_builtin_params_callable),
+    ENACT_BUILTIN_PARAMS(
+        "callableArityRange",
+        1,
+        enact_builtin_callable_arity_range,
+        enact_builtin_params_callable),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
-    ENACT_BUILTIN("list", 1, enact_builtin_list),
-    ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set),
-    ENACT_ENV_BUILTIN_RANGE("bag", 0, 1, enact_builtin_bag),
-    ENACT_BUILTIN("append", 2, enact_builtin_append),
-    ENACT_BUILTIN("size", 1, enact_builtin_size),
-    ENACT_BUILTIN("map", 2, enact_builtin_map),
-    ENACT_BUILTIN("collect", 2, enact_builtin_collect),
-    ENACT_BUILTIN("filter", 2, enact_builtin_filter),
-    ENACT_BUILTIN("select", 2, enact_builtin_filter),
-    ENACT_BUILTIN("all", 2, enact_builtin_all),
-    ENACT_BUILTIN("exists", 2, enact_builtin_exists),
-    ENACT_BUILTIN("locate", 2, enact_builtin_locate),
-    ENACT_BUILTIN("forEachDo", 2, enact_builtin_for_each_do),
-    ENACT_BUILTIN("reduce", 3, enact_builtin_reduce),
-    ENACT_BUILTIN("member", 2, enact_builtin_member),
-    ENACT_BUILTIN("insert", 2, enact_builtin_insert),
-    ENACT_BUILTIN("add", 2, enact_builtin_add),
-    ENACT_BUILTIN("remove", 2, enact_builtin_remove),
-    ENACT_BUILTIN("unitset", 1, enact_builtin_unitset),
-    ENACT_BUILTIN("union", 2, enact_builtin_union),
-    ENACT_ENV_BUILTIN("UNION", 1, enact_builtin_union_aggregate),
-    ENACT_BUILTIN("difference", 2, enact_builtin_difference),
-    ENACT_BUILTIN("intersection", 2, enact_builtin_intersection),
-    ENACT_BUILTIN("subset", 2, enact_builtin_subset),
-    ENACT_BUILTIN("equal", 2, enact_builtin_equal),
+    ENACT_BUILTIN_PARAMS("list", 1, enact_builtin_list, enact_builtin_params_value),
+    ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set, enact_builtin_params_items),
+    ENACT_ENV_BUILTIN_RANGE("bag", 0, 1, enact_builtin_bag, enact_builtin_params_items),
+    ENACT_BUILTIN_PARAMS("append", 2, enact_builtin_append, enact_builtin_params_left_right),
+    ENACT_BUILTIN_PARAMS("size", 1, enact_builtin_size, enact_builtin_params_collection),
+    ENACT_BUILTIN_PARAMS("map", 2, enact_builtin_map, enact_builtin_params_function_collection),
+    ENACT_BUILTIN_PARAMS("collect", 2, enact_builtin_collect, enact_builtin_params_function_collection),
+    ENACT_BUILTIN_PARAMS("filter", 2, enact_builtin_filter, enact_builtin_params_predicate_collection),
+    ENACT_BUILTIN_PARAMS("select", 2, enact_builtin_filter, enact_builtin_params_predicate_collection),
+    ENACT_BUILTIN_PARAMS("all", 2, enact_builtin_all, enact_builtin_params_predicate_collection),
+    ENACT_BUILTIN_PARAMS("exists", 2, enact_builtin_exists, enact_builtin_params_predicate_collection),
+    ENACT_BUILTIN_PARAMS("locate", 2, enact_builtin_locate, enact_builtin_params_predicate_collection),
+    ENACT_BUILTIN_PARAMS("forEachDo", 2, enact_builtin_for_each_do, enact_builtin_params_function_collection),
+    ENACT_BUILTIN_PARAMS("reduce", 3, enact_builtin_reduce, enact_builtin_params_function_initial_collection),
+    ENACT_BUILTIN_PARAMS("member", 2, enact_builtin_member, enact_builtin_params_value_collection),
+    ENACT_BUILTIN_PARAMS("insert", 2, enact_builtin_insert, enact_builtin_params_value_collection),
+    ENACT_BUILTIN_PARAMS("add", 2, enact_builtin_add, enact_builtin_params_value_collection),
+    ENACT_BUILTIN_PARAMS("remove", 2, enact_builtin_remove, enact_builtin_params_value_collection),
+    ENACT_BUILTIN_PARAMS("unitset", 1, enact_builtin_unitset, enact_builtin_params_value),
+    ENACT_BUILTIN_PARAMS("union", 2, enact_builtin_union, enact_builtin_params_left_right),
+    ENACT_ENV_BUILTIN_PARAMS("UNION", 1, enact_builtin_union_aggregate, enact_builtin_params_collections),
+    ENACT_BUILTIN_PARAMS("difference", 2, enact_builtin_difference, enact_builtin_params_left_right),
+    ENACT_BUILTIN_PARAMS("intersection", 2, enact_builtin_intersection, enact_builtin_params_left_right),
+    ENACT_BUILTIN_PARAMS("subset", 2, enact_builtin_subset, enact_builtin_params_left_right),
+    ENACT_BUILTIN_PARAMS("equal", 2, enact_builtin_equal, enact_builtin_params_left_right),
 };
 
 static size_t enact_builtin_count(void)

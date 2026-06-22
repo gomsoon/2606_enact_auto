@@ -1292,7 +1292,11 @@ static void test_builtin_helpers(void)
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(callable_params, args, 1, &result, &diag), "callableParams builtin apply succeeds");
     require_true(result.kind == ENACT_VALUE_LIST, "callableParams builtin result kind");
-    require_true(result.as.as_list == NULL, "callableParams builtin result nil");
+    require_true(enact_list_head(result.as.as_list)->kind == ENACT_VALUE_ATOM, "callableParams builtin head kind");
+    require_true(
+        strcmp(enact_list_head(result.as.as_list)->as.as_atom, "list") == 0,
+        "callableParams builtin head value");
+    require_true(enact_list_tail(result.as.as_list) == NULL, "callableParams builtin tail");
     enact_value_free(&result);
     enact_diag_reset(&diag);
     require_true(
@@ -1797,7 +1801,11 @@ static void test_builtin_helpers(void)
                 enact_builtin_apply(callable_params, args, 1, &result, &diag),
                 "callableParams partial apply succeeds");
             require_true(result.kind == ENACT_VALUE_LIST, "callableParams partial result kind");
-            require_true(result.as.as_list == NULL, "callableParams partial result nil");
+            require_true(enact_list_head(result.as.as_list)->kind == ENACT_VALUE_ATOM, "callableParams partial head kind");
+            require_true(
+                strcmp(enact_list_head(result.as.as_list)->as.as_atom, "right") == 0,
+                "callableParams partial head value");
+            require_true(enact_list_tail(result.as.as_list) == NULL, "callableParams partial tail");
             enact_value_free(&result);
             enact_diag_reset(&diag);
             require_true(
