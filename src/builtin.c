@@ -781,6 +781,63 @@ static int enact_builtin_method_supplier(
     return 1;
 }
 
+static int enact_builtin_has_method(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactClass *class_value;
+    EnactFunction *method = NULL;
+    const EnactBuiltin *native_builtin = NULL;
+    size_t native_arity;
+    size_t receiver_index = 0;
+    int is_consistent = 1;
+    int has_method = 0;
+
+    (void)argument_count;
+
+    class_value = enact_builtin_class_or_object_class(&arguments[0], diag);
+    if (!class_value) {
+        return 0;
+    }
+    if (arguments[1].kind != ENACT_VALUE_ATOM) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_ATOM, -1);
+        return 0;
+    }
+
+    if (!enact_class_lookup_method(
+            class_value,
+            arguments[1].as.as_atom,
+            &method,
+            &is_consistent)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!is_consistent) {
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+        return 0;
+    }
+    if (method) {
+        enact_function_release(method);
+        has_method = 1;
+    } else if (enact_builtin_native_collection_method_signature(
+            class_value,
+            arguments[1].as.as_atom,
+            &native_builtin,
+            &receiver_index)) {
+        native_arity = enact_builtin_arity(native_builtin);
+        if (native_arity == 0 || receiver_index >= native_arity) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+        has_method = 1;
+    }
+
+    *out = enact_value_make_bool(has_method != 0);
+    return 1;
+}
+
 static int enact_builtin_method_arity(
     const EnactValue *arguments,
     size_t argument_count,
@@ -3053,6 +3110,7 @@ static const EnactBuiltin builtin_table[] = {
         2,
         enact_builtin_method_supplier,
         enact_builtin_params_target_method),
+    ENACT_BUILTIN_PARAMS("hasMethod", 2, enact_builtin_has_method, enact_builtin_params_target_method),
     ENACT_BUILTIN_PARAMS("methodArity", 2, enact_builtin_method_arity, enact_builtin_params_target_method),
     ENACT_BUILTIN_PARAMS("methodParams", 2, enact_builtin_method_params, enact_builtin_params_target_method),
     ENACT_BUILTIN_PARAMS("callableArity", 1, enact_builtin_callable_arity, enact_builtin_params_callable),

@@ -1083,6 +1083,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *ok_builtin = enact_builtin_lookup("OK");
     const EnactBuiltin *suppliers = enact_builtin_lookup("suppliers");
     const EnactBuiltin *method_supplier = enact_builtin_lookup("methodSupplier");
+    const EnactBuiltin *has_method = enact_builtin_lookup("hasMethod");
     const EnactBuiltin *method_arity = enact_builtin_lookup("methodArity");
     const EnactBuiltin *method_params = enact_builtin_lookup("methodParams");
     const EnactBuiltin *callable_arity = enact_builtin_lookup("callableArity");
@@ -1177,6 +1178,7 @@ static void test_builtin_helpers(void)
     require_true(ok_builtin != NULL, "OK builtin lookup succeeds");
     require_true(suppliers != NULL, "suppliers builtin lookup succeeds");
     require_true(method_supplier != NULL, "methodSupplier builtin lookup succeeds");
+    require_true(has_method != NULL, "hasMethod builtin lookup succeeds");
     require_true(method_arity != NULL, "methodArity builtin lookup succeeds");
     require_true(method_params != NULL, "methodParams builtin lookup succeeds");
     require_true(callable_arity != NULL, "callableArity builtin lookup succeeds");
@@ -1227,6 +1229,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(ok_builtin) == 1, "OK builtin arity");
     require_true(enact_builtin_arity(suppliers) == 2, "suppliers builtin arity");
     require_true(enact_builtin_arity(method_supplier) == 2, "methodSupplier builtin arity");
+    require_true(enact_builtin_arity(has_method) == 2, "hasMethod builtin arity");
     require_true(enact_builtin_arity(method_arity) == 2, "methodArity builtin arity");
     require_true(enact_builtin_arity(method_params) == 2, "methodParams builtin arity");
     require_true(enact_builtin_arity(callable_arity) == 1, "callableArity builtin arity");
@@ -1439,6 +1442,15 @@ static void test_builtin_helpers(void)
             "methodSupplier missing apply succeeds");
         require_true(result.kind == ENACT_VALUE_LIST, "methodSupplier missing result kind");
         require_true(result.as.as_list == NULL, "methodSupplier missing result nil");
+        enact_value_free(&result);
+        enact_value_free(&supplier_args[1]);
+        supplier_args[1] = enact_value_make_atom(copy_test_name("missing"));
+        enact_diag_reset(&diag);
+        require_true(
+            enact_builtin_apply(has_method, supplier_args, 2, &result, &diag),
+            "hasMethod missing apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "hasMethod missing result kind");
+        require_true(!result.as.as_bool, "hasMethod missing result false");
         enact_value_free(&result);
         enact_value_free(&supplier_args[1]);
         supplier_args[1] = enact_value_make_atom(copy_test_name("missing"));
@@ -2066,6 +2078,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "methodSupplier", &lookup_value), "lookup installed methodSupplier");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed methodSupplier value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "hasMethod", &lookup_value), "lookup installed hasMethod");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed hasMethod value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "methodArity", &lookup_value), "lookup installed methodArity");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed methodArity value kind");
