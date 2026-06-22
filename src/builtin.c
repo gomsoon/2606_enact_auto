@@ -747,6 +747,58 @@ static int enact_builtin_method_supplier(
     return 1;
 }
 
+static int enact_builtin_method_arity(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    EnactClass *class_value;
+    EnactClass *supplier = NULL;
+    EnactFunction *method = NULL;
+    size_t arity;
+    int is_consistent = 1;
+
+    (void)argument_count;
+
+    class_value = enact_builtin_class_or_object_class(&arguments[0], diag);
+    if (!class_value) {
+        return 0;
+    }
+    if (arguments[1].kind != ENACT_VALUE_ATOM) {
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_ATOM, -1);
+        return 0;
+    }
+
+    if (!enact_class_lookup_method_with_supplier(
+            class_value,
+            arguments[1].as.as_atom,
+            &method,
+            &supplier,
+            &is_consistent)) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+    if (!is_consistent) {
+        enact_diag_set(diag, ENACT_ERR_INCONSISTENT_LINEARIZATION, -1);
+        return 0;
+    }
+    if (!method) {
+        *out = enact_value_make_list(NULL);
+        return 1;
+    }
+
+    arity = enact_function_arity(method);
+    enact_function_release(method);
+    if (arity > (size_t)INT_MAX) {
+        enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_int((int32_t)arity);
+    return 1;
+}
+
 static int enact_builtin_version(
     const EnactValue *arguments,
     size_t argument_count,
@@ -2432,6 +2484,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("badAttrs", 1, enact_builtin_bad_attrs),
     ENACT_BUILTIN("suppliers", 2, enact_builtin_suppliers),
     ENACT_BUILTIN("methodSupplier", 2, enact_builtin_method_supplier),
+    ENACT_BUILTIN("methodArity", 2, enact_builtin_method_arity),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("list", 1, enact_builtin_list),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set),
