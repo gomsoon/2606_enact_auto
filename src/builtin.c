@@ -889,6 +889,95 @@ static int enact_builtin_method_params(
     return 1;
 }
 
+static int enact_builtin_callable_remaining_arity(
+    const EnactValue *value,
+    size_t *out,
+    EnactDiag *diag)
+{
+    size_t arity;
+    size_t captured_count;
+
+    if (!out) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+    if (!enact_builtin_require_callable(value, diag)) {
+        return 0;
+    }
+
+    switch (value->kind) {
+    case ENACT_VALUE_FUNCTION:
+        *out = enact_function_arity(value->as.as_function);
+        return 1;
+    case ENACT_VALUE_BUILTIN:
+        *out = enact_builtin_arity(value->as.as_builtin);
+        return 1;
+    case ENACT_VALUE_BUILTIN_PARTIAL:
+        arity = enact_builtin_arity(enact_builtin_partial_builtin(value->as.as_builtin_partial));
+        captured_count = enact_builtin_partial_argument_count(value->as.as_builtin_partial);
+        if (captured_count > arity) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+        *out = arity - captured_count;
+        return 1;
+    case ENACT_VALUE_BOUND_OBJECT_METHOD: {
+        EnactBoundObjectMethod *method = value->as.as_bound_object_method;
+        EnactFunction *function = enact_bound_object_method_function(method);
+
+        captured_count = enact_bound_object_method_argument_count(method);
+        arity = enact_function_arity(function);
+        if (!function || captured_count > arity) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+        *out = arity - captured_count;
+        return 1;
+    }
+    case ENACT_VALUE_BOUND_COLLECTION_METHOD: {
+        EnactBoundCollectionMethod *method = value->as.as_bound_collection_method;
+        const EnactBuiltin *builtin = enact_bound_collection_method_builtin(method);
+
+        arity = enact_builtin_arity(builtin);
+        captured_count = enact_bound_collection_method_argument_count(method);
+        if (!builtin ||
+            arity == 0 ||
+            enact_bound_collection_method_receiver_index(method) >= arity ||
+            captured_count > arity - 1) {
+            enact_diag_set(diag, ENACT_ERR_ARITY_MISMATCH, -1);
+            return 0;
+        }
+        *out = arity - 1 - captured_count;
+        return 1;
+    }
+    default:
+        enact_diag_set(diag, ENACT_ERR_TYPE_EXPECTED_FUNCTION, -1);
+        return 0;
+    }
+}
+
+static int enact_builtin_callable_arity(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    size_t arity;
+
+    (void)argument_count;
+
+    if (!enact_builtin_callable_remaining_arity(&arguments[0], &arity, diag)) {
+        return 0;
+    }
+    if (arity > (size_t)INT_MAX) {
+        enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_int((int32_t)arity);
+    return 1;
+}
+
 static int enact_builtin_version(
     const EnactValue *arguments,
     size_t argument_count,
@@ -2576,6 +2665,7 @@ static const EnactBuiltin builtin_table[] = {
     ENACT_BUILTIN("methodSupplier", 2, enact_builtin_method_supplier),
     ENACT_BUILTIN("methodArity", 2, enact_builtin_method_arity),
     ENACT_BUILTIN("methodParams", 2, enact_builtin_method_params),
+    ENACT_BUILTIN("callableArity", 1, enact_builtin_callable_arity),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("list", 1, enact_builtin_list),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set),

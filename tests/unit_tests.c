@@ -1085,6 +1085,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *method_supplier = enact_builtin_lookup("methodSupplier");
     const EnactBuiltin *method_arity = enact_builtin_lookup("methodArity");
     const EnactBuiltin *method_params = enact_builtin_lookup("methodParams");
+    const EnactBuiltin *callable_arity = enact_builtin_lookup("callableArity");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *set_builtin = enact_builtin_lookup("set");
@@ -1175,6 +1176,7 @@ static void test_builtin_helpers(void)
     require_true(method_supplier != NULL, "methodSupplier builtin lookup succeeds");
     require_true(method_arity != NULL, "methodArity builtin lookup succeeds");
     require_true(method_params != NULL, "methodParams builtin lookup succeeds");
+    require_true(callable_arity != NULL, "callableArity builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(set_builtin != NULL, "set builtin lookup succeeds");
@@ -1221,6 +1223,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(method_supplier) == 2, "methodSupplier builtin arity");
     require_true(enact_builtin_arity(method_arity) == 2, "methodArity builtin arity");
     require_true(enact_builtin_arity(method_params) == 2, "methodParams builtin arity");
+    require_true(enact_builtin_arity(callable_arity) == 1, "callableArity builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_min_arity(set_builtin) == 0, "set builtin min arity");
@@ -1264,6 +1267,12 @@ static void test_builtin_helpers(void)
     require_true(builtin_copy.as.as_builtin == builtin_value.as.as_builtin, "builtin copy payload");
     require_true(enact_value_equal(&builtin_value, &builtin_copy, &values_equal), "builtin equality succeeds");
     require_true(values_equal, "builtin equality true");
+    args[0] = builtin_value;
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(callable_arity, args, 1, &result, &diag), "callableArity builtin apply succeeds");
+    require_true(result.kind == ENACT_VALUE_INT, "callableArity builtin result kind");
+    require_true(result.as.as_int == 1, "callableArity builtin result value");
+    enact_value_free(&result);
     enact_value_free(&builtin_copy);
     builtin_value = enact_value_make_builtin(NULL);
     require_true(!enact_value_copy(&builtin_copy, &builtin_value), "null builtin copy fails");
@@ -1736,6 +1745,14 @@ static void test_builtin_helpers(void)
                 require_true(!values_equal, "independent partial equality false");
                 enact_value_free(&other_partial_value);
             }
+            args[0] = partial_value;
+            enact_diag_reset(&diag);
+            require_true(
+                enact_builtin_apply(callable_arity, args, 1, &result, &diag),
+                "callableArity partial apply succeeds");
+            require_true(result.kind == ENACT_VALUE_INT, "callableArity partial result kind");
+            require_true(result.as.as_int == 1, "callableArity partial result value");
+            enact_value_free(&result);
             enact_diag_reset(&diag);
             require_true(
                 enact_builtin_partial_apply(append_partial, &append_args[1], 1, &result, &diag),
@@ -1891,6 +1908,9 @@ static void test_builtin_helpers(void)
 
     args[0] = enact_value_make_bool(true);
     enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(callable_arity, args, 1, &result, &diag), "callableArity non-callable fails");
+    require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_FUNCTION, "callableArity non-callable code");
+    enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(hd, args, 1, &result, &diag), "hd non-list fails");
     require_true(diag.code == ENACT_ERR_TYPE_EXPECTED_LIST, "hd non-list error code");
     enact_diag_reset(&diag);
@@ -1969,6 +1989,15 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "methodSupplier", &lookup_value), "lookup installed methodSupplier");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed methodSupplier value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "methodArity", &lookup_value), "lookup installed methodArity");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed methodArity value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "methodParams", &lookup_value), "lookup installed methodParams");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed methodParams value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "callableArity", &lookup_value), "lookup installed callableArity");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed callableArity value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "version", &lookup_value), "lookup installed version");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed version value kind");
