@@ -1078,6 +1078,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *is_string = enact_builtin_lookup("isString");
     const EnactBuiltin *is_list = enact_builtin_lookup("isList");
     const EnactBuiltin *is_nil = enact_builtin_lookup("isNil");
+    const EnactBuiltin *is_empty = enact_builtin_lookup("isEmpty");
     const EnactBuiltin *is_symbol = enact_builtin_lookup("isSymbol");
     const EnactBuiltin *is_class = enact_builtin_lookup("isClass");
     const EnactBuiltin *is_callable = enact_builtin_lookup("isCallable");
@@ -1185,6 +1186,7 @@ static void test_builtin_helpers(void)
     require_true(is_string != NULL, "isString builtin lookup succeeds");
     require_true(is_list != NULL, "isList builtin lookup succeeds");
     require_true(is_nil != NULL, "isNil builtin lookup succeeds");
+    require_true(is_empty != NULL, "isEmpty builtin lookup succeeds");
     require_true(is_symbol != NULL, "isSymbol builtin lookup succeeds");
     require_true(is_class != NULL, "isClass builtin lookup succeeds");
     require_true(is_callable != NULL, "isCallable builtin lookup succeeds");
@@ -1248,6 +1250,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(is_string) == 1, "isString builtin arity");
     require_true(enact_builtin_arity(is_list) == 1, "isList builtin arity");
     require_true(enact_builtin_arity(is_nil) == 1, "isNil builtin arity");
+    require_true(enact_builtin_arity(is_empty) == 1, "isEmpty builtin arity");
     require_true(enact_builtin_arity(is_symbol) == 1, "isSymbol builtin arity");
     require_true(enact_builtin_arity(is_class) == 1, "isClass builtin arity");
     require_true(enact_builtin_arity(is_callable) == 1, "isCallable builtin arity");
@@ -1399,6 +1402,11 @@ static void test_builtin_helpers(void)
     require_true(!result.as.as_bool, "isNil int result false");
     enact_value_free(&result);
     enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_empty, args, 1, &result, &diag), "isEmpty int apply succeeds");
+    require_true(result.kind == ENACT_VALUE_BOOL, "isEmpty int result kind");
+    require_true(!result.as.as_bool, "isEmpty int result false");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
     require_true(enact_builtin_apply(is_symbol, args, 1, &result, &diag), "isSymbol int apply succeeds");
     require_true(result.kind == ENACT_VALUE_BOOL, "isSymbol int result kind");
     require_true(!result.as.as_bool, "isSymbol int result false");
@@ -1427,6 +1435,11 @@ static void test_builtin_helpers(void)
     require_true(result.kind == ENACT_VALUE_BOOL, "isNil nil result kind");
     require_true(result.as.as_bool, "isNil nil result true");
     enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_empty, args, 1, &result, &diag), "isEmpty nil apply succeeds");
+    require_true(result.kind == ENACT_VALUE_BOOL, "isEmpty nil result kind");
+    require_true(result.as.as_bool, "isEmpty nil result true");
+    enact_value_free(&result);
     enact_value_free(&args[0]);
     head = enact_value_make_int(1);
     list = enact_list_cons(&head, NULL);
@@ -1436,6 +1449,11 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_apply(is_nil, args, 1, &result, &diag), "isNil list apply succeeds");
     require_true(result.kind == ENACT_VALUE_BOOL, "isNil list result kind");
     require_true(!result.as.as_bool, "isNil list result false");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_empty, args, 1, &result, &diag), "isEmpty list apply succeeds");
+    require_true(result.kind == ENACT_VALUE_BOOL, "isEmpty list result kind");
+    require_true(!result.as.as_bool, "isEmpty list result false");
     enact_value_free(&result);
     enact_value_free(&args[0]);
     args[0] = enact_value_make_atom(copy_test_name("x"));
@@ -1481,6 +1499,11 @@ static void test_builtin_helpers(void)
         require_true(enact_builtin_apply(is_bag, args, 1, &result, &diag), "isBag object apply succeeds");
         require_true(result.kind == ENACT_VALUE_BOOL, "isBag object result kind");
         require_true(!result.as.as_bool, "isBag object result false");
+        enact_value_free(&result);
+        enact_diag_reset(&diag);
+        require_true(enact_builtin_apply(is_empty, args, 1, &result, &diag), "isEmpty object apply succeeds");
+        require_true(result.kind == ENACT_VALUE_BOOL, "isEmpty object result kind");
+        require_true(!result.as.as_bool, "isEmpty object result false");
         enact_value_free(&result);
         enact_diag_reset(&diag);
         require_true(enact_builtin_apply(atom, args, 1, &result, &diag), "atom object apply succeeds");
@@ -2241,6 +2264,9 @@ static void test_builtin_helpers(void)
     require_true(enact_env_lookup(&env, "isNil", &lookup_value), "lookup installed isNil");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isNil value kind");
     enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "isEmpty", &lookup_value), "lookup installed isEmpty");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isEmpty value kind");
+    enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "isSymbol", &lookup_value), "lookup installed isSymbol");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed isSymbol value kind");
     enact_value_free(&lookup_value);
@@ -2432,6 +2458,11 @@ static void test_builtin_helpers(void)
     require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isBag set result kind");
     require_true(!lookup_value.as.as_bool, "isBag set result false");
     enact_value_free(&lookup_value);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_empty, args, 1, &lookup_value, &diag), "isEmpty set apply succeeds");
+    require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isEmpty set result kind");
+    require_true(lookup_value.as.as_bool, "isEmpty set result true");
+    enact_value_free(&lookup_value);
     {
         EnactValue query_args[2];
         EnactValue query_result;
@@ -2597,6 +2628,11 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_apply(is_bag, args, 1, &lookup_value, &diag), "isBag bag apply succeeds");
     require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isBag bag result kind");
     require_true(lookup_value.as.as_bool, "isBag bag result true");
+    enact_value_free(&lookup_value);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(is_empty, args, 1, &lookup_value, &diag), "isEmpty bag apply succeeds");
+    require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isEmpty bag result kind");
+    require_true(lookup_value.as.as_bool, "isEmpty bag result true");
     enact_value_free(&lookup_value);
     {
         EnactValue query_args[2];
