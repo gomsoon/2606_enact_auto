@@ -8,6 +8,9 @@ FLEX ?= flex
 
 BUILD_DIR := build
 SRC_DIR := src
+COVERAGE_MIN_LINES ?= 81.0
+COVERAGE_MIN_BRANCHES ?= 73.0
+COVERAGE_REPORT_ARGS ?=
 
 GENERATED_C := $(BUILD_DIR)/enact.tab.c $(BUILD_DIR)/lex.yy.c
 GENERATED_H := $(BUILD_DIR)/enact.tab.h
@@ -93,17 +96,21 @@ $(BUILD_DIR)/unit_tests: $(LIB_OBJS) tests/unit_tests.c
 
 test: $(BUILD_DIR)/enact $(BUILD_DIR)/unit_tests
 	python3 tests/run_tests.py
+	python3 tests/test_coverage_report.py
 	$(BUILD_DIR)/unit_tests
 
 coverage: clean
 	$(MAKE) CFLAGS='-std=c11 -Wall -Wextra -O0 -g --coverage' test
 	gcov -b -c -o $(BUILD_DIR) $(HANDWRITTEN_C_COVERAGE_SRCS) >/dev/null
-	python3 tools/coverage_report.py
+	python3 tools/coverage_report.py $(COVERAGE_REPORT_ARGS)
+
+coverage-check:
+	$(MAKE) coverage COVERAGE_REPORT_ARGS='--min-lines $(COVERAGE_MIN_LINES) --min-branches $(COVERAGE_MIN_BRANCHES)'
 
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -f *.gcov
 
-.PHONY: all test coverage clean
+.PHONY: all test coverage coverage-check clean
 
 -include $(DEPS)
