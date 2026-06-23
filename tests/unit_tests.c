@@ -1104,6 +1104,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *callable_params = enact_builtin_lookup("callableParams");
     const EnactBuiltin *callable_arity_range = enact_builtin_lookup("callableArityRange");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
+    const EnactBuiltin *time_builtin = enact_builtin_lookup("time");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *set_builtin = enact_builtin_lookup("set");
     const EnactBuiltin *bag_builtin = enact_builtin_lookup("bag");
@@ -1212,6 +1213,7 @@ static void test_builtin_helpers(void)
     require_true(callable_params != NULL, "callableParams builtin lookup succeeds");
     require_true(callable_arity_range != NULL, "callableArityRange builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
+    require_true(time_builtin != NULL, "time builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(set_builtin != NULL, "set builtin lookup succeeds");
     require_true(bag_builtin != NULL, "bag builtin lookup succeeds");
@@ -1276,6 +1278,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(callable_params) == 1, "callableParams builtin arity");
     require_true(enact_builtin_arity(callable_arity_range) == 1, "callableArityRange builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
+    require_true(enact_builtin_arity(time_builtin) == 0, "time builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_min_arity(set_builtin) == 0, "set builtin min arity");
     require_true(enact_builtin_min_arity(bag_builtin) == 0, "bag builtin min arity");
@@ -1850,6 +1853,11 @@ static void test_builtin_helpers(void)
     require_true(result.kind == ENACT_VALUE_STRING, "version result kind");
     require_true(strcmp(result.as.as_string, "enact-auto 0.1.0") == 0, "version result value");
     enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(time_builtin, NULL, 0, &result, &diag), "time apply succeeds");
+    require_true(result.kind == ENACT_VALUE_INT, "time result kind");
+    require_true(result.as.as_int >= 0, "time result non-negative");
+    enact_value_free(&result);
     args[0] = enact_value_make_int(1);
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(list_builtin, args, 1, &result, &diag), "list int apply succeeds");
@@ -2338,6 +2346,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "version", &lookup_value), "lookup installed version");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed version value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "time", &lookup_value), "lookup installed time");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed time value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "list", &lookup_value), "lookup installed list");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed list value kind");

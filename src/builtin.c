@@ -1,6 +1,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "builtin.h"
 #include "eval.h"
@@ -1641,6 +1642,27 @@ static int enact_builtin_version(
     }
 
     *out = enact_value_make_string(version);
+    return 1;
+}
+
+static int enact_builtin_time(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    time_t now;
+
+    (void)arguments;
+    (void)argument_count;
+
+    now = time(NULL);
+    if (now < (time_t)0 || now > (time_t)INT_MAX) {
+        enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_int((int32_t)now);
     return 1;
 }
 
@@ -3365,6 +3387,7 @@ static const EnactBuiltin builtin_table[] = {
         enact_builtin_callable_arity_range,
         enact_builtin_params_callable),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
+    ENACT_BUILTIN("time", 0, enact_builtin_time),
     ENACT_BUILTIN_PARAMS("list", 1, enact_builtin_list, enact_builtin_params_value),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set, enact_builtin_params_items),
     ENACT_ENV_BUILTIN_RANGE("bag", 0, 1, enact_builtin_bag, enact_builtin_params_items),
