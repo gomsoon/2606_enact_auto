@@ -98,6 +98,7 @@ test: $(BUILD_DIR)/enact $(BUILD_DIR)/unit_tests
 	python3 tests/run_tests.py
 	python3 tests/test_coverage_report.py
 	python3 tests/test_ci_workflow.py
+	python3 tests/test_release_docs.py
 	$(BUILD_DIR)/unit_tests
 
 coverage: clean
