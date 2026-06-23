@@ -13,6 +13,9 @@ import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 BIN = ROOT / "build" / "enact"
+TTY_POLL_SECONDS = 0.05
+TTY_DRAIN_SECONDS = 0.08
+TTY_EXIT_TIMEOUT_SECONDS = 3.0
 
 
 def run_eval(source: str) -> subprocess.CompletedProcess[str]:
@@ -69,6 +72,54 @@ def expect_token_failure(source: str, expected_code: str) -> None:
         )
 
 
+def normalize_tty_output(chunk: bytes) -> str:
+    return chunk.decode(errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+
+
+def read_tty_available(master_fd: int, timeout: float) -> str:
+    output = ""
+    deadline = time.monotonic() + timeout
+
+    while time.monotonic() < deadline:
+        wait = max(0.0, min(TTY_POLL_SECONDS, deadline - time.monotonic()))
+        readable, _, _ = select.select([master_fd], [], [], wait)
+        if not readable:
+            continue
+        try:
+            chunk = os.read(master_fd, 4096)
+        except OSError:
+            break
+        if not chunk:
+            break
+        output += normalize_tty_output(chunk)
+
+    return output
+
+
+def write_tty_source_linewise(master_fd: int, proc: subprocess.Popen[bytes], source: str) -> str:
+    output = ""
+
+    for line in source.splitlines(keepends=True):
+        if proc.poll() is not None:
+            break
+        os.write(master_fd, line.encode())
+        output += read_tty_available(master_fd, TTY_DRAIN_SECONDS)
+
+    return output
+
+
+def assert_tty_fragments_ordered(source: str, output: str, expected_fragments: list[str]) -> None:
+    search_from = 0
+
+    for fragment in expected_fragments:
+        found = output.find(fragment, search_from)
+        if found < 0:
+            raise AssertionError(
+                f"expected tty output fragment {fragment!r} for {source!r}, got {output!r}"
+            )
+        search_from = found + len(fragment)
+
+
 def expect_tty_line(source: str, expected_stdout: str) -> None:
     master_fd, slave_fd = pty.openpty()
     proc: subprocess.Popen[bytes] | None = None
@@ -94,7 +145,7 @@ def expect_tty_line(source: str, expected_stdout: str) -> None:
             chunk = os.read(master_fd, 4096)
             if not chunk:
                 break
-            output += chunk.decode(errors="replace").replace("\r\n", "\n")
+            output += normalize_tty_output(chunk)
 
         if expected_stdout not in output:
             raise AssertionError(
@@ -140,7 +191,7 @@ def expect_tty_fragments(source: str, expected_fragments: list[str]) -> None:
             chunk = os.read(master_fd, 4096)
             if not chunk:
                 break
-            output += chunk.decode(errors="replace").replace("\r\n", "\n")
+            output += normalize_tty_output(chunk)
 
             while fragment_index < len(expected_fragments):
                 found = output.find(expected_fragments[fragment_index], search_from)
@@ -166,7 +217,11 @@ def expect_tty_fragments(source: str, expected_fragments: list[str]) -> None:
         os.close(master_fd)
 
 
-def expect_tty_exit(source: str, expected_returncode: int = 0) -> None:
+def expect_tty_exit(
+    source: str,
+    expected_returncode: int = 0,
+    expected_fragments: list[str] | None = None,
+) -> None:
     master_fd, slave_fd = pty.openpty()
     proc: subprocess.Popen[bytes] | None = None
     output = ""
@@ -182,19 +237,12 @@ def expect_tty_exit(source: str, expected_returncode: int = 0) -> None:
         os.close(slave_fd)
         slave_fd = -1
 
-        os.write(master_fd, source.encode())
-        deadline = time.monotonic() + 2.0
+        output += write_tty_source_linewise(master_fd, proc, source)
+        deadline = time.monotonic() + TTY_EXIT_TIMEOUT_SECONDS
         while time.monotonic() < deadline and proc.poll() is None:
-            readable, _, _ = select.select([master_fd], [], [], 0.1)
-            if not readable:
-                continue
-            try:
-                chunk = os.read(master_fd, 4096)
-            except OSError:
-                break
-            if not chunk:
-                break
-            output += chunk.decode(errors="replace").replace("\r\n", "\n")
+            output += read_tty_available(master_fd, TTY_DRAIN_SECONDS)
+
+        output += read_tty_available(master_fd, TTY_DRAIN_SECONDS)
 
         if proc.poll() is None:
             raise AssertionError(f"expected tty process to exit for {source!r}, got output={output!r}")
@@ -203,6 +251,8 @@ def expect_tty_exit(source: str, expected_returncode: int = 0) -> None:
                 f"expected tty returncode {expected_returncode} for {source!r}, "
                 f"got returncode={proc.returncode}, output={output!r}"
             )
+        if expected_fragments:
+            assert_tty_fragments_ordered(source, output, expected_fragments)
     finally:
         if slave_fd >= 0:
             os.close(slave_fd)
@@ -5241,6 +5291,19 @@ def main() -> int:
         "x:=1.\nbye\n",
     ]
 
+    slice_124_boundary_tty_exit_cases = [
+        ("bye\n", 0, []),
+        ("bye.\n", 0, []),
+        ("x:=1\nbye\n", 0, ["1\n"]),
+        ("x:=1.\nbye\n", 0, ["1\n"]),
+        ("x:=1\rbye\r", 0, ["1\n"]),
+    ]
+
+    slice_124_robustness_tty_exit_cases = [
+        ("missing\nbye\n", 1, ["ENACT_ERR_NAME_UNBOUND"]),
+        ("bye 1\nbye\n", 1, ["ENACT_ERR_PARSE_UNEXPECTED_TOKEN"]),
+    ]
+
     slice_116_boundary_success_cases = [
         ("ask\n", "<function>\n"),
         ("isCallable(ask)\n", "true\n"),
@@ -5699,6 +5762,12 @@ def main() -> int:
     for source in slice_115_boundary_tty_cases:
         expect_tty_exit(source)
 
+    for source, expected_returncode, expected_fragments in slice_124_boundary_tty_exit_cases:
+        expect_tty_exit(source, expected_returncode, expected_fragments)
+
+    for source, expected_returncode, expected_fragments in slice_124_robustness_tty_exit_cases:
+        expect_tty_exit(source, expected_returncode, expected_fragments)
+
     for source, expected_fragments in slice_116_boundary_tty_cases:
         expect_tty_fragments(source, expected_fragments)
 
@@ -5707,6 +5776,7 @@ def main() -> int:
     total += len(slice_033_boundary_tty_cases) + len(slice_033_robustness_tty_cases)
     total += len(slice_036_boundary_tty_cases) + len(slice_036_robustness_tty_cases)
     total += len(slice_115_boundary_tty_cases)
+    total += len(slice_124_boundary_tty_exit_cases) + len(slice_124_robustness_tty_exit_cases)
     total += len(slice_116_boundary_tty_cases)
     print(f"passed {total} checks")
     print(f"slice 008 boundary regression checks: {len(slice_008_token_cases) + len(slice_008_boundary_success_cases)}")
@@ -5937,6 +6007,8 @@ def main() -> int:
     print(f"slice 122 robustness regression checks: {len(slice_122_robustness_failure_cases)}")
     print(f"slice 123 boundary regression checks: {len(slice_123_boundary_success_cases)}")
     print(f"slice 123 robustness regression checks: {len(slice_123_robustness_failure_cases)}")
+    print(f"slice 124 boundary regression checks: {len(slice_124_boundary_tty_exit_cases)}")
+    print(f"slice 124 robustness regression checks: {len(slice_124_robustness_tty_exit_cases)}")
     return 0
 
 
