@@ -8,8 +8,8 @@ FLEX ?= flex
 
 BUILD_DIR := build
 SRC_DIR := src
-COVERAGE_MIN_LINES ?= 81.0
-COVERAGE_MIN_BRANCHES ?= 73.0
+COVERAGE_MIN_LINES ?= 81.5
+COVERAGE_MIN_BRANCHES ?= 74.0
 COVERAGE_REPORT_ARGS ?=
 
 GENERATED_C := $(BUILD_DIR)/enact.tab.c $(BUILD_DIR)/lex.yy.c
@@ -101,6 +101,7 @@ test: $(BUILD_DIR)/enact $(BUILD_DIR)/unit_tests
 	python3 tests/test_release_docs.py
 	python3 tests/test_release_smoke.py
 	python3 tests/test_error_diagnostics.py
+	python3 tests/test_coverage_ratchet.py
 	$(BUILD_DIR)/unit_tests
 
 smoke: $(BUILD_DIR)/enact

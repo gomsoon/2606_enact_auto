@@ -36,6 +36,7 @@ make clean
 - Python tool/workflow tests
 - release smoke fixture tests in `tests/test_release_smoke.py`
 - error diagnostic golden tests in `tests/test_error_diagnostics.py`
+- coverage ratchet tests in `tests/test_coverage_ratchet.py`
 - C unit tests in `tests/unit_tests.c`
 
 `make smoke` runs a small release-readiness fixture suite from `tests/smoke`. It executes the built interpreter through real stdin script files and covers functional, object, collection, `load`, nested `load`, `bye`, and representative failure paths.
@@ -44,8 +45,8 @@ make clean
 
 `make coverage-check` enforces the current baseline gate:
 
-- line coverage: `81.0%`
-- branch coverage: `73.0%`
+- line coverage: `81.5%`
+- branch coverage: `74.0%`
 
 The PRD final hardening target remains higher at line `95%` and branch `90%`; the baseline gate prevents regression while later slices can raise the threshold.
 
