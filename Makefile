@@ -99,7 +99,11 @@ test: $(BUILD_DIR)/enact $(BUILD_DIR)/unit_tests
 	python3 tests/test_coverage_report.py
 	python3 tests/test_ci_workflow.py
 	python3 tests/test_release_docs.py
+	python3 tests/test_release_smoke.py
 	$(BUILD_DIR)/unit_tests
+
+smoke: $(BUILD_DIR)/enact
+	python3 tests/test_release_smoke.py
 
 coverage: clean
 	$(MAKE) CFLAGS='-std=c11 -Wall -Wextra -O0 -g --coverage' test
@@ -113,6 +117,6 @@ clean:
 	rm -rf $(BUILD_DIR)
 	rm -f *.gcov
 
-.PHONY: all test coverage coverage-check clean
+.PHONY: all test smoke coverage coverage-check clean
 
 -include $(DEPS)

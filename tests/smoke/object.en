@@ -1,0 +1,11 @@
+% Slice 128 object release smoke fixture.
+class Tree < Object
+Tree.sum():=isNil(self.parent) then self.value else self.value+self.parent.value
+class Leaf < Tree
+root:=new Tree with value:=10 with parent:=nil
+leaf:=new Leaf with value:=3 with parent:=root
+classof(leaf)==Leaf
+leaf.sum()
+root.value:=20
+leaf.sum()
+classes(Leaf)

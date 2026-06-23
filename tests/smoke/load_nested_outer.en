@@ -1,0 +1,5 @@
+% Slice 128 nested load and bye release smoke fixture.
+load "tests/smoke/load_nested_inner.en"
+nested_value+1
+bye
+nested_value+2

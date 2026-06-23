@@ -25,7 +25,7 @@ def main() -> int:
     readme = README.read_text()
     matrix = MATRIX.read_text()
 
-    for command in ["make", "make test", "make coverage", "make coverage-check"]:
+    for command in ["make", "make test", "make smoke", "make coverage", "make coverage-check"]:
         require(command in readme, f"README documents {command}", counts, "boundary")
 
     require(".github/workflows/ci.yml" in readme, "README links CI workflow", counts, "boundary")
@@ -42,6 +42,7 @@ def main() -> int:
     require("95%" in matrix and "90%" in matrix, "matrix documents final PRD coverage target", counts, "robustness")
     require("Full Appendix 2 collection class source compatibility" in matrix, "matrix documents Appendix 2 deferral", counts, "robustness")
     require("Strict historical compatibility mode" in matrix, "matrix documents strict mode deferral", counts, "robustness")
+    require("make smoke" in matrix and "Slice 128" in matrix, "matrix documents release smoke target", counts, "robustness")
 
     print(
         "release docs tests passed "

@@ -28,6 +28,7 @@ Status values:
 | Coverage reporting for handwritten C sources | Implemented | Slice 125 | `make coverage` |
 | Coverage baseline gate | Baseline Gate | Slice 125 | `make coverage-check` at 81.0% line / 73.0% branch |
 | CI quality gate | Implemented | Slice 126 | GitHub Actions runs `make test` and `make coverage-check` |
+| Release smoke fixture target | Implemented | Slice 128 | `make smoke`, also included in `make test` |
 
 ## Project Defaults And Compatibility Choices
 
@@ -54,6 +55,12 @@ Status values:
 | Coverage final target 95% line / 90% branch | Deferred | Baseline gate is active; ratcheting to final PRD targets remains future hardening work |
 
 ## Quality Gates
+
+Local release smoke check:
+
+```text
+make smoke
+```
 
 Local and CI quality gates are:
 

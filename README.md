@@ -24,6 +24,7 @@ sudo apt-get install -y build-essential flex bison
 ```sh
 make
 make test
+make smoke
 make coverage
 make coverage-check
 make clean
@@ -33,7 +34,10 @@ make clean
 
 - functional regression tests in `tests/run_tests.py`
 - Python tool/workflow tests
+- release smoke fixture tests in `tests/test_release_smoke.py`
 - C unit tests in `tests/unit_tests.c`
+
+`make smoke` runs a small release-readiness fixture suite from `tests/smoke`. It executes the built interpreter through real stdin script files and covers functional, object, collection, `load`, nested `load`, `bye`, and representative failure paths.
 
 `make coverage` reports handwritten C source coverage only. Generated Bison/Flex sources are intentionally excluded.
 

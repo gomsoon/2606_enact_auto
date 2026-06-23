@@ -1,0 +1,4 @@
+% Loaded by load_main.en.
+loaded_base:=40
+loaded_inc(x):=x+1
+loaded_pair:=(loaded_base,loaded_inc(loaded_base))

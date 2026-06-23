@@ -1,0 +1,8 @@
+% Slice 128 functional release smoke fixture.
+fact(n):=n==0 then 1 else n*fact(n-1)
+twice(f):=x::f(f(x))
+inc(x):=x+1
+xs:=(1,2,3,4)
+fact(5)
+twice(inc)(10)
+reduce((acc,x)::acc+x,0,xs)

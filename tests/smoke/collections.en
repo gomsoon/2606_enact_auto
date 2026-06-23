@@ -1,0 +1,8 @@
+% Slice 128 collection release smoke fixture.
+s:=set((1,2,2,3))
+b:=bag((1,1,2))
+size(s)
+size(b)
+s.union(set((3,4))).difference(set(list(1)))
+b.collect(x::x+1)
+map(s.member,(2,5))
