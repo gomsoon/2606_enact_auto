@@ -338,6 +338,10 @@ static int enact_run_lines(int token_mode)
         if (status != 0) {
             exit_status = status;
         }
+        if (!token_mode && enact_session_exit_requested(&session)) {
+            enact_session_free(&session);
+            return exit_status;
+        }
     }
 }
 

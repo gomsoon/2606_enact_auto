@@ -458,14 +458,34 @@ static char *enact_parse_load_string_literal(
     return NULL;
 }
 
-static int enact_script_chunk_is_load_command(const char *chunk, size_t length)
+static int enact_script_chunk_starts_command(const char *chunk, size_t length, const char *command)
 {
     size_t offset = 0;
+    size_t command_length;
+
+    if (!chunk || !command) {
+        return 0;
+    }
+
+    command_length = strlen(command);
 
     enact_skip_script_trivia(chunk, length, &offset);
-    return offset + 4 <= length &&
-        memcmp(chunk + offset, "load", 4) == 0 &&
-        (offset + 4 == length || !enact_is_identifier_char(chunk[offset + 4]));
+    return offset + command_length <= length &&
+        memcmp(chunk + offset, command, command_length) == 0 &&
+        (
+            offset + command_length == length ||
+            !enact_is_identifier_char(chunk[offset + command_length])
+        );
+}
+
+static int enact_script_chunk_is_load_command(const char *chunk, size_t length)
+{
+    return enact_script_chunk_starts_command(chunk, length, "load");
+}
+
+static int enact_script_chunk_is_bye_command(const char *chunk, size_t length)
+{
+    return enact_script_chunk_starts_command(chunk, length, "bye");
 }
 
 static int enact_session_eval_load_command(
@@ -531,6 +551,44 @@ static int enact_session_eval_load_command(
     return status;
 }
 
+static int enact_session_eval_bye_command(
+    EnactSession *session,
+    const char *chunk,
+    EnactDiag *diag)
+{
+    size_t length;
+    size_t offset = 0;
+
+    if (!session || !chunk) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    length = strlen(chunk);
+    enact_skip_script_trivia(chunk, length, &offset);
+    offset += 3;
+
+    enact_skip_script_trivia(chunk, length, &offset);
+    if (offset >= length) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_MISSING_DOT, (int)offset);
+        return 0;
+    }
+    if (chunk[offset] != '.') {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, (int)offset);
+        return 0;
+    }
+
+    offset += 1;
+    enact_skip_script_trivia(chunk, length, &offset);
+    if (offset != length) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, (int)offset);
+        return 0;
+    }
+
+    session->exit_requested = true;
+    return 1;
+}
+
 static EnactResult enact_eval_parsed_ast(EnactAst *root, EnactEnv *env)
 {
     EnactResult result;
@@ -589,6 +647,7 @@ int enact_session_init(EnactSession *session)
     }
 
     session->initialized = false;
+    session->exit_requested = false;
     enact_env_init(&session->env);
     if (!enact_install_builtins(&session->env)) {
         enact_env_free(&session->env);
@@ -647,7 +706,7 @@ int enact_session_eval_script(
     }
 
     length = strlen(source);
-    while (offset < length) {
+    while (offset < length && !session->exit_requested) {
         size_t start = 0;
         size_t end = 0;
         int needs_dot = 0;
@@ -680,6 +739,16 @@ int enact_session_eval_script(
             continue;
         }
 
+        if (enact_script_chunk_is_bye_command(chunk, strlen(chunk))) {
+            int status = enact_session_eval_bye_command(session, chunk, diag);
+
+            free(chunk);
+            if (!status) {
+                return 0;
+            }
+            return 1;
+        }
+
         result = enact_session_eval_text(session, chunk);
         free(chunk);
         if (!result.ok) {
@@ -703,6 +772,11 @@ int enact_session_eval_script(
     return 1;
 }
 
+int enact_session_exit_requested(const EnactSession *session)
+{
+    return session && session->initialized && session->exit_requested;
+}
+
 void enact_session_free(EnactSession *session)
 {
     if (!session || !session->initialized) {
@@ -711,6 +785,7 @@ void enact_session_free(EnactSession *session)
 
     enact_env_free(&session->env);
     session->initialized = false;
+    session->exit_requested = false;
 }
 
 void enact_result_free(EnactResult *result)

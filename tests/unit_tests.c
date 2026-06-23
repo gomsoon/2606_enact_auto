@@ -1241,6 +1241,7 @@ static void test_builtin_helpers(void)
     require_true(equal != NULL, "equal builtin lookup succeeds");
     require_true(enact_builtin_lookup("missing") == NULL, "missing builtin lookup fails");
     require_true(enact_builtin_lookup("load") == NULL, "load is not a builtin");
+    require_true(enact_builtin_lookup("bye") == NULL, "bye is not a builtin");
     require_true(enact_builtin_lookup(NULL) == NULL, "null builtin lookup fails");
     require_true(strcmp(enact_builtin_name(hd), "hd") == 0, "hd builtin name");
     require_true(strcmp(enact_builtin_name(NULL), "") == 0, "null builtin name");
@@ -3544,6 +3545,7 @@ static void test_api_and_scan_helpers(void)
     EnactResult result;
     EnactResult stateless_result;
     EnactSession session;
+    EnactSession bye_session;
     ScriptCapture capture;
     EnactDiag diag;
     EnactList *list;
@@ -3771,6 +3773,39 @@ static void test_api_and_scan_helpers(void)
 
         remove(load_path);
     }
+
+    require_true(enact_session_init(&bye_session), "bye session init succeeds");
+    require_true(!enact_session_exit_requested(&bye_session), "bye session starts active");
+
+    enact_diag_reset(&diag);
+    require_true(
+        !enact_session_eval_script(&bye_session, "bye 1\n", script_capture_result, &capture, &diag),
+        "bye command rejects trailing expression");
+    require_true(diag.code == ENACT_ERR_PARSE_UNEXPECTED_TOKEN, "bye command trailing expression code");
+    require_true(!enact_session_exit_requested(&bye_session), "bad bye command does not request exit");
+
+    result = enact_session_eval_text(&bye_session, "bye.");
+    require_true(!result.ok, "session eval text does not execute bye command");
+    require_true(result.error.code == ENACT_ERR_NAME_UNBOUND, "session eval text bye command code");
+    enact_result_free(&result);
+
+    memset(&capture, 0, sizeof(capture));
+    enact_diag_reset(&diag);
+    require_true(
+        enact_session_eval_script(&bye_session, "bye\n1\n", script_capture_result, &capture, &diag),
+        "bye command succeeds");
+    require_true(capture.count == 0, "bye command produces no result");
+    require_true(enact_session_exit_requested(&bye_session), "bye command requests exit");
+    script_capture_free(&capture);
+
+    memset(&capture, 0, sizeof(capture));
+    enact_diag_reset(&diag);
+    require_true(
+        enact_session_eval_script(&bye_session, "1\n", script_capture_result, &capture, &diag),
+        "exited bye session ignores later script chunks");
+    require_true(capture.count == 0, "exited bye session later result count");
+    script_capture_free(&capture);
+    enact_session_free(&bye_session);
 
     stateless_result = enact_eval_text("solo:=9.");
     require_true(stateless_result.ok, "stateless assignment succeeds");

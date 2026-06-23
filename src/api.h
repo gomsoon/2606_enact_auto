@@ -17,6 +17,7 @@ typedef struct {
 typedef struct {
     EnactEnv env;
     bool initialized;
+    bool exit_requested;
 } EnactSession;
 
 typedef int (*EnactScriptResultCallback)(const EnactResult *result, void *user_data);
@@ -30,6 +31,7 @@ int enact_session_eval_script(
     EnactScriptResultCallback callback,
     void *user_data,
     EnactDiag *diag);
+int enact_session_exit_requested(const EnactSession *session);
 void enact_session_free(EnactSession *session);
 int enact_dump_tokens_text(const char *source, FILE *out, EnactDiag *diag);
 void enact_result_free(EnactResult *result);
