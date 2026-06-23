@@ -1269,6 +1269,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
     const EnactBuiltin *time_builtin = enact_builtin_lookup("time");
     const EnactBuiltin *cells_builtin = enact_builtin_lookup("cells");
+    const EnactBuiltin *maxcells_builtin = enact_builtin_lookup("maxcells");
     const EnactBuiltin *ask_builtin = enact_builtin_lookup("ask");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *set_builtin = enact_builtin_lookup("set");
@@ -1344,6 +1345,7 @@ static void test_builtin_helpers(void)
     EnactAst *class_def;
     EnactAst *new_node;
     size_t cell_count_before;
+    size_t max_cell_count_before;
     bool values_equal = false;
 
     require_true(hd != NULL, "hd builtin lookup succeeds");
@@ -1383,6 +1385,7 @@ static void test_builtin_helpers(void)
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
     require_true(time_builtin != NULL, "time builtin lookup succeeds");
     require_true(cells_builtin != NULL, "cells builtin lookup succeeds");
+    require_true(maxcells_builtin != NULL, "maxcells builtin lookup succeeds");
     require_true(ask_builtin != NULL, "ask builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(set_builtin != NULL, "set builtin lookup succeeds");
@@ -1451,6 +1454,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(time_builtin) == 0, "time builtin arity");
     require_true(enact_builtin_arity(cells_builtin) == 0, "cells builtin arity");
+    require_true(enact_builtin_arity(maxcells_builtin) == 0, "maxcells builtin arity");
     require_true(enact_builtin_arity(ask_builtin) == 0, "ask builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_min_arity(set_builtin) == 0, "set builtin min arity");
@@ -2038,6 +2042,13 @@ static void test_builtin_helpers(void)
     require_true(result.as.as_int >= 0, "cells result non-negative");
     require_true((size_t)result.as.as_int == cell_count_before, "cells reports current cell count");
     enact_value_free(&result);
+    max_cell_count_before = enact_runtime_max_cells();
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply(maxcells_builtin, NULL, 0, &result, &diag), "maxcells apply succeeds");
+    require_true(result.kind == ENACT_VALUE_INT, "maxcells result kind");
+    require_true(result.as.as_int >= 0, "maxcells result non-negative");
+    require_true((size_t)result.as.as_int == max_cell_count_before, "maxcells reports peak cell count");
+    enact_value_free(&result);
     enact_diag_reset(&diag);
     require_true(!enact_builtin_apply(ask_builtin, NULL, 0, &result, &diag), "ask apply without env fails");
     require_true(diag.code == ENACT_ERR_INPUT_UNAVAILABLE, "ask apply without env code");
@@ -2549,6 +2560,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "cells", &lookup_value), "lookup installed cells");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed cells value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "maxcells", &lookup_value), "lookup installed maxcells");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed maxcells value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "ask", &lookup_value), "lookup installed ask");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed ask value kind");
