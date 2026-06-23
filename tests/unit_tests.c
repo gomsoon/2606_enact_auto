@@ -2464,6 +2464,20 @@ static void test_builtin_helpers(void)
     require_true(lookup_value.as.as_bool, "isEmpty set result true");
     enact_value_free(&lookup_value);
     {
+        const EnactBuiltin *collection_builtin = NULL;
+        size_t receiver_index = 999;
+
+        require_true(
+            enact_builtin_collection_method(
+                ENACT_COLLECTION_SET,
+                "isEmpty",
+                &collection_builtin,
+                &receiver_index),
+            "isEmpty set collection method lookup succeeds");
+        require_true(collection_builtin == is_empty, "isEmpty set collection method builtin");
+        require_true(receiver_index == 0, "isEmpty set collection method receiver index");
+    }
+    {
         EnactValue query_args[2];
         EnactValue query_result;
 
@@ -2634,6 +2648,20 @@ static void test_builtin_helpers(void)
     require_true(lookup_value.kind == ENACT_VALUE_BOOL, "isEmpty bag result kind");
     require_true(lookup_value.as.as_bool, "isEmpty bag result true");
     enact_value_free(&lookup_value);
+    {
+        const EnactBuiltin *collection_builtin = NULL;
+        size_t receiver_index = 999;
+
+        require_true(
+            enact_builtin_collection_method(
+                ENACT_COLLECTION_BAG,
+                "isEmpty",
+                &collection_builtin,
+                &receiver_index),
+            "isEmpty bag collection method lookup succeeds");
+        require_true(collection_builtin == is_empty, "isEmpty bag collection method builtin");
+        require_true(receiver_index == 0, "isEmpty bag collection method receiver index");
+    }
     {
         EnactValue query_args[2];
         EnactValue query_result;

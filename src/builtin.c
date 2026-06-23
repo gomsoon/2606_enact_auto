@@ -3399,6 +3399,7 @@ static size_t enact_builtin_count(void)
 
 static const EnactNativeCollectionMethod native_collection_method_table[] = {
     {"size", ENACT_COLLECTION_METHOD_ANY, 0},
+    {"isEmpty", ENACT_COLLECTION_METHOD_ANY, 0},
     {"union", ENACT_COLLECTION_METHOD_ANY, 0},
     {"difference", ENACT_COLLECTION_METHOD_ANY, 0},
     {"intersection", ENACT_COLLECTION_METHOD_ANY, 0},
