@@ -35,6 +35,8 @@ typedef struct {
     size_t index;
 } TestInput;
 
+typedef void (*RuntimeCellLeakCase)(void);
+
 static void script_capture_free(ScriptCapture *capture)
 {
     size_t index;
@@ -156,6 +158,19 @@ static EnactAstList *make_test_ast_list2(EnactAst *first, EnactAst *second)
     }
 
     return list;
+}
+
+static void run_runtime_cell_leak_case(const char *name, RuntimeCellLeakCase run_case)
+{
+    char message[160];
+
+    enact_runtime_stats_reset();
+    run_case();
+    snprintf(message, sizeof(message), "runtime cell leak %s releases all cells", name);
+    require_true(enact_runtime_cells() == 0, message);
+    snprintf(message, sizeof(message), "runtime cell leak %s exercises tracked cells", name);
+    require_true(enact_runtime_max_cells() > 0, message);
+    enact_runtime_stats_reset();
 }
 
 static void test_runtime_stats_helpers(void)
@@ -285,6 +300,175 @@ static void test_runtime_stats_helpers(void)
     require_true(enact_runtime_cells() == 0, "runtime stats env free releases root classes");
     require_true(enact_runtime_max_cells() == 3, "runtime stats env free keeps max");
     enact_runtime_stats_reset();
+}
+
+static void runtime_cell_leak_list_graph_case(void)
+{
+    EnactValue value = enact_value_make_int(1);
+    EnactList *tail = enact_list_cons(&value, NULL);
+    EnactList *head = NULL;
+
+    require_true(tail != NULL, "runtime leak list tail created");
+    if (tail) {
+        head = enact_list_cons(&value, tail);
+        require_true(head != NULL, "runtime leak list head created");
+        enact_list_release(tail);
+    }
+    enact_list_release(head);
+}
+
+static void runtime_cell_leak_builtin_partial_case(void)
+{
+    const EnactBuiltin *reduce_builtin = enact_builtin_lookup("reduce");
+    EnactValue argument = enact_value_make_int(1);
+    EnactBuiltinPartial *partial = enact_builtin_partial_new(reduce_builtin, &argument, 1);
+    EnactBuiltinPartial *extended = NULL;
+
+    require_true(partial != NULL, "runtime leak builtin partial created");
+    if (partial) {
+        extended = enact_builtin_partial_extend(partial, &argument, 1);
+        require_true(extended != NULL, "runtime leak builtin partial extended");
+    }
+    enact_builtin_partial_release(extended);
+    enact_builtin_partial_release(partial);
+}
+
+static void runtime_cell_leak_function_case(void)
+{
+    const char *one_param[] = {"x"};
+    EnactEnv env;
+    EnactAst *body;
+    EnactNameList *params;
+    EnactFunction *function;
+
+    enact_env_init(&env);
+    body = enact_ast_new_int(1);
+    params = make_test_name_list(one_param, 1);
+    function = body && params ? enact_function_new(params, body, &env) : NULL;
+    require_true(function != NULL, "runtime leak function created");
+    enact_function_release(function);
+    enact_name_list_free(params);
+    enact_ast_free(body);
+    enact_env_free(&env);
+}
+
+static void runtime_cell_leak_class_object_case(void)
+{
+    EnactClass *class_value = enact_class_new("LeakObject");
+    EnactObject *object = class_value ? enact_object_new(class_value) : NULL;
+
+    require_true(class_value != NULL, "runtime leak class created");
+    require_true(object != NULL, "runtime leak object created");
+    enact_object_release(object);
+    enact_class_release(class_value);
+}
+
+static void runtime_cell_leak_bound_object_method_case(void)
+{
+    const char *one_param[] = {"x"};
+    EnactValue argument = enact_value_make_int(7);
+    EnactValue receiver;
+    EnactEnv env;
+    EnactAst *body;
+    EnactNameList *params;
+    EnactFunction *function;
+    EnactClass *class_value;
+    EnactObject *object;
+    EnactBoundObjectMethod *method = NULL;
+    EnactBoundObjectMethod *extended = NULL;
+
+    enact_env_init(&env);
+    body = enact_ast_new_int(1);
+    params = make_test_name_list(one_param, 1);
+    function = body && params ? enact_function_new(params, body, &env) : NULL;
+    class_value = enact_class_new("LeakBoundMethod");
+    object = class_value ? enact_object_new(class_value) : NULL;
+    require_true(function != NULL, "runtime leak bound method function created");
+    require_true(class_value != NULL, "runtime leak bound method class created");
+    require_true(object != NULL, "runtime leak bound method receiver created");
+    if (function && object) {
+        receiver = enact_value_make_object(object);
+        method = enact_bound_object_method_new(function, &receiver);
+        require_true(method != NULL, "runtime leak bound object method created");
+        if (method) {
+            extended = enact_bound_object_method_extend(method, &argument, 1);
+            require_true(extended != NULL, "runtime leak bound object method extended");
+        }
+    }
+
+    enact_bound_object_method_release(extended);
+    enact_bound_object_method_release(method);
+    enact_object_release(object);
+    enact_class_release(class_value);
+    enact_function_release(function);
+    enact_name_list_free(params);
+    enact_ast_free(body);
+    enact_env_free(&env);
+}
+
+static void runtime_cell_leak_bound_collection_method_case(void)
+{
+    const EnactBuiltin *size_builtin = enact_builtin_lookup("size");
+    EnactValue receiver;
+    EnactClass *class_value = enact_class_new("LeakBoundCollection");
+    EnactObject *object = class_value ? enact_object_new(class_value) : NULL;
+    EnactBoundCollectionMethod *method = NULL;
+
+    require_true(class_value != NULL, "runtime leak bound collection class created");
+    require_true(object != NULL, "runtime leak bound collection receiver created");
+    if (size_builtin && object) {
+        receiver = enact_value_make_object(object);
+        method = enact_bound_collection_method_new(size_builtin, 0, &receiver);
+        require_true(method != NULL, "runtime leak bound collection method created");
+    }
+
+    enact_bound_collection_method_release(method);
+    enact_object_release(object);
+    enact_class_release(class_value);
+}
+
+static void runtime_cell_leak_default_env_case(void)
+{
+    EnactEnv env;
+
+    enact_env_init(&env);
+    require_true(enact_install_builtins(&env), "runtime leak default env installs builtins");
+    enact_env_free(&env);
+}
+
+static void runtime_cell_leak_eval_text_case(void)
+{
+    EnactResult result = enact_eval_text("(1,2,3).");
+
+    require_true(result.ok, "runtime leak eval text succeeds");
+    require_true(result.value.kind == ENACT_VALUE_LIST, "runtime leak eval text result is list");
+    enact_result_free(&result);
+}
+
+static void runtime_cell_leak_session_case(void)
+{
+    EnactResult result;
+    EnactSession session;
+
+    require_true(enact_session_init(&session), "runtime leak session init succeeds");
+    result = enact_session_eval_text(&session, "xs:=(1,2,3).");
+    require_true(result.ok, "runtime leak session assignment succeeds");
+    enact_result_free(&result);
+    require_true(enact_runtime_cells() > 0, "runtime leak session retains cells before free");
+    enact_session_free(&session);
+}
+
+static void test_runtime_cell_leak_harness_phase1(void)
+{
+    run_runtime_cell_leak_case("list graph", runtime_cell_leak_list_graph_case);
+    run_runtime_cell_leak_case("builtin partial", runtime_cell_leak_builtin_partial_case);
+    run_runtime_cell_leak_case("function", runtime_cell_leak_function_case);
+    run_runtime_cell_leak_case("class object", runtime_cell_leak_class_object_case);
+    run_runtime_cell_leak_case("bound object method", runtime_cell_leak_bound_object_method_case);
+    run_runtime_cell_leak_case("bound collection method", runtime_cell_leak_bound_collection_method_case);
+    run_runtime_cell_leak_case("default env", runtime_cell_leak_default_env_case);
+    run_runtime_cell_leak_case("eval text", runtime_cell_leak_eval_text_case);
+    run_runtime_cell_leak_case("session", runtime_cell_leak_session_case);
 }
 
 static void test_diag_helpers(void)
@@ -4173,6 +4357,7 @@ static void test_api_and_scan_helpers(void)
 int main(void)
 {
     test_runtime_stats_helpers();
+    test_runtime_cell_leak_harness_phase1();
     test_diag_helpers();
     test_value_helpers();
     test_builtin_helpers();
