@@ -1667,6 +1667,27 @@ static int enact_builtin_time(
     return 1;
 }
 
+static int enact_builtin_cells(
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    size_t cells;
+
+    (void)arguments;
+    (void)argument_count;
+
+    cells = enact_runtime_cells();
+    if (cells > (size_t)INT_MAX) {
+        enact_diag_set(diag, ENACT_ERR_INT_OVERFLOW, -1);
+        return 0;
+    }
+
+    *out = enact_value_make_int((int32_t)cells);
+    return 1;
+}
+
 static int enact_builtin_ask(
     EnactEnv *env,
     const EnactValue *arguments,
@@ -3416,6 +3437,7 @@ static const EnactBuiltin builtin_table[] = {
         enact_builtin_params_callable),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("time", 0, enact_builtin_time),
+    ENACT_BUILTIN("cells", 0, enact_builtin_cells),
     ENACT_ENV_BUILTIN("ask", 0, enact_builtin_ask),
     ENACT_BUILTIN_PARAMS("list", 1, enact_builtin_list, enact_builtin_params_value),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set, enact_builtin_params_items),
