@@ -16,6 +16,7 @@ FILES = [
     "builtin.c.gcov",
     "value.c.gcov",
     "diag.c.gcov",
+    "runtime_stats.c.gcov",
     "env.c.gcov",
     "parser_state.c.gcov",
     "eval.c.gcov",

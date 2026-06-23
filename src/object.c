@@ -3,6 +3,7 @@
 
 #include "function.h"
 #include "object.h"
+#include "runtime_stats.h"
 #include "value.h"
 
 typedef struct EnactAttribute {
@@ -158,6 +159,7 @@ static EnactClass *enact_class_alloc_named(const char *name)
     }
 
     class_value->ref_count = 1;
+    enact_runtime_cell_allocated();
     return class_value;
 }
 
@@ -242,6 +244,7 @@ void enact_class_release(EnactClass *class_value)
     free(class_value->name);
     enact_method_release_all(class_value->methods);
     enact_class_link_release_all(class_value->superclasses);
+    enact_runtime_cell_released();
     free(class_value);
 }
 
@@ -1459,6 +1462,7 @@ EnactObject *enact_object_new(EnactClass *class_value)
     }
     object->collection_kind = enact_class_collection_kind(class_value);
 
+    enact_runtime_cell_allocated();
     return object;
 }
 
@@ -1542,6 +1546,7 @@ void enact_object_release(EnactObject *object)
     enact_class_release(object->class_value);
     enact_attribute_release_all(object->attributes);
     enact_list_release(object->collection_items);
+    enact_runtime_cell_released();
     free(object);
 }
 

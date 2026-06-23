@@ -4,6 +4,7 @@
 #include "builtin.h"
 #include "function.h"
 #include "object.h"
+#include "runtime_stats.h"
 #include "value.h"
 
 struct EnactList {
@@ -69,6 +70,7 @@ EnactList *enact_list_cons(const EnactValue *head, EnactList *tail)
 
     list->ref_count = 1;
     list->tail = enact_list_retain(tail);
+    enact_runtime_cell_allocated();
     return list;
 }
 
@@ -95,6 +97,7 @@ void enact_list_release(EnactList *list)
 
     enact_value_free(&list->head);
     enact_list_release(list->tail);
+    enact_runtime_cell_released();
     free(list);
 }
 
@@ -186,6 +189,7 @@ EnactBoundObjectMethod *enact_bound_object_method_new_with_supplier(
         return NULL;
     }
 
+    enact_runtime_cell_allocated();
     return method;
 }
 
@@ -266,6 +270,7 @@ EnactBoundObjectMethod *enact_bound_object_method_extend(
         return NULL;
     }
 
+    enact_runtime_cell_allocated();
     return extended;
 }
 
@@ -294,6 +299,7 @@ void enact_bound_object_method_release(EnactBoundObjectMethod *method)
     enact_class_release(method->supplier_class);
     enact_value_free(&method->receiver);
     enact_bound_object_method_free_arguments(method->arguments, method->argument_count);
+    enact_runtime_cell_released();
     free(method);
 }
 
@@ -395,6 +401,7 @@ EnactBoundCollectionMethod *enact_bound_collection_method_new(
         return NULL;
     }
 
+    enact_runtime_cell_allocated();
     return method;
 }
 
@@ -458,6 +465,7 @@ EnactBoundCollectionMethod *enact_bound_collection_method_extend(
         return NULL;
     }
 
+    enact_runtime_cell_allocated();
     return extended;
 }
 
@@ -484,6 +492,7 @@ void enact_bound_collection_method_release(EnactBoundCollectionMethod *method)
 
     enact_value_free(&method->receiver);
     enact_bound_collection_method_free_arguments(method->arguments, method->argument_count);
+    enact_runtime_cell_released();
     free(method);
 }
 

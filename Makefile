@@ -19,6 +19,7 @@ OBJS := \
 	$(BUILD_DIR)/builtin.o \
 	$(BUILD_DIR)/value.o \
 	$(BUILD_DIR)/diag.o \
+	$(BUILD_DIR)/runtime_stats.o \
 	$(BUILD_DIR)/env.o \
 	$(BUILD_DIR)/parser_state.o \
 	$(BUILD_DIR)/eval.o \
@@ -35,6 +36,7 @@ LIB_OBJS := \
 	$(BUILD_DIR)/builtin.o \
 	$(BUILD_DIR)/value.o \
 	$(BUILD_DIR)/diag.o \
+	$(BUILD_DIR)/runtime_stats.o \
 	$(BUILD_DIR)/env.o \
 	$(BUILD_DIR)/parser_state.o \
 	$(BUILD_DIR)/eval.o \
@@ -52,6 +54,7 @@ HANDWRITTEN_C_COVERAGE_SRCS := \
 	$(SRC_DIR)/builtin.c \
 	$(SRC_DIR)/value.c \
 	$(SRC_DIR)/diag.c \
+	$(SRC_DIR)/runtime_stats.c \
 	$(SRC_DIR)/env.c \
 	$(SRC_DIR)/parser_state.c \
 	$(SRC_DIR)/eval.c \

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "function.h"
+#include "runtime_stats.h"
 
 struct EnactFunction {
     size_t ref_count;
@@ -107,6 +108,7 @@ static EnactFunction *enact_function_new_with_recursive_name(
         }
     }
 
+    enact_runtime_cell_allocated();
     return function;
 }
 
@@ -209,6 +211,7 @@ void enact_function_release(EnactFunction *function)
     enact_ast_free(function->body);
     enact_env_free(&function->captured_env);
     free(function->recursive_name);
+    enact_runtime_cell_released();
     free(function);
 }
 

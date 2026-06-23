@@ -12,6 +12,7 @@
 #include "function.h"
 #include "object.h"
 #include "parser_state.h"
+#include "runtime_stats.h"
 
 static int failures;
 
@@ -155,6 +156,135 @@ static EnactAstList *make_test_ast_list2(EnactAst *first, EnactAst *second)
     }
 
     return list;
+}
+
+static void test_runtime_stats_helpers(void)
+{
+    const EnactBuiltin *reduce_builtin = enact_builtin_lookup("reduce");
+    const EnactBuiltin *size_builtin = enact_builtin_lookup("size");
+    const char *one_param[] = {"x"};
+    EnactValue int_value = enact_value_make_int(1);
+    EnactValue object_value;
+    EnactValue partial_arg;
+    EnactList *tail;
+    EnactList *list;
+    EnactEnv env;
+    EnactAst *body;
+    EnactNameList *params;
+    EnactFunction *function;
+    EnactClass *class_value;
+    EnactObject *object;
+    EnactBoundObjectMethod *bound_method;
+    EnactBoundObjectMethod *extended_bound_method;
+    EnactBoundCollectionMethod *bound_collection_method;
+    EnactBuiltinPartial *partial;
+    EnactBuiltinPartial *extended_partial;
+
+    enact_runtime_stats_reset();
+    require_true(enact_runtime_cells() == 0, "runtime stats reset cells");
+    require_true(enact_runtime_max_cells() == 0, "runtime stats reset max cells");
+    enact_runtime_cell_released();
+    require_true(enact_runtime_cells() == 0, "runtime stats release at zero stays zero");
+    require_true(enact_runtime_max_cells() == 0, "runtime stats release at zero keeps max zero");
+    enact_runtime_cell_allocated();
+    require_true(enact_runtime_cells() == 1, "runtime stats direct allocate increments cells");
+    require_true(enact_runtime_max_cells() == 1, "runtime stats direct allocate updates max");
+    enact_runtime_cell_released();
+    require_true(enact_runtime_cells() == 0, "runtime stats direct release decrements cells");
+    require_true(enact_runtime_max_cells() == 1, "runtime stats release keeps max");
+    enact_runtime_cell_allocated();
+    require_true(enact_runtime_max_cells() == 1, "runtime stats non-peak allocate keeps max");
+    enact_runtime_cell_released();
+
+    enact_runtime_stats_reset();
+    tail = enact_list_cons(&int_value, NULL);
+    require_true(tail != NULL, "runtime stats list tail created");
+    require_true(enact_runtime_cells() == 1, "runtime stats list increments cells");
+    require_true(enact_runtime_max_cells() == 1, "runtime stats list updates max");
+    require_true(enact_list_retain(tail) == tail, "runtime stats list retain succeeds");
+    require_true(enact_runtime_cells() == 1, "runtime stats list retain keeps cells");
+    enact_list_release(tail);
+    require_true(enact_runtime_cells() == 1, "runtime stats retained list release keeps cells");
+    list = enact_list_cons(&int_value, tail);
+    require_true(list != NULL, "runtime stats list head created");
+    require_true(enact_runtime_cells() == 2, "runtime stats nested list increments cells");
+    require_true(enact_runtime_max_cells() == 2, "runtime stats nested list updates max");
+    enact_list_release(tail);
+    require_true(enact_runtime_cells() == 2, "runtime stats list shared tail release keeps cells");
+    enact_list_release(list);
+    require_true(enact_runtime_cells() == 0, "runtime stats list release cascades cells");
+    require_true(enact_runtime_max_cells() == 2, "runtime stats list max persists");
+
+    enact_runtime_stats_reset();
+    partial_arg = enact_value_make_int(7);
+    partial = enact_builtin_partial_new(reduce_builtin, &partial_arg, 1);
+    require_true(partial != NULL, "runtime stats builtin partial created");
+    require_true(enact_runtime_cells() == 1, "runtime stats builtin partial increments cells");
+    require_true(enact_builtin_partial_retain(partial) == partial, "runtime stats builtin partial retain succeeds");
+    require_true(enact_runtime_cells() == 1, "runtime stats builtin partial retain keeps cells");
+    enact_builtin_partial_release(partial);
+    require_true(enact_runtime_cells() == 1, "runtime stats retained builtin partial release keeps cells");
+    extended_partial = enact_builtin_partial_extend(partial, &partial_arg, 1);
+    require_true(extended_partial != NULL, "runtime stats builtin partial extend created");
+    require_true(enact_runtime_cells() == 2, "runtime stats builtin partial extend increments cells");
+    enact_builtin_partial_release(extended_partial);
+    require_true(enact_runtime_cells() == 1, "runtime stats builtin partial extended release decrements cells");
+    enact_builtin_partial_release(partial);
+    require_true(enact_runtime_cells() == 0, "runtime stats builtin partial release clears cells");
+    require_true(enact_runtime_max_cells() == 2, "runtime stats builtin partial max persists");
+
+    enact_runtime_stats_reset();
+    enact_env_init(&env);
+    body = enact_ast_new_int(1);
+    params = make_test_name_list(one_param, 1);
+    function = params && body ? enact_function_new(params, body, &env) : NULL;
+    require_true(function != NULL, "runtime stats function created");
+    require_true(enact_runtime_cells() == 1, "runtime stats function increments cells");
+    require_true(enact_function_retain(function) == function, "runtime stats function retain succeeds");
+    enact_function_release(function);
+    require_true(enact_runtime_cells() == 1, "runtime stats retained function release keeps cells");
+    class_value = enact_class_new("RuntimeCell");
+    require_true(class_value != NULL, "runtime stats class created");
+    require_true(enact_runtime_cells() == 2, "runtime stats class increments cells");
+    object = enact_object_new(class_value);
+    require_true(object != NULL, "runtime stats object created");
+    require_true(enact_runtime_cells() == 3, "runtime stats object increments cells");
+    object_value = enact_value_make_object(object);
+    bound_method = enact_bound_object_method_new(function, &object_value);
+    require_true(bound_method != NULL, "runtime stats bound object method created");
+    require_true(enact_runtime_cells() == 4, "runtime stats bound object method increments cells");
+    extended_bound_method = enact_bound_object_method_extend(bound_method, &partial_arg, 1);
+    require_true(extended_bound_method != NULL, "runtime stats bound object method extend created");
+    require_true(enact_runtime_cells() == 5, "runtime stats bound object method extend increments cells");
+    enact_bound_object_method_release(extended_bound_method);
+    require_true(enact_runtime_cells() == 4, "runtime stats extended bound object method release decrements cells");
+    bound_collection_method = enact_bound_collection_method_new(size_builtin, 0, &object_value);
+    require_true(bound_collection_method != NULL, "runtime stats bound collection method created");
+    require_true(enact_runtime_cells() == 5, "runtime stats bound collection method increments cells");
+    enact_bound_collection_method_release(bound_collection_method);
+    require_true(enact_runtime_cells() == 4, "runtime stats bound collection method release decrements cells");
+    enact_bound_object_method_release(bound_method);
+    require_true(enact_runtime_cells() == 3, "runtime stats bound object method release decrements cells");
+    enact_object_release(object);
+    require_true(enact_runtime_cells() == 2, "runtime stats object release decrements cells");
+    enact_class_release(class_value);
+    require_true(enact_runtime_cells() == 1, "runtime stats class release decrements cells");
+    enact_function_release(function);
+    require_true(enact_runtime_cells() == 0, "runtime stats function release clears cells");
+    require_true(enact_runtime_max_cells() == 5, "runtime stats composite max persists");
+    enact_name_list_free(params);
+    enact_ast_free(body);
+    enact_env_free(&env);
+
+    enact_runtime_stats_reset();
+    enact_env_init(&env);
+    require_true(enact_install_builtins(&env), "runtime stats builtin install succeeds");
+    require_true(enact_runtime_cells() == 3, "runtime stats builtin install creates root classes");
+    require_true(enact_runtime_max_cells() == 3, "runtime stats builtin install updates max");
+    enact_env_free(&env);
+    require_true(enact_runtime_cells() == 0, "runtime stats env free releases root classes");
+    require_true(enact_runtime_max_cells() == 3, "runtime stats env free keeps max");
+    enact_runtime_stats_reset();
 }
 
 static void test_diag_helpers(void)
@@ -4014,6 +4144,7 @@ static void test_api_and_scan_helpers(void)
 
 int main(void)
 {
+    test_runtime_stats_helpers();
     test_diag_helpers();
     test_value_helpers();
     test_builtin_helpers();

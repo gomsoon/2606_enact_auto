@@ -7,6 +7,7 @@
 #include "eval.h"
 #include "function.h"
 #include "object.h"
+#include "runtime_stats.h"
 
 #define ENACT_VERSION_STRING "enact-auto 0.1.0"
 
@@ -3681,6 +3682,7 @@ EnactBuiltinPartial *enact_builtin_partial_new(
         return NULL;
     }
 
+    enact_runtime_cell_allocated();
     return partial;
 }
 
@@ -3719,6 +3721,7 @@ EnactBuiltinPartial *enact_builtin_partial_extend(
         return NULL;
     }
 
+    enact_runtime_cell_allocated();
     return extended;
 }
 
@@ -3744,6 +3747,7 @@ void enact_builtin_partial_release(EnactBuiltinPartial *partial)
     }
 
     enact_builtin_free_arguments(partial->arguments, partial->argument_count);
+    enact_runtime_cell_released();
     free(partial);
 }
 
