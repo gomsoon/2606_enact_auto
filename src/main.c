@@ -84,6 +84,26 @@ static char *enact_read_line(FILE *stream)
     return buffer;
 }
 
+static int enact_stdin_input_provider(void *user_data, char **out_line, EnactDiag *diag)
+{
+    FILE *stream = user_data ? (FILE *)user_data : stdin;
+    char *line;
+
+    if (!out_line) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    line = enact_read_line(stream);
+    if (!line) {
+        enact_diag_set(diag, ENACT_ERR_INPUT_UNAVAILABLE, -1);
+        return 0;
+    }
+
+    *out_line = line;
+    return 1;
+}
+
 static void enact_print_diag(FILE *stream, const EnactDiag *diag)
 {
     if (!diag) {
@@ -313,6 +333,9 @@ static int enact_run_lines(int token_mode)
     if (!token_mode && !enact_session_init(&session)) {
         fputs("failed to initialize session\n", stderr);
         return 2;
+    }
+    if (!token_mode) {
+        enact_session_set_input_provider(&session, enact_stdin_input_provider, stdin);
     }
 
     for (;;) {

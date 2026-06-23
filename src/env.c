@@ -35,6 +35,8 @@ void enact_env_init(EnactEnv *env)
     }
 
     env->head = NULL;
+    env->input_provider = NULL;
+    env->input_user_data = NULL;
 }
 
 void enact_env_free(EnactEnv *env)
@@ -56,6 +58,8 @@ void enact_env_free(EnactEnv *env)
     }
 
     env->head = NULL;
+    env->input_provider = NULL;
+    env->input_user_data = NULL;
 }
 
 int enact_env_clone(EnactEnv *out, const EnactEnv *in)
@@ -67,6 +71,8 @@ int enact_env_clone(EnactEnv *out, const EnactEnv *in)
     }
 
     enact_env_init(out);
+    out->input_provider = in->input_provider;
+    out->input_user_data = in->input_user_data;
     for (entry = in->head; entry; entry = entry->next) {
         if (!enact_env_define(out, entry->name, entry->value)) {
             enact_env_free(out);
@@ -134,4 +140,41 @@ int enact_env_lookup(const EnactEnv *env, const char *name, EnactValue *out)
     }
 
     return 0;
+}
+
+void enact_env_set_input_provider(EnactEnv *env, EnactInputProvider provider, void *user_data)
+{
+    if (!env) {
+        return;
+    }
+
+    env->input_provider = provider;
+    env->input_user_data = user_data;
+}
+
+int enact_env_read_input(EnactEnv *env, char **out_line, EnactDiag *diag)
+{
+    if (!out_line) {
+        enact_diag_set(diag, ENACT_ERR_PARSE_UNEXPECTED_TOKEN, -1);
+        return 0;
+    }
+
+    *out_line = NULL;
+    if (!env || !env->input_provider) {
+        enact_diag_set(diag, ENACT_ERR_INPUT_UNAVAILABLE, -1);
+        return 0;
+    }
+
+    if (!env->input_provider(env->input_user_data, out_line, diag)) {
+        if (diag && diag->code == ENACT_OK) {
+            enact_diag_set(diag, ENACT_ERR_INPUT_UNAVAILABLE, -1);
+        }
+        return 0;
+    }
+    if (!*out_line) {
+        enact_diag_set(diag, ENACT_ERR_INPUT_UNAVAILABLE, -1);
+        return 0;
+    }
+
+    return 1;
 }

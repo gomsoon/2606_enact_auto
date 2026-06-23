@@ -28,6 +28,12 @@ typedef struct {
     EnactValue values[8];
 } ScriptCapture;
 
+typedef struct {
+    const char **lines;
+    size_t count;
+    size_t index;
+} TestInput;
+
 static void script_capture_free(ScriptCapture *capture)
 {
     size_t index;
@@ -63,6 +69,31 @@ static int script_reject_result(const EnactResult *result, void *user_data)
     (void)user_data;
 
     return 0;
+}
+
+static int test_input_provider(void *user_data, char **out_line, EnactDiag *diag)
+{
+    TestInput *input = user_data;
+    const char *line;
+    size_t length;
+    char *copy;
+
+    if (!input || !out_line || input->index >= input->count) {
+        enact_diag_set(diag, ENACT_ERR_INPUT_UNAVAILABLE, -1);
+        return 0;
+    }
+
+    line = input->lines[input->index++];
+    length = strlen(line);
+    copy = malloc(length + 1);
+    if (!copy) {
+        enact_diag_set(diag, ENACT_ERR_OUT_OF_MEMORY, -1);
+        return 0;
+    }
+
+    memcpy(copy, line, length + 1);
+    *out_line = copy;
+    return 1;
 }
 
 static char *copy_test_name(const char *name)
@@ -153,6 +184,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_code_name(ENACT_ERR_INVALID_SUPER_CONTEXT), "ENACT_ERR_INVALID_SUPER_CONTEXT") == 0, "error code invalid super context");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_INCONSISTENT_LINEARIZATION), "ENACT_ERR_INCONSISTENT_LINEARIZATION") == 0, "error code inconsistent linearization");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_LOAD_FILE), "ENACT_ERR_LOAD_FILE") == 0, "error code load file");
+    require_true(strcmp(enact_error_code_name(ENACT_ERR_INPUT_UNAVAILABLE), "ENACT_ERR_INPUT_UNAVAILABLE") == 0, "error code input unavailable");
     require_true(strcmp(enact_error_code_name(ENACT_ERR_OUT_OF_MEMORY), "ENACT_ERR_OUT_OF_MEMORY") == 0, "error code oom");
     require_true(strcmp(enact_error_code_name((EnactErrorCode)999), "ENACT_ERR_UNKNOWN") == 0, "error code unknown");
     require_true(strcmp(enact_error_message(ENACT_OK), "ok") == 0, "error message ok");
@@ -175,6 +207,7 @@ static void test_diag_helpers(void)
     require_true(strcmp(enact_error_message(ENACT_ERR_INVALID_SUPER_CONTEXT), "super method access requires an active method context") == 0, "error message invalid super context");
     require_true(strcmp(enact_error_message(ENACT_ERR_INCONSISTENT_LINEARIZATION), "inconsistent class linearization") == 0, "error message inconsistent linearization");
     require_true(strcmp(enact_error_message(ENACT_ERR_LOAD_FILE), "could not load file") == 0, "error message load file");
+    require_true(strcmp(enact_error_message(ENACT_ERR_INPUT_UNAVAILABLE), "input unavailable") == 0, "error message input unavailable");
     require_true(strcmp(enact_error_message(ENACT_ERR_OUT_OF_MEMORY), "out of memory") == 0, "error message oom");
     require_true(strcmp(enact_error_message((EnactErrorCode)999), "unknown error") == 0, "error message unknown");
     enact_diag_set(NULL, ENACT_ERR_INT_OVERFLOW, 1);
@@ -1105,6 +1138,7 @@ static void test_builtin_helpers(void)
     const EnactBuiltin *callable_arity_range = enact_builtin_lookup("callableArityRange");
     const EnactBuiltin *version_builtin = enact_builtin_lookup("version");
     const EnactBuiltin *time_builtin = enact_builtin_lookup("time");
+    const EnactBuiltin *ask_builtin = enact_builtin_lookup("ask");
     const EnactBuiltin *list_builtin = enact_builtin_lookup("list");
     const EnactBuiltin *set_builtin = enact_builtin_lookup("set");
     const EnactBuiltin *bag_builtin = enact_builtin_lookup("bag");
@@ -1173,6 +1207,8 @@ static void test_builtin_helpers(void)
     EnactObject *node_object;
     EnactDiag diag;
     EnactEnv env;
+    const char *ask_lines[] = {"unit input\r\n", ""};
+    TestInput ask_input = {ask_lines, 2, 0};
     EnactAst *call;
     EnactAst *class_def;
     EnactAst *new_node;
@@ -1214,6 +1250,7 @@ static void test_builtin_helpers(void)
     require_true(callable_arity_range != NULL, "callableArityRange builtin lookup succeeds");
     require_true(version_builtin != NULL, "version builtin lookup succeeds");
     require_true(time_builtin != NULL, "time builtin lookup succeeds");
+    require_true(ask_builtin != NULL, "ask builtin lookup succeeds");
     require_true(list_builtin != NULL, "list builtin lookup succeeds");
     require_true(set_builtin != NULL, "set builtin lookup succeeds");
     require_true(bag_builtin != NULL, "bag builtin lookup succeeds");
@@ -1280,6 +1317,7 @@ static void test_builtin_helpers(void)
     require_true(enact_builtin_arity(callable_arity_range) == 1, "callableArityRange builtin arity");
     require_true(enact_builtin_arity(version_builtin) == 0, "version builtin arity");
     require_true(enact_builtin_arity(time_builtin) == 0, "time builtin arity");
+    require_true(enact_builtin_arity(ask_builtin) == 0, "ask builtin arity");
     require_true(enact_builtin_arity(list_builtin) == 1, "list builtin arity");
     require_true(enact_builtin_min_arity(set_builtin) == 0, "set builtin min arity");
     require_true(enact_builtin_min_arity(bag_builtin) == 0, "bag builtin min arity");
@@ -1859,6 +1897,23 @@ static void test_builtin_helpers(void)
     require_true(result.kind == ENACT_VALUE_INT, "time result kind");
     require_true(result.as.as_int >= 0, "time result non-negative");
     enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply(ask_builtin, NULL, 0, &result, &diag), "ask apply without env fails");
+    require_true(diag.code == ENACT_ERR_INPUT_UNAVAILABLE, "ask apply without env code");
+    enact_env_set_input_provider(&env, test_input_provider, &ask_input);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply_in_env(ask_builtin, &env, NULL, 0, &result, &diag), "ask env apply succeeds");
+    require_true(result.kind == ENACT_VALUE_STRING, "ask env result kind");
+    require_true(strcmp(result.as.as_string, "unit input") == 0, "ask env strips newline");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(enact_builtin_apply_in_env(ask_builtin, &env, NULL, 0, &result, &diag), "ask empty line succeeds");
+    require_true(result.kind == ENACT_VALUE_STRING, "ask empty result kind");
+    require_true(strcmp(result.as.as_string, "") == 0, "ask empty result value");
+    enact_value_free(&result);
+    enact_diag_reset(&diag);
+    require_true(!enact_builtin_apply_in_env(ask_builtin, &env, NULL, 0, &result, &diag), "ask env EOF fails");
+    require_true(diag.code == ENACT_ERR_INPUT_UNAVAILABLE, "ask env EOF code");
     args[0] = enact_value_make_int(1);
     enact_diag_reset(&diag);
     require_true(enact_builtin_apply(list_builtin, args, 1, &result, &diag), "list int apply succeeds");
@@ -2350,6 +2405,9 @@ static void test_builtin_helpers(void)
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "time", &lookup_value), "lookup installed time");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed time value kind");
+    enact_value_free(&lookup_value);
+    require_true(enact_env_lookup(&env, "ask", &lookup_value), "lookup installed ask");
+    require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed ask value kind");
     enact_value_free(&lookup_value);
     require_true(enact_env_lookup(&env, "list", &lookup_value), "lookup installed list");
     require_true(lookup_value.kind == ENACT_VALUE_BUILTIN, "installed list value kind");
@@ -2895,6 +2953,9 @@ static void test_env_helpers(void)
     EnactNameList *params;
     EnactAstList *arguments;
     EnactValue string_binding;
+    const char *env_input_lines[] = {"env line\n", "clone line\n"};
+    TestInput env_input = {env_input_lines, 2, 0};
+    char *input_line = NULL;
 
     enact_env_init(NULL);
     enact_env_free(NULL);
@@ -2908,6 +2969,15 @@ static void test_env_helpers(void)
 
     enact_env_init(&env);
     require_true(!enact_env_lookup(&env, "missing", &value), "missing lookup fails");
+    enact_diag_reset(&diag);
+    require_true(!enact_env_read_input(&env, &input_line, &diag), "read input without provider fails");
+    require_true(diag.code == ENACT_ERR_INPUT_UNAVAILABLE, "read input without provider code");
+    enact_env_set_input_provider(&env, test_input_provider, &env_input);
+    enact_diag_reset(&diag);
+    require_true(enact_env_read_input(&env, &input_line, &diag), "read input with provider succeeds");
+    require_true(strcmp(input_line, "env line\n") == 0, "read input value");
+    free(input_line);
+    input_line = NULL;
 
     require_true(enact_env_define(&env, "x", enact_value_make_int(7)), "define int binding");
     require_true(enact_env_lookup(&env, "x", &value), "lookup int binding");
@@ -2932,6 +3002,11 @@ static void test_env_helpers(void)
     require_true(value.as.as_int == 9, "redefined int value");
 
     require_true(enact_env_clone(&clone, &env), "clone env succeeds");
+    enact_diag_reset(&diag);
+    require_true(enact_env_read_input(&clone, &input_line, &diag), "read input from cloned provider succeeds");
+    require_true(strcmp(input_line, "clone line\n") == 0, "cloned provider input value");
+    free(input_line);
+    input_line = NULL;
     require_true(enact_env_lookup(&clone, "x", &value), "lookup cloned int binding");
     require_true(value.kind == ENACT_VALUE_INT, "cloned int kind");
     require_true(value.as.as_int == 9, "cloned int value");
@@ -3553,6 +3628,8 @@ static void test_api_and_scan_helpers(void)
     EnactValue callable_arg;
     EnactValue applied;
     EnactValue non_callable;
+    const char *session_ask_lines[] = {"session one\n", "session two\r\n", "closure line\n"};
+    TestInput session_ask_input = {session_ask_lines, 3, 0};
     FILE *tmp;
     FILE *load_file;
     const char *load_path = "/tmp/enact_unit_load_script.en";
@@ -3578,11 +3655,37 @@ static void test_api_and_scan_helpers(void)
     enact_result_free(&result);
 
     require_true(enact_session_init(&session), "session init succeeds");
+    enact_session_set_input_provider(NULL, test_input_provider, &session_ask_input);
+    enact_session_set_input_provider(&session, test_input_provider, &session_ask_input);
 
     result = enact_session_eval_text(&session, "version().");
     require_true(result.ok, "session has installed builtins");
     require_true(result.value.kind == ENACT_VALUE_STRING, "session builtin result kind");
     require_true(strcmp(result.value.as.as_string, "enact-auto 0.1.0") == 0, "session builtin result value");
+    enact_result_free(&result);
+
+    result = enact_session_eval_text(&session, "ask().");
+    require_true(result.ok, "session ask succeeds");
+    require_true(result.value.kind == ENACT_VALUE_STRING, "session ask result kind");
+    require_true(strcmp(result.value.as.as_string, "session one") == 0, "session ask strips newline");
+    enact_result_free(&result);
+
+    memset(&capture, 0, sizeof(capture));
+    enact_diag_reset(&diag);
+    require_true(
+        enact_session_eval_script(&session, "ask()\nasker:=()::ask()\nasker()\n", script_capture_result, &capture, &diag),
+        "session script ask and closure ask succeed");
+    require_true(capture.count == 3, "session script ask result count");
+    require_true(capture.values[0].kind == ENACT_VALUE_STRING, "session script ask result kind");
+    require_true(strcmp(capture.values[0].as.as_string, "session two") == 0, "session script ask strips CRLF");
+    require_true(capture.values[1].kind == ENACT_VALUE_FUNCTION, "session script asker definition kind");
+    require_true(capture.values[2].kind == ENACT_VALUE_STRING, "session script closure ask result kind");
+    require_true(strcmp(capture.values[2].as.as_string, "closure line") == 0, "session script closure ask value");
+    script_capture_free(&capture);
+
+    result = enact_session_eval_text(&session, "ask().");
+    require_true(!result.ok, "session ask EOF fails");
+    require_true(result.error.code == ENACT_ERR_INPUT_UNAVAILABLE, "session ask EOF code");
     enact_result_free(&result);
 
     result = enact_session_eval_text(&session, "x:=1.");

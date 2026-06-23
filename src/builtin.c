@@ -1666,6 +1666,33 @@ static int enact_builtin_time(
     return 1;
 }
 
+static int enact_builtin_ask(
+    EnactEnv *env,
+    const EnactValue *arguments,
+    size_t argument_count,
+    EnactValue *out,
+    EnactDiag *diag)
+{
+    char *line;
+    size_t length;
+
+    (void)arguments;
+    (void)argument_count;
+
+    if (!enact_env_read_input(env, &line, diag)) {
+        return 0;
+    }
+
+    length = strlen(line);
+    while (length > 0 && (line[length - 1] == '\n' || line[length - 1] == '\r')) {
+        length -= 1;
+        line[length] = '\0';
+    }
+
+    *out = enact_value_make_string(line);
+    return 1;
+}
+
 static int enact_builtin_list(
     const EnactValue *arguments,
     size_t argument_count,
@@ -3388,6 +3415,7 @@ static const EnactBuiltin builtin_table[] = {
         enact_builtin_params_callable),
     ENACT_BUILTIN("version", 0, enact_builtin_version),
     ENACT_BUILTIN("time", 0, enact_builtin_time),
+    ENACT_ENV_BUILTIN("ask", 0, enact_builtin_ask),
     ENACT_BUILTIN_PARAMS("list", 1, enact_builtin_list, enact_builtin_params_value),
     ENACT_ENV_BUILTIN_RANGE("set", 0, 1, enact_builtin_set, enact_builtin_params_items),
     ENACT_ENV_BUILTIN_RANGE("bag", 0, 1, enact_builtin_bag, enact_builtin_params_items),

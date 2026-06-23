@@ -658,6 +658,18 @@ int enact_session_init(EnactSession *session)
     return 1;
 }
 
+void enact_session_set_input_provider(
+    EnactSession *session,
+    EnactInputProvider provider,
+    void *user_data)
+{
+    if (!session || !session->initialized) {
+        return;
+    }
+
+    enact_env_set_input_provider(&session->env, provider, user_data);
+}
+
 EnactResult enact_session_eval_text(EnactSession *session, const char *source)
 {
     EnactResult result;

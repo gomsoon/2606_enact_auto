@@ -55,6 +55,8 @@ const char *enact_error_code_name(EnactErrorCode code)
         return "ENACT_ERR_INCONSISTENT_LINEARIZATION";
     case ENACT_ERR_LOAD_FILE:
         return "ENACT_ERR_LOAD_FILE";
+    case ENACT_ERR_INPUT_UNAVAILABLE:
+        return "ENACT_ERR_INPUT_UNAVAILABLE";
     case ENACT_ERR_OUT_OF_MEMORY:
         return "ENACT_ERR_OUT_OF_MEMORY";
     default:
@@ -117,6 +119,8 @@ const char *enact_error_message(EnactErrorCode code)
         return "inconsistent class linearization";
     case ENACT_ERR_LOAD_FILE:
         return "could not load file";
+    case ENACT_ERR_INPUT_UNAVAILABLE:
+        return "input unavailable";
     case ENACT_ERR_OUT_OF_MEMORY:
         return "out of memory";
     default:

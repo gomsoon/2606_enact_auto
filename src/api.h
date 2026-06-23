@@ -24,6 +24,10 @@ typedef int (*EnactScriptResultCallback)(const EnactResult *result, void *user_d
 
 EnactResult enact_eval_text(const char *source);
 int enact_session_init(EnactSession *session);
+void enact_session_set_input_provider(
+    EnactSession *session,
+    EnactInputProvider provider,
+    void *user_data);
 EnactResult enact_session_eval_text(EnactSession *session, const char *source);
 int enact_session_eval_script(
     EnactSession *session,
