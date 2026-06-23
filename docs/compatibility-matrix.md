@@ -29,6 +29,7 @@ Status values:
 | Coverage baseline gate | Baseline Gate | Slice 125 | `make coverage-check` at 81.0% line / 73.0% branch |
 | CI quality gate | Implemented | Slice 126 | GitHub Actions runs `make test` and `make coverage-check` |
 | Release smoke fixture target | Implemented | Slice 128 | `make smoke`, also included in `make test` |
+| Error diagnostic golden tests | Implemented | Slice 129 | exact stderr checks in `tests/test_error_diagnostics.py` |
 
 ## Project Defaults And Compatibility Choices
 

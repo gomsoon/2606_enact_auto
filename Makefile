@@ -100,6 +100,7 @@ test: $(BUILD_DIR)/enact $(BUILD_DIR)/unit_tests
 	python3 tests/test_ci_workflow.py
 	python3 tests/test_release_docs.py
 	python3 tests/test_release_smoke.py
+	python3 tests/test_error_diagnostics.py
 	$(BUILD_DIR)/unit_tests
 
 smoke: $(BUILD_DIR)/enact

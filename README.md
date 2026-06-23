@@ -35,6 +35,7 @@ make clean
 - functional regression tests in `tests/run_tests.py`
 - Python tool/workflow tests
 - release smoke fixture tests in `tests/test_release_smoke.py`
+- error diagnostic golden tests in `tests/test_error_diagnostics.py`
 - C unit tests in `tests/unit_tests.c`
 
 `make smoke` runs a small release-readiness fixture suite from `tests/smoke`. It executes the built interpreter through real stdin script files and covers functional, object, collection, `load`, nested `load`, `bye`, and representative failure paths.

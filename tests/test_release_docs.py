@@ -32,6 +32,7 @@ def main() -> int:
     require("docs/compatibility-matrix.md" in readme, "README links compatibility matrix", counts, "boundary")
     require("load" in readme and "bye" in readme, "README documents load and bye", counts, "boundary")
     require("==`" in readme and "!=`" in readme, "README documents comparison defaults", counts, "boundary")
+    require("tests/test_error_diagnostics.py" in readme, "README documents diagnostic golden tests", counts, "boundary")
 
     require("Milestone Coverage" in matrix, "matrix has milestone section", counts, "boundary")
     require("Project Defaults And Compatibility Choices" in matrix, "matrix has project defaults section", counts, "boundary")
@@ -43,6 +44,7 @@ def main() -> int:
     require("Full Appendix 2 collection class source compatibility" in matrix, "matrix documents Appendix 2 deferral", counts, "robustness")
     require("Strict historical compatibility mode" in matrix, "matrix documents strict mode deferral", counts, "robustness")
     require("make smoke" in matrix and "Slice 128" in matrix, "matrix documents release smoke target", counts, "robustness")
+    require("Error diagnostic golden tests" in matrix and "Slice 129" in matrix, "matrix documents diagnostic golden tests", counts, "robustness")
 
     print(
         "release docs tests passed "
