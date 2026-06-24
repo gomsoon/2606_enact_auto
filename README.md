@@ -45,8 +45,8 @@ make clean
 
 `make coverage-check` enforces the current baseline gate:
 
-- line coverage: `81.5%`
-- branch coverage: `74.0%`
+- line coverage: `81.8%`
+- branch coverage: `74.2%`
 
 The PRD final hardening target remains higher at line `95%` and branch `90%`; the baseline gate prevents regression while later slices can raise the threshold.
 

@@ -40,13 +40,14 @@ def main() -> int:
     require("Deferred Items" in matrix, "matrix has deferred section", counts, "boundary")
     require("Quality Gates" in matrix, "matrix has quality gates section", counts, "boundary")
 
-    require("81.5%" in matrix and "74.0%" in matrix, "matrix documents coverage thresholds", counts, "robustness")
+    require("81.8%" in matrix and "74.2%" in matrix, "matrix documents coverage thresholds", counts, "robustness")
     require("95%" in matrix and "90%" in matrix, "matrix documents final PRD coverage target", counts, "robustness")
     require("Full Appendix 2 collection class source compatibility" in matrix, "matrix documents Appendix 2 deferral", counts, "robustness")
     require("Strict historical compatibility mode" in matrix, "matrix documents strict mode deferral", counts, "robustness")
     require("make smoke" in matrix and "Slice 128" in matrix, "matrix documents release smoke target", counts, "robustness")
     require("Error diagnostic golden tests" in matrix and "Slice 129" in matrix, "matrix documents diagnostic golden tests", counts, "robustness")
     require("Coverage ratchet phase 1" in matrix and "Slice 130" in matrix, "matrix documents coverage ratchet", counts, "robustness")
+    require("Coverage ratchet phase 2" in matrix and "Slice 131" in matrix, "matrix documents coverage ratchet phase 2", counts, "robustness")
 
     print(
         "release docs tests passed "

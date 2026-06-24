@@ -26,11 +26,12 @@ Status values:
 | Utility functions and commands: `version`, `time`, `bye`, `ask`, `cells`, `maxcells` | Implemented | Slices 029, 114-119 | utility functional and unit tests |
 | Runtime cell accounting and leak harness | Implemented | Slices 117-120 | runtime stats unit tests and leak regression harness |
 | Coverage reporting for handwritten C sources | Implemented | Slice 125 | `make coverage` |
-| Coverage baseline gate | Baseline Gate | Slices 125, 130 | `make coverage-check` at 81.5% line / 74.0% branch |
+| Coverage baseline gate | Baseline Gate | Slices 125, 130-131 | `make coverage-check` at 81.8% line / 74.2% branch |
 | CI quality gate | Implemented | Slice 126 | GitHub Actions runs `make test` and `make coverage-check` |
 | Release smoke fixture target | Implemented | Slice 128 | `make smoke`, also included in `make test` |
 | Error diagnostic golden tests | Implemented | Slice 129 | exact stderr checks in `tests/test_error_diagnostics.py` |
 | Coverage ratchet phase 1 | Implemented | Slice 130 | targeted coverage paths in `tests/test_coverage_ratchet.py` |
+| Coverage ratchet phase 2 | Implemented | Slice 131 | TTY token-mode, load-command diagnostics, and value-helper paths |
 
 ## Project Defaults And Compatibility Choices
 
@@ -74,12 +75,12 @@ make coverage-check
 Current handwritten-source coverage baseline:
 
 ```text
-lines >= 81.5%
-branches >= 74.0%
+lines >= 81.8%
+branches >= 74.2%
 ```
 
 Recent measured totals:
 
 ```text
-TOTAL lines 4830/5897 (81.9%)  branches 2505/3373 (74.3%)
+TOTAL lines 4837/5898 (82.0%)  branches 2512/3373 (74.5%)
 ```

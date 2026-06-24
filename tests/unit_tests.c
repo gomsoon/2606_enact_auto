@@ -571,6 +571,8 @@ static void test_value_helpers(void)
     EnactObject *method_object;
     EnactBoundObjectMethod *bound_method;
     EnactBoundObjectMethod *extended_bound_method;
+    EnactBoundCollectionMethod *bound_collection_method;
+    EnactBoundCollectionMethod *other_bound_collection_method;
     bool values_equal = false;
     EnactEnv empty_env;
     EnactAst *function_body;
@@ -585,12 +587,17 @@ static void test_value_helpers(void)
     EnactValue function_copy;
     EnactValue partial_args[2];
     EnactValue partial_lookup;
+    EnactValue bound_collection_receiver;
+    EnactValue bound_collection_value;
+    EnactValue bound_collection_copy;
+    EnactValue other_bound_collection_value;
     EnactNameList *params;
     EnactNameList *two_params;
     EnactNameList *empty_params;
     EnactNameList *params_clone;
     char *bad_append_name;
     int linearization_ok = 0;
+    const EnactBuiltin *size_builtin = enact_builtin_lookup("size");
     const char *one_param[] = {"x"};
     const char *two_param_names[] = {"x", "y"};
 
@@ -642,6 +649,41 @@ static void test_value_helpers(void)
     enact_list_release(NULL);
     require_true(enact_list_head(NULL) == NULL, "list head null");
     require_true(enact_list_tail(NULL) == NULL, "list tail null");
+    require_true(size_builtin != NULL, "size builtin for bound collection value helpers");
+    if (size_builtin) {
+        bound_collection_receiver = enact_value_make_list(NULL);
+        bound_collection_method = enact_bound_collection_method_new(size_builtin, 0, &bound_collection_receiver);
+        other_bound_collection_method = enact_bound_collection_method_new(size_builtin, 0, &bound_collection_receiver);
+        require_true(bound_collection_method != NULL, "bound collection method created for value equality");
+        require_true(other_bound_collection_method != NULL, "other bound collection method created for value equality");
+        if (bound_collection_method && other_bound_collection_method) {
+            bound_collection_value = enact_value_make_bound_collection_method(bound_collection_method);
+            other_bound_collection_value = enact_value_make_bound_collection_method(other_bound_collection_method);
+            require_true(
+                enact_value_copy(&bound_collection_copy, &bound_collection_value),
+                "bound collection method value copy succeeds");
+            require_true(
+                bound_collection_copy.kind == ENACT_VALUE_BOUND_COLLECTION_METHOD,
+                "bound collection method copy kind");
+            require_true(
+                bound_collection_copy.as.as_bound_collection_method == bound_collection_method,
+                "bound collection method copy retains same method");
+            require_true(
+                enact_value_equal(&bound_collection_value, &bound_collection_copy, &values_equal),
+                "bound collection method equality succeeds");
+            require_true(values_equal, "bound collection method equality true");
+            require_true(
+                enact_value_equal(&bound_collection_value, &other_bound_collection_value, &values_equal),
+                "independent bound collection method equality succeeds");
+            require_true(!values_equal, "independent bound collection method equality false");
+            enact_value_free(&bound_collection_copy);
+            enact_value_free(&other_bound_collection_value);
+            enact_value_free(&bound_collection_value);
+        } else {
+            enact_bound_collection_method_release(bound_collection_method);
+            enact_bound_collection_method_release(other_bound_collection_method);
+        }
+    }
 
     empty_class = enact_class_new(NULL);
     require_true(empty_class != NULL, "empty-name class created");

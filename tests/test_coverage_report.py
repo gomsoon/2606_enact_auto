@@ -86,19 +86,19 @@ def main() -> int:
     require_raises(lambda: coverage.parse_percent("nope"), "non-numeric threshold rejected", counts, "robustness")
 
     require(
-        coverage.check_thresholds(81.9, 74.3, 81.5, 74.0, io.StringIO(), io.StringIO()) == 0,
+        coverage.check_thresholds(82.0, 74.5, 81.8, 74.2, io.StringIO(), io.StringIO()) == 0,
         "ratcheted baseline threshold passes",
         counts,
         "boundary",
     )
     require(
-        coverage.check_thresholds(81.9, 74.3, 82.0, 74.0, io.StringIO()) == 1,
+        coverage.check_thresholds(82.0, 74.5, 82.1, 74.2, io.StringIO()) == 1,
         "line threshold failure returns non-zero",
         counts,
         "robustness",
     )
     require(
-        coverage.check_thresholds(81.9, 74.3, 81.5, 74.5, io.StringIO()) == 1,
+        coverage.check_thresholds(82.0, 74.5, 81.8, 74.6, io.StringIO()) == 1,
         "branch threshold failure returns non-zero",
         counts,
         "robustness",
