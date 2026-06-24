@@ -41,6 +41,15 @@ class TtyCase:
     source: str
     expected_fragments: list[str]
     kind: str
+    token_mode: bool
+
+
+@dataclass(frozen=True)
+class TokenCase:
+    name: str
+    source: str
+    expected_stdout: str
+    kind: str
 
 
 def enact_string_literal(value: str) -> str:
@@ -71,6 +80,7 @@ def write_fixture(name: str, source: str) -> pathlib.Path:
 def setup_fixtures() -> tuple[list[EvalCase], list[FailureCase]]:
     WORK_DIR.mkdir(parents=True, exist_ok=True)
 
+    large_stdin_source = "%" + ("stdin-growth-comment" * 90) + "\nstdin_growth:=55\nstdin_growth+1\n"
     large_source = "%" + ("large-load-comment" * 80) + "\nratchet_large:=21\nratchet_large*2\n"
     large_path = write_fixture("large.en", large_source)
 
@@ -88,6 +98,12 @@ def setup_fixtures() -> tuple[list[EvalCase], list[FailureCase]]:
                 "large load fixture grows file reader",
                 f"load {enact_string_literal(large_path.relative_to(ROOT).as_posix())}\n",
                 "21\n42\n",
+                "boundary",
+            ),
+            EvalCase(
+                "large stdin script grows main input reader",
+                large_stdin_source,
+                "55\n56\n",
                 "boundary",
             ),
             EvalCase(
@@ -147,6 +163,17 @@ def setup_fixtures() -> tuple[list[EvalCase], list[FailureCase]]:
 def run_source(source: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(BIN)],
+        input=source,
+        text=True,
+        capture_output=True,
+        check=False,
+        cwd=ROOT,
+    )
+
+
+def run_tokens(source: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(BIN), "--tokens"],
         input=source,
         text=True,
         capture_output=True,
@@ -217,7 +244,23 @@ def expect_failure(case: FailureCase, counts: dict[str, int]) -> None:
         )
 
 
-def expect_tty_tokens(case: TtyCase, counts: dict[str, int]) -> None:
+def expect_tokens(case: TokenCase, counts: dict[str, int]) -> None:
+    proc = run_tokens(case.source)
+    require(
+        proc.returncode == 0,
+        f"{case.name}: expected token success, got returncode={proc.returncode}, stderr={proc.stderr!r}",
+        counts,
+        case.kind,
+    )
+    if proc.stdout != case.expected_stdout:
+        raise AssertionError(
+            f"{case.name}: token stdout mismatch: expected {case.expected_stdout!r}, got {proc.stdout!r}"
+        )
+    if proc.stderr:
+        raise AssertionError(f"{case.name}: unexpected token stderr: {proc.stderr!r}")
+
+
+def expect_tty_fragments(case: TtyCase, counts: dict[str, int]) -> None:
     master_fd, slave_fd = pty.openpty()
     proc: subprocess.Popen[bytes] | None = None
     output = ""
@@ -225,8 +268,9 @@ def expect_tty_tokens(case: TtyCase, counts: dict[str, int]) -> None:
     search_from = 0
 
     try:
+        argv = [str(BIN), "--tokens"] if case.token_mode else [str(BIN)]
         proc = subprocess.Popen(
-            [str(BIN), "--tokens"],
+            argv,
             stdin=slave_fd,
             stdout=slave_fd,
             stderr=slave_fd,
@@ -278,12 +322,29 @@ def main() -> int:
             "1+2.\n",
             ["TOK_INT_LITERAL", "TOK_PLUS", "TOK_INT_LITERAL", "TOK_DOT", "TOK_EOF"],
             "boundary",
+            True,
         ),
         TtyCase(
             "tty token mode reports an error and keeps reading",
             "$\n3.\n",
             ["ENACT_ERR_LEX_INVALID_CHAR", "TOK_INT_LITERAL", "TOK_DOT", "TOK_EOF"],
             "robustness",
+            True,
+        ),
+        TtyCase(
+            "tty expression mode grows a long input line",
+            "%" + ("tty-line-growth" * 16) + "\n13+29\n",
+            ["42\n"],
+            "boundary",
+            False,
+        ),
+    ]
+    token_cases = [
+        TokenCase(
+            "token dump exposes or operator name",
+            "true or false.\n",
+            "TOK_TRUE TOK_OR TOK_FALSE TOK_DOT TOK_EOF\n",
+            "boundary",
         ),
     ]
     counts = {"boundary": 0, "robustness": 0}
@@ -292,8 +353,10 @@ def main() -> int:
         expect_success(case, counts)
     for case in failure_cases:
         expect_failure(case, counts)
+    for case in token_cases:
+        expect_tokens(case, counts)
     for case in tty_cases:
-        expect_tty_tokens(case, counts)
+        expect_tty_fragments(case, counts)
 
     print(
         "coverage ratchet tests passed "

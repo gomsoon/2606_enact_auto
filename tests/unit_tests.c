@@ -650,6 +650,25 @@ static void test_value_helpers(void)
     require_true(enact_list_head(NULL) == NULL, "list head null");
     require_true(enact_list_tail(NULL) == NULL, "list tail null");
     require_true(size_builtin != NULL, "size builtin for bound collection value helpers");
+    require_true(
+        enact_bound_collection_method_retain(NULL) == NULL,
+        "bound collection method retain null fails");
+    enact_bound_collection_method_release(NULL);
+    require_true(
+        enact_bound_collection_method_builtin(NULL) == NULL,
+        "bound collection method builtin null");
+    require_true(
+        enact_bound_collection_method_receiver_index(NULL) == 0,
+        "bound collection method receiver index null");
+    require_true(
+        enact_bound_collection_method_receiver(NULL) == NULL,
+        "bound collection method receiver null");
+    require_true(
+        enact_bound_collection_method_argument_count(NULL) == 0,
+        "bound collection method argument count null");
+    require_true(
+        enact_bound_collection_method_argument(NULL, 0) == NULL,
+        "bound collection method argument null");
     if (size_builtin) {
         bound_collection_receiver = enact_value_make_list(NULL);
         bound_collection_method = enact_bound_collection_method_new(size_builtin, 0, &bound_collection_receiver);
@@ -676,6 +695,9 @@ static void test_value_helpers(void)
                 enact_value_equal(&bound_collection_value, &other_bound_collection_value, &values_equal),
                 "independent bound collection method equality succeeds");
             require_true(!values_equal, "independent bound collection method equality false");
+            require_true(
+                enact_bound_collection_method_argument(bound_collection_method, 0) == NULL,
+                "bound collection method zero-argument lookup fails");
             enact_value_free(&bound_collection_copy);
             enact_value_free(&other_bound_collection_value);
             enact_value_free(&bound_collection_value);
