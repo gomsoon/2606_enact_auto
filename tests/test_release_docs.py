@@ -8,6 +8,7 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
 MATRIX = ROOT / "docs" / "compatibility-matrix.md"
+RC_CHECKLIST = ROOT / "docs" / "release-candidate-checklist.md"
 
 
 def require(condition: bool, label: str, counts: dict[str, int], kind: str) -> None:
@@ -21,15 +22,18 @@ def main() -> int:
 
     require(README.exists(), "README exists", counts, "boundary")
     require(MATRIX.exists(), "compatibility matrix exists", counts, "boundary")
+    require(RC_CHECKLIST.exists(), "release candidate checklist exists", counts, "boundary")
 
     readme = README.read_text()
     matrix = MATRIX.read_text()
+    rc_checklist = RC_CHECKLIST.read_text()
 
     for command in ["make", "make test", "make smoke", "make coverage", "make coverage-check"]:
         require(command in readme, f"README documents {command}", counts, "boundary")
 
     require(".github/workflows/ci.yml" in readme, "README links CI workflow", counts, "boundary")
     require("docs/compatibility-matrix.md" in readme, "README links compatibility matrix", counts, "boundary")
+    require("docs/release-candidate-checklist.md" in readme, "README links release candidate checklist", counts, "boundary")
     require("load" in readme and "bye" in readme, "README documents load and bye", counts, "boundary")
     require("==`" in readme and "!=`" in readme, "README documents comparison defaults", counts, "boundary")
     require("tests/test_error_diagnostics.py" in readme, "README documents diagnostic golden tests", counts, "boundary")
@@ -49,6 +53,16 @@ def main() -> int:
     require("Coverage ratchet phase 1" in matrix and "Slice 130" in matrix, "matrix documents coverage ratchet", counts, "robustness")
     require("Coverage ratchet phase 2" in matrix and "Slice 131" in matrix, "matrix documents coverage ratchet phase 2", counts, "robustness")
     require("Coverage ratchet phase 3" in matrix and "Slice 132" in matrix, "matrix documents coverage ratchet phase 3", counts, "robustness")
+    require("Release candidate checklist" in matrix and "Slice 133" in matrix, "matrix documents release candidate checklist", counts, "robustness")
+
+    for command in ["make test", "make smoke", "make coverage-check"]:
+        require(command in rc_checklist, f"RC checklist documents {command}", counts, "boundary")
+    require("82.0%" in rc_checklist and "74.5%" in rc_checklist, "RC checklist documents coverage thresholds", counts, "robustness")
+    require("82.2%" in rc_checklist and "74.8%" in rc_checklist, "RC checklist documents measured coverage", counts, "robustness")
+    require("Project-Default Compatibility Choices" in rc_checklist, "RC checklist documents compatibility choices", counts, "robustness")
+    require("Deferred Items" in rc_checklist, "RC checklist documents deferred items", counts, "robustness")
+    require("Full Appendix 2 collection class source compatibility" in rc_checklist, "RC checklist names Appendix 2 deferral", counts, "robustness")
+    require("Strict historical compatibility mode" in rc_checklist, "RC checklist names strict mode deferral", counts, "robustness")
 
     print(
         "release docs tests passed "

@@ -33,6 +33,7 @@ Status values:
 | Coverage ratchet phase 1 | Implemented | Slice 130 | targeted coverage paths in `tests/test_coverage_ratchet.py` |
 | Coverage ratchet phase 2 | Implemented | Slice 131 | TTY token-mode, load-command diagnostics, and value-helper paths |
 | Coverage ratchet phase 3 | Implemented | Slice 132 | stdin growth, token-name, TTY line-growth, and value-accessor paths |
+| Release candidate checklist and final audit docs | Implemented | Slice 133 | `docs/release-candidate-checklist.md` and release-doc regression tests |
 
 ## Project Defaults And Compatibility Choices
 

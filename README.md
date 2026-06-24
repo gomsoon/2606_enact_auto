@@ -113,6 +113,7 @@ The current compatibility target includes:
 - utility functions and commands such as `version`, `time`, `ask`, `cells`, `maxcells`, `bye`, and `load`
 
 See [docs/compatibility-matrix.md](docs/compatibility-matrix.md) for the implementation status, related slices, and known deferred items.
+Use [docs/release-candidate-checklist.md](docs/release-candidate-checklist.md) for the current release-candidate audit checklist.
 
 ## Project-Default Compatibility Choices
 
@@ -141,6 +142,7 @@ The workflow is defined in [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 - [Product requirements](docs/enact-prd.md)
 - [Compatibility matrix](docs/compatibility-matrix.md)
+- [Release candidate checklist](docs/release-candidate-checklist.md)
 - [Slice requirements and designs](docs/slices)
 
 The implementation is intentionally slice-driven: each language or hardening increment is documented in `docs/slices` and backed by regression tests.
