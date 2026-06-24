@@ -7,6 +7,12 @@ This checklist is the Slice 133 release-candidate audit snapshot. It turns the c
 Run these commands from the repository root before tagging or publishing a release candidate:
 
 ```text
+make rc-check
+```
+
+`make rc-check` is the single release-candidate gate. It runs the following component gates in order:
+
+```text
 make test
 make smoke
 make coverage-check
@@ -87,6 +93,7 @@ The following items are intentionally outside this release-candidate scope:
 The tree is release-candidate ready when:
 
 - `main` is clean and synced with `origin/main`.
+- `make rc-check` passes.
 - `make test` passes.
 - `make smoke` passes.
 - `make coverage-check` passes with the default thresholds.

@@ -28,7 +28,7 @@ def main() -> int:
     matrix = MATRIX.read_text()
     rc_checklist = RC_CHECKLIST.read_text()
 
-    for command in ["make", "make test", "make smoke", "make coverage", "make coverage-check"]:
+    for command in ["make", "make test", "make smoke", "make coverage", "make coverage-check", "make rc-check"]:
         require(command in readme, f"README documents {command}", counts, "boundary")
 
     require(".github/workflows/ci.yml" in readme, "README links CI workflow", counts, "boundary")
@@ -54,8 +54,9 @@ def main() -> int:
     require("Coverage ratchet phase 2" in matrix and "Slice 131" in matrix, "matrix documents coverage ratchet phase 2", counts, "robustness")
     require("Coverage ratchet phase 3" in matrix and "Slice 132" in matrix, "matrix documents coverage ratchet phase 3", counts, "robustness")
     require("Release candidate checklist" in matrix and "Slice 133" in matrix, "matrix documents release candidate checklist", counts, "robustness")
+    require("Release candidate gate target" in matrix and "Slice 134" in matrix, "matrix documents release candidate gate target", counts, "robustness")
 
-    for command in ["make test", "make smoke", "make coverage-check"]:
+    for command in ["make rc-check", "make test", "make smoke", "make coverage-check"]:
         require(command in rc_checklist, f"RC checklist documents {command}", counts, "boundary")
     require("82.0%" in rc_checklist and "74.5%" in rc_checklist, "RC checklist documents coverage thresholds", counts, "robustness")
     require("82.2%" in rc_checklist and "74.8%" in rc_checklist, "RC checklist documents measured coverage", counts, "robustness")

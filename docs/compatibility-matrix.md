@@ -34,6 +34,7 @@ Status values:
 | Coverage ratchet phase 2 | Implemented | Slice 131 | TTY token-mode, load-command diagnostics, and value-helper paths |
 | Coverage ratchet phase 3 | Implemented | Slice 132 | stdin growth, token-name, TTY line-growth, and value-accessor paths |
 | Release candidate checklist and final audit docs | Implemented | Slice 133 | `docs/release-candidate-checklist.md` and release-doc regression tests |
+| Release candidate gate target | Implemented | Slice 134 | `make rc-check` and `tests/test_release_gate.py` |
 
 ## Project Defaults And Compatibility Choices
 
@@ -65,6 +66,12 @@ Local release smoke check:
 
 ```text
 make smoke
+```
+
+Release candidate gate:
+
+```text
+make rc-check
 ```
 
 Local and CI quality gates are:

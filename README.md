@@ -27,6 +27,7 @@ make test
 make smoke
 make coverage
 make coverage-check
+make rc-check
 make clean
 ```
 
@@ -47,6 +48,8 @@ make clean
 
 - line coverage: `82.0%`
 - branch coverage: `74.5%`
+
+`make rc-check` is the release-candidate gate. It runs `make test`, `make smoke`, and `make coverage-check` in order.
 
 The PRD final hardening target remains higher at line `95%` and branch `90%`; the baseline gate prevents regression while later slices can raise the threshold.
 

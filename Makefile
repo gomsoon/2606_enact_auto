@@ -98,6 +98,7 @@ test: $(BUILD_DIR)/enact $(BUILD_DIR)/unit_tests
 	python3 tests/run_tests.py
 	python3 tests/test_coverage_report.py
 	python3 tests/test_ci_workflow.py
+	python3 tests/test_release_gate.py
 	python3 tests/test_release_docs.py
 	python3 tests/test_release_smoke.py
 	python3 tests/test_error_diagnostics.py
@@ -115,10 +116,15 @@ coverage: clean
 coverage-check:
 	$(MAKE) coverage COVERAGE_REPORT_ARGS='--min-lines $(COVERAGE_MIN_LINES) --min-branches $(COVERAGE_MIN_BRANCHES)'
 
+rc-check:
+	$(MAKE) test
+	$(MAKE) smoke
+	$(MAKE) coverage-check
+
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -f *.gcov
 
-.PHONY: all test smoke coverage coverage-check clean
+.PHONY: all test smoke coverage coverage-check rc-check clean
 
 -include $(DEPS)
